@@ -123,3 +123,14 @@ test('android project configuration and manifest are hardened for release', () =
   assert.ok(stylesXml.includes('android:fitsSystemWindows">true'), 'styles.xml must set fitsSystemWindows');
   assert.ok(stylesXml.includes('android:windowFullscreen">false'), 'styles.xml must disable windowFullscreen');
 });
+
+test('launcher icons in android res are the generated set, never a hand copy', async () => {
+  const { androidIconFiles, syncAndroidIcons } = await import('../scripts/sync-icons.mjs');
+  const files = androidIconFiles();
+  assert.ok(files.length >= 15, 'the generator should write a launcher for every density');
+
+  const result = syncAndroidIcons({ check: true });
+  assert.equal(result.skipped, false, 'android project is missing');
+  assert.deepEqual(result.stale, [],
+    'run node scripts/sync-icons.mjs to copy the launcher set into android/app/src/main/res');
+});
