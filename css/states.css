@@ -66,3 +66,42 @@ html[data-text="xl"] .page{zoom:1.25}
   border-radius:var(--radius-sm);background:var(--color-accent);color:var(--color-text-on-accent);
   font-family:var(--font-ui);font-size:13.5px;font-weight:700}
 .backup-nudge-actions .skip{min-height:44px;padding:0 14px}
+
+/* ═══ Android shell ═══
+   js/app.js marks the native WebView as html.is-native, and four things behave
+   differently there.
+
+   The page transition is off. In a WebView the fixed dock is re-pinned after
+   the entering page's transform, which read as the bar dropping and climbing
+   again on every switch; a page that simply appears is also what a native app
+   is expected to do, and it is one less full-screen composite per tap.
+
+   The dock keeps its glass but samples a smaller blur. It is the only element
+   that repaints over the whole page on every scroll frame, so its radius is
+   the single most expensive number in the sheet.
+
+   Theme backgrounds keep their artwork and drop their loops. A fixed,
+   always-visible animated layer costs a composited frame on every vsync, and
+   that is most of what "slow on some phones" amounts to.
+
+   The content sits one small step below the browser scale. The same layout in
+   a full-bleed window looks larger than it does inside a tab, so native pages
+   lay out at .94; the reader's own text size multiplies on top of it. The
+   min-height and the bottom padding are scaled back up (1 / .94 = 1.064) so
+   the page still fills the window and still clears the dock. */
+html.is-native .page,
+html.is-native .page[data-enter]{animation:none!important}
+html.is-native .page{zoom:.94;min-height:calc(100vh * 1.064);min-height:calc(100dvh * 1.064);
+  padding-bottom:calc((var(--nav-height) + 24px) * 1.064)}
+html.is-native[data-text="lg"] .page{zoom:1.053}
+html.is-native[data-text="xl"] .page{zoom:1.175}
+html.is-native .bottom-nav{backdrop-filter:blur(8px) saturate(1.5)!important;
+  -webkit-backdrop-filter:blur(8px) saturate(1.5)!important}
+html.is-native::before,
+html.is-native::after,
+html.is-native body::after{animation:none!important}
+html.is-native .task,
+html.is-native .t-row,
+html.is-native .book-card,
+html.is-native .lastread,
+html.is-native .today-sec{animation:none!important}
