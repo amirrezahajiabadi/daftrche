@@ -1,6 +1,6 @@
 {
   "name": "daftarche",
-  "version": "3.4.0",
+  "version": "3.3.0",
   "type": "module",
   "private": true,
   "description": "دفتَرچه — Persian local-first task, focus and reading PWA (no runtime dependencies)",

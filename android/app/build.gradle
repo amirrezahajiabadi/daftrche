@@ -14,7 +14,7 @@ def getBuildInfo() {
 }
 
 def buildInfo = getBuildInfo()
-def appVersionCode = (buildInfo?.versionCode as Integer) ?: 14400
+def appVersionCode = (buildInfo?.versionCode as Integer) ?: 15100
 def appVersionName = (buildInfo?.versionName as String) ?: "3.3.0"
 
 def keystorePropertiesFile = rootProject.file("keystore.properties")
