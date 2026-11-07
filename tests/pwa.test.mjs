@@ -93,6 +93,12 @@ test('a waiting update activates on click and reloads once after the controller 
   app.sw.controller = app.worker;
   app.sw.emit('controllerchange');
   app.sw.emit('controllerchange');
+  /* The note holds its loading line for a beat, so the reload is scheduled
+     rather than immediate — and still exactly once. */
+  assert.equal(app.reloads, 0);
+  app.fireTimers(1200);
+  assert.equal(app.reloads, 0);
+  app.fireTimers(450);
   assert.equal(app.reloads, 1);
   assert.equal(app.toast.hidden, true);
 });
@@ -120,6 +126,8 @@ test('first installation does not interrupt the page, but a later update reloads
   assert.equal(app.toast.hidden, false);
   app.sw.controller = app.worker;
   app.sw.emit('controllerchange');
+  app.fireTimers(1200);
+  app.fireTimers(450);
   assert.equal(app.reloads, 1);
 });
 

@@ -1490,7 +1490,20 @@ export function applyI18nToDOM(root = (typeof document !== 'undefined' ? documen
   const updateToastText = root.querySelector('#updateToast .toast-text');
   if (updateToastText) updateToastText.textContent = isEn ? 'A new update is ready!' : 'نسخهٔ جدید اومده!';
   const updateBtn = root.querySelector('#updateBtn');
-  if (updateBtn) updateBtn.textContent = isEn ? 'Update now' : 'دریافتش کن';
+  if (updateBtn) {
+    updateBtn.textContent = isEn ? 'Update now' : 'دریافتش کن';
+    /* The label js/pwa.js writes while the new build is being written is not
+       Persian on an English device; the stage lines live in the markup the same
+       way, and this is the one place that rewrites all four. */
+    updateBtn.dataset.working = isEn ? 'Updating…' : 'در حال به‌روزرسانی…';
+  }
+  const updateSub = root.querySelector('#updateSub');
+  if (updateSub) {
+    updateSub.dataset.idle = isEn ? 'A fresh page from your notebook' : 'یک برگهٔ تازه از دفترچه';
+    updateSub.dataset.working = isEn ? 'Writing the new build in…' : 'نسخهٔ تازه رو می‌نویسم…';
+    updateSub.dataset.done = isEn ? 'Ready — reopening…' : 'آماده‌ست؛ بازش می‌کنم…';
+    updateSub.textContent = updateSub.dataset[updateSub.dataset.stage || 'idle'];
+  }
 
   // Share Sheet
   const shareTitle = root.querySelector('#shareTitle');

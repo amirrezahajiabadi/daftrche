@@ -1485,9 +1485,25 @@
   <button class="toast-btn" id="storageToastClose" type="button">باشه</button>
 </div>
 
-<div class="toast toast-sticky sheet-paper" id="updateToast" role="status" aria-live="polite" hidden>
-  <span class="toast-text">نسخهٔ جدید اومده!</span>
-  <button class="toast-btn" id="updateBtn">دریافتش کن</button>
+<!-- The update note: the same slip of paper as the storage warning, dressed as a
+     small record of the update itself — a mark, the title with its subtitle,
+     and the action — plus an ink line that runs while the new build is being
+     written. js/pwa.js drives the three stages (idle / applying / done) and
+     never keeps the note past the reload. -->
+<div class="toast toast-sticky sheet-paper update-toast" id="updateToast" role="status" aria-live="polite" hidden>
+  <span class="update-mark" aria-hidden="true">
+    <svg class="update-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 4.5h8.7L19 9.3v10.2H5.5z"/><path d="M14 4.6v4.8h4.9"/><path d="M8.4 13.6h5.6"/><path d="M8.4 16.6h3.6"/></svg>
+    <svg class="update-ink" viewBox="0 0 24 24"><circle cx="14" cy="14" r="8.4"/></svg>
+  </span>
+  <span class="update-body">
+    <span class="toast-text">نسخهٔ جدید اومده!</span>
+    <span class="update-sub" id="updateSub" data-stage="idle"
+      data-idle="یک برگهٔ تازه از دفترچه"
+      data-working="نسخهٔ تازه رو می‌نویسم…"
+      data-done="آماده‌ست؛ بازش می‌کنم…">یک برگهٔ تازه از دفترچه</span>
+  </span>
+  <button class="toast-btn" id="updateBtn" data-working="در حال به‌روزرسانی…">دریافتش کن</button>
+  <span class="update-progress" aria-hidden="true"><i></i></span>
 </div>
 
 <!-- Release identity: the one file that names the current release and the
