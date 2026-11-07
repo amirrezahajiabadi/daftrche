@@ -1,14 +1,14 @@
 /* ═══ Capture Mobile Screenshots for Android Release / App Stores ═══
    Screenshots in iPhone 14 mobile viewport (390×844 @ 3x DPR = 1170×2532 px).
    Covers 8 key sections with rich study, fitness/sports, habits, and reading scenarios:
-     1. doc/01-today.png        (امروز — همراه با اهداف مطالعه و پیشنهاد همدم)
-     2. doc/02-tasks.png        (کارها — دسته‌بندی درسی، ورزشی، زمان‌بندی و اولویت)
-     3. doc/03-focus.png        (فوکوس — نشست پومودورو حل تمرین ریاضی، صداهای طبیعت و موسیقی)
-     4. doc/04-library.png      (کتابخانه — عادت‌های اتمی، انسان در جستجوی معنی و آمار مطالعه)
-     5. doc/05-stats.png        (آمار — نمودار تحلیلی ۷ روز، ساعات تمرکز، پیوستگی و تفکیک دسته‌ها)
-     6. doc/06-achievements.png (نشان‌ها — تالار افتخارات، رتبه، مدال‌ها و دستاوردهای بازشده)
-     7. doc/07-themes.png       (تم‌ها و دنیاها — ویترین ۱۶ پوستهٔ ایرانی و دنیاهای پویا)
-     8. doc/08-profile.png      (پروفایل — شناسنامه کاربری، همدم قورقوری و کپسول شناور پومودورو)
+     1. docs/screenshots/01-today.png        (امروز — همراه با اهداف مطالعه و پیشنهاد همدم)
+     2. docs/screenshots/02-tasks.png        (کارها — دسته‌بندی درسی، ورزشی، زمان‌بندی و اولویت)
+     3. docs/screenshots/03-focus.png        (فوکوس — نشست پومودورو حل تمرین ریاضی، صداهای طبیعت و موسیقی)
+     4. docs/screenshots/04-library.png      (کتابخانه — عادت‌های اتمی، انسان در جستجوی معنی و آمار مطالعه)
+     5. docs/screenshots/05-stats.png        (آمار — نمودار تحلیلی ۷ روز، ساعات تمرکز، پیوستگی و تفکیک دسته‌ها)
+     6. docs/screenshots/06-achievements.png (نشان‌ها — تالار افتخارات، رتبه، مدال‌ها و دستاوردهای بازشده)
+     7. docs/screenshots/07-themes.png       (تم‌ها و دنیاها — ویترین ۱۶ پوستهٔ ایرانی و دنیاهای پویا)
+     8. docs/screenshots/08-profile.png      (پروفایل — شناسنامه کاربری، همدم قورقوری و کپسول شناور پومودورو)
 */
 
 import { createServer } from 'node:http';
@@ -20,7 +20,7 @@ import { tmpdir } from 'node:os';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
-const OUT_DIR = join(ROOT, 'doc');
+const OUT_DIR = join(ROOT, 'docs', 'screenshots');
 
 const CHROME_PATH = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
 

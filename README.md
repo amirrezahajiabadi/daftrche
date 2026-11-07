@@ -7,6 +7,22 @@ network gone; an optional Node server in `server/` adds Web Push reminders.
 It is a single static PWA: open `index.html` over any static server, or install it
 from the browser. Tests run with `node --test` (no setup, no build step).
 
+## Project layout
+
+| Path | What it holds |
+|---|---|
+| `index.html`, `sw.js`, `manifest.webmanifest` | The app shell: entry document, offline service worker, install manifest |
+| `js/` | ES modules — state, views, Jalali calendar, storage (no build step) |
+| `css/` | Hand-written styles; every colour token lives in `css/base.css` |
+| `assets/` | Shipped fonts, icons, character art and the vendored pdf.js runtime |
+| `docs/` | Architecture, design system, roadmap, platform guides, and `screenshots/` |
+| `tests/` | `node --test` suites (`*.test.mjs`) |
+| `scripts/`, `tools/` | Icon and character pipelines, `www/` build, screenshot and APK tooling |
+| `www/` | Generated Capacitor web root — rebuild with `npm run build:www` |
+| `android/` | Capacitor Android project |
+| `server/` | Optional Web Push backend (off by default) |
+| `archive/` | Retired source assets worth keeping; see `archive/README.md` |
+
 ## Contributing
 
 Start with `docs/design.md` for the architecture and the release rules. Keep changes

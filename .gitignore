@@ -2,6 +2,8 @@
 node_modules/
 .npm/
 .cache/
+__pycache__/
+*.py[cod]
 
 # Logs and test output
 *.log
@@ -70,4 +72,3 @@ android/app/src/main/assets/public/
 .aws/
 .local/
 _READ-ME-FIRST.txt
-AGENTS.md
