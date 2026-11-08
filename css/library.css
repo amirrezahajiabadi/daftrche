@@ -119,7 +119,7 @@
 .shelf-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px}
 @media (min-width:768px){.shelf-grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:16px}}
 
-.book-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px;box-shadow:var(--shadow-1);display:flex;flex-direction:column;gap:8px;transition:transform var(--duration-base),box-shadow var(--duration-base);animation:taskIn var(--duration-slow) var(--ease-out) backwards;overflow:hidden;box-sizing:border-box}
+.book-card{contain:layout style;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px;box-shadow:var(--shadow-1);display:flex;flex-direction:column;gap:8px;transition:transform var(--duration-base),box-shadow var(--duration-base);animation:taskIn var(--duration-slow) var(--ease-out) backwards;overflow:hidden;box-sizing:border-box}
 @media (hover:hover){
   .book-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg)}
   .book-card:hover .book-cover img{transform:scale(1.03)}

@@ -1,5 +1,5 @@
 /* ═══ Progress Card ═══ */
-.progress-card{position:relative;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px 20px;display:flex;align-items:center;gap:24px;box-shadow:var(--shadow-1);transition:background var(--duration-slow),transform var(--duration-base)}
+.progress-card{position:relative;contain:layout style;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px 20px;display:flex;align-items:center;gap:24px;box-shadow:var(--shadow-1);transition:background var(--duration-slow),transform var(--duration-base)}
 .progress-card:hover{transform:translateY(-2px)}
 .progress-card::before{content:'';position:absolute;top:-9px;inset-inline-start:26px;width:62px;height:19px;background:var(--tape);transform:rotate(-4deg);border-radius:2px;pointer-events:none}
 
@@ -23,7 +23,7 @@
 .progress-info span{color:var(--muted);font-size:13px;line-height:1.6;font-weight:400}
 
 /* ═══ My Week ═══ */
-.week-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow-sm);transition:background var(--duration-slow)}
+.week-card{contain:layout style;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow-sm);transition:background var(--duration-slow)}
 .week-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px}
 .week-head strong{font-family:var(--font-ui);font-size:15px;font-weight:600}
 .streak{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-ui);font-size:12px;font-weight:500;color:var(--muted);background:var(--bg);padding:5px 12px;border-radius:var(--radius-pill);transition:all var(--duration-base);white-space:nowrap}
@@ -180,7 +180,7 @@ html[data-mode="dark"] .pri-row button.sel.high{color:#ff8f8f}
 @keyframes dropPop{0%{transform:scale(1.12)}50%{transform:scale(.94)}100%{transform:scale(1)}}
 
 /* ═══ Scene & Music Cards (Focus Page) ═══ */
-.vibe-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow-sm);transition:background var(--duration-slow)}
+.vibe-card{contain:layout style;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow-sm);transition:background var(--duration-slow)}
 .vibe-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px;flex-wrap:wrap}
 .vibe-head strong{font-family:var(--font-ui);font-size:15px;font-weight:600}
 

@@ -54,16 +54,16 @@ html[data-theme="nightglass"] body{
       background:var(--glass-fill);
       border-color:var(--glass-edge);
       box-shadow:var(--glass-shadow);
-      backdrop-filter:blur(18px) saturate(1.35);
-      -webkit-backdrop-filter:blur(18px) saturate(1.35)}
+      backdrop-filter:blur(10px) saturate(1.35);
+      -webkit-backdrop-filter:blur(10px) saturate(1.35)}
 
     /* The floating layer is frosted a little harder and reads from the stronger
        fill, because it travels over every page's content. */
     :is(html[data-theme="aurora"],html[data-theme="nightglass"],html[data-theme="simorgh"]) :is(.bottom-nav,.sheet,.name-card){
       background:var(--glass-fill-strong);
       border-color:var(--glass-edge);
-      backdrop-filter:blur(24px) saturate(1.45);
-      -webkit-backdrop-filter:blur(24px) saturate(1.45)}
+      backdrop-filter:blur(10px) saturate(1.45);
+      -webkit-backdrop-filter:blur(10px) saturate(1.45)}
 
     /* One layer: anything frosted that sits inside something frosted goes flat. */
     :is(html[data-theme="aurora"],html[data-theme="nightglass"],html[data-theme="simorgh"])

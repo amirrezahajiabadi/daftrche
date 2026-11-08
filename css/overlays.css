@@ -1,4 +1,4 @@
-.overlay{position:fixed;inset:0;z-index:100;background:rgba(46,41,33,.35);backdrop-filter:blur(4px);display:grid;place-items:center;padding:20px;animation:fadeIn var(--duration-base) ease;overflow-y:auto;overscroll-behavior:contain}
+.overlay{position:fixed;inset:0;z-index:100;background:rgba(46,41,33,.35);backdrop-filter:blur(4px);display:grid;place-items:center;padding:20px;animation:fadeIn var(--duration-base) ease;overflow-y:auto;overscroll-behavior:contain;contain:layout style}
 /* On a short viewport (landscape phone, keyboard open) the scrim becomes the
    scroll container so the panel stays reachable. Its own scrollbar would only
    add noise over the scrim and would shrink the panel mid-dialog, so it is
@@ -13,7 +13,7 @@ html[data-mode="dark"] .overlay{background:rgba(0,0,0,.5)}
 /* Modal entrance: smooth and short — no springy scale jump (Priority 8.3) */
 @keyframes popCard{from{opacity:0;transform:translateY(14px)}}
 
-.name-card,.roll-card,.focus-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);padding:32px 28px 24px;width:100%;max-width:360px;text-align:center;box-shadow:var(--shadow-2);animation:popCard var(--duration-base) var(--ease-out)}
+.name-card,.roll-card,.focus-card{contain:layout style;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);padding:32px 28px 24px;width:100%;max-width:360px;text-align:center;box-shadow:var(--shadow-2);animation:popCard var(--duration-base) var(--ease-out)}
 .name-card .badge{width:54px;height:54px;border-radius:var(--radius-lg);background:var(--accent-soft);display:grid;place-items:center;margin:0 auto;color:var(--accent-text)}
 .name-card h2{font-family:var(--font-personality);font-size:22px;font-weight:700;margin:14px 0 6px}
 .name-card>p{color:var(--muted);font-size:13px;margin-bottom:18px;line-height:1.7;font-weight:400}
@@ -523,7 +523,7 @@ body.focus-immersive .focus-sound-toggle{display:inline-flex}
    #notesExport, #settingsClose, the brightness slider and the mode chips were all
    unclickable while a book was open. Above .overlay's 100 as well, so a sheet
    opened from a dialog (the reader's own goal sheet) is never trapped behind it. */
-.sheet{position:fixed;bottom:0;inset-inline:0;width:100%;max-width:100%;z-index:105;background:var(--surface);border-radius:var(--radius-xl) var(--radius-xl) 0 0;border-bottom:none;box-shadow:var(--shadow-2);max-height:85vh;max-height:85svh;max-height:85dvh;display:flex;flex-direction:column;animation:sheetUp var(--duration-base) var(--ease-out);padding-bottom:var(--sab)}
+.sheet{contain:layout style;position:fixed;bottom:0;inset-inline:0;width:100%;max-width:100%;z-index:105;background:var(--surface);border-radius:var(--radius-xl) var(--radius-xl) 0 0;border-bottom:none;box-shadow:var(--shadow-2);max-height:85vh;max-height:85svh;max-height:85dvh;display:flex;flex-direction:column;animation:sheetUp var(--duration-base) var(--ease-out);padding-bottom:var(--sab)}
 .sheet[hidden]{display:none}
 @media (min-width:640px){
   .sheet{
@@ -540,7 +540,7 @@ body.focus-immersive .focus-sound-toggle{display:inline-flex}
 .sheet-head div{display:flex;align-items:center;gap:6px}
 .notes-list{overflow:auto;padding:12px 16px calc(12px + var(--nav-height) + var(--sab));display:flex;flex-direction:column;gap:10px;overscroll-behavior-y:contain}
 .notes-empty{text-align:center;color:var(--muted);font-size:12px;padding:20px 0;font-weight:400}
-.note-item{display:flex;gap:10px;align-items:flex-start;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px var(--space-3);cursor:pointer;transition:transform var(--duration-fast),border-color var(--duration-fast)}
+.note-item{contain:layout style;display:flex;gap:10px;align-items:flex-start;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px var(--space-3);cursor:pointer;transition:transform var(--duration-fast),border-color var(--duration-fast)}
 @media (hover:hover){.note-item:hover{transform:translateY(-2px);border-color:var(--accent)}}
 .note-item .dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-top:4px}
 .note-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}

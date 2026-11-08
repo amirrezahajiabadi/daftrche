@@ -1338,8 +1338,8 @@ html[data-mode="dark"] .theme-btn .moon{transform:translateY(150%) rotate(90deg)
      touch of brightness sharpen the colours showing through the frost
      without adding blur cost. The element is also promoted to its own layer
      so the page scrolling underneath never repaints it. */
-  backdrop-filter:blur(16px) saturate(1.65) brightness(1.04);
-  -webkit-backdrop-filter:blur(16px) saturate(1.65) brightness(1.04);
+  backdrop-filter:blur(10px) saturate(1.65) brightness(1.04);
+  -webkit-backdrop-filter:blur(10px) saturate(1.65) brightness(1.04);
   border:1px solid color-mix(in srgb,var(--color-surface) 58%,transparent);
   box-shadow:
     0 24px 48px -20px rgba(122,80,35,.34),

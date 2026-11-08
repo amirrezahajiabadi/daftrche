@@ -283,12 +283,12 @@ export function initReader() {
   $('#customHlPicker')?.addEventListener('input', e => {
     hlColor = e.target.value;
     strokeColor = hlColor;
-    syncPenUI();
+    if (typeof document !== 'undefined') syncPenUI();
   });
   $('#customPenColor')?.addEventListener('input', e => {
     inkColor = e.target.value;
     strokeColor = inkColor;
-    syncPenUI();
+    if (typeof document !== 'undefined') syncPenUI();
   });
 
   $('#dockSettings').onclick = () => toggleSettings(true);
@@ -339,7 +339,7 @@ export function initReader() {
     if (!chip) return;
     activeWidthKey = chip.dataset.width;
     safeSet(STORAGE_KEYS.penWidth, activeWidthKey);
-    syncPenUI();
+    if (typeof document !== 'undefined') syncPenUI();
   });
   restorePenPrefs();
 
@@ -368,7 +368,7 @@ export function initReader() {
         hlColor = dot.dataset.color;
         strokeColor = hlColor;
       }
-      syncPenUI();
+      if (typeof document !== 'undefined') syncPenUI();
       /* The colour is chosen; the bar has done its job. Folding it now hands the
          top of the page back to the pen without a second tap. */
       collapsePenPop();
@@ -619,7 +619,7 @@ function setToolMode(mode) {
     drawStroke = null;
     $('#readerHint').hidden = true;
   }
-  syncPenUI();
+  if (typeof document !== 'undefined') syncPenUI();
   syncDrawExtras();
 }
 
@@ -1165,6 +1165,27 @@ function onStageTouchEnd(e) {
 
 /* ── Open/Close ── */
 
+/* ═══ PDF Canvas Virtualization & Buffer Management ═══
+   Only the currently visible page plus at most 1 page above and 1 page below
+   keeps an active canvas buffer in memory (window = [curPage - 1, curPage, curPage + 1]).
+   Pages outside this window immediately release GPU backing textures (canvas.width = 0,
+   canvas.height = 0) while #pageWrap maintains exact dimensions to avoid scroll jumps. */
+const PAGE_WINDOW_RADIUS = 1;
+const pageBufferMap = new Map(); // pageNum -> { canvas, width, height }
+
+function prunePageBuffers(activePage) {
+  for (const [p, buf] of pageBufferMap.entries()) {
+    if (Math.abs(p - activePage) > PAGE_WINDOW_RADIUS) {
+      if (buf && buf.canvas) {
+        buf.canvas.width = 0;
+        buf.canvas.height = 0;
+        buf.canvas = null;
+      }
+      pageBufferMap.delete(p);
+    }
+  }
+}
+
 /* Tear down whatever the previous document left behind: pending renders, the
    document itself, its object URL and the layers attached to it. Every open
    starts from a clean engine, so two books can never share state. */
@@ -1184,6 +1205,24 @@ function teardownEngine() {
   $('#hlBar').hidden = true;
   clearDrawCanvas();
   drawStroke = null;
+
+  // Release GPU textures on closing / tearing down engine
+  const pc = $('#pdfCanvas');
+  if (pc) {
+    pc.width = 0;
+    pc.height = 0;
+    pc.style.width = '';
+    pc.style.height = '';
+  }
+  const dl = $('#drawLayer');
+  if (dl) {
+    dl.width = 0;
+    dl.height = 0;
+    dl.style.width = '';
+    dl.style.height = '';
+  }
+  drawCtx = null;
+  prunePageBuffers(-999);
   /* Nothing from the eraser session may survive the book that owns its
      strokes: the mode itself, an in-flight drag, the halo cursor and the undo
      toast (with its timer) are all invalidated right here. */
@@ -1411,6 +1450,10 @@ function closeReader() {
   teardownEngine();
   cancelAutoRead();
   if (timer.running) stopTimerSession();
+  curBook = null;
+  lastSelectionRects = null;
+  pendingNoteHl = null;
+  coverCleanup = null;
   $('#readerView').hidden = true;
   document.body.classList.remove('reader-immersive');
   $('#shelfView').hidden = false;
@@ -1622,6 +1665,10 @@ async function renderPage(keepScroll) {
   /* The page's own resources (the operator list, fonts) are released as soon as
      the page has been drawn: a long book that keeps every page alive runs out
      of memory, and the page can always be fetched and parsed again. */
+  /* Prune active buffers to keep at most visible page ± 1 page */
+  prunePageBuffers(atPage);
+  pageBufferMap.set(atPage, { width: viewport.width, height: viewport.height });
+
   cleanupWhenIdle(page);
   return { canvasOk: true };
 }
@@ -1657,10 +1704,11 @@ const renderPageSafe = (keepScroll) => renderPage(keepScroll).catch(err => {
 function restorePenPrefs() {
   const w = readString(STORAGE_KEYS.penWidth, '');
   if (w && (DRAW_WIDTHS[w] || HL_WIDTHS[w] || PEN_WIDTHS[w])) activeWidthKey = w;
-  syncPenUI();
+  if (typeof document !== 'undefined') syncPenUI();
 }
 
 function syncPenUI() {
+  if (typeof document === 'undefined') return;
   const isDraw = toolMode === 'draw';
   strokeColor = isDraw ? inkColor : hlColor;
   strokeWidth = isDraw ? (DRAW_WIDTHS[activeWidthKey] || DRAW_WIDTHS.medium) : (HL_WIDTHS[activeWidthKey] || HL_WIDTHS.medium);
@@ -1703,7 +1751,7 @@ function syncPenUI() {
     hlInd.style.background = resolveColor(hlColor);
   }
 }
-syncPenUI();
+if (typeof document !== 'undefined') syncPenUI();
 
 /* ── Page UI + progress ── */
 function updatePageUI() {
@@ -1767,6 +1815,7 @@ function gotoPage(n) {
      The flag only stops repeat attempts on the page that already failed. */
   textLayerBroken = false;
   curPage = n;
+  prunePageBuffers(n);
   /* The undo toast belongs to the page its records came from; leaving that page
      retires it rather than leaving a button that can only be refused. */
   if (erasedStrokes) hideEraseUndo();
@@ -1843,10 +1892,12 @@ function autoMarkRead() {
   if (bookDone(curBook).has(curPage)) return;
   togglePageRead(true);
 }
-document.addEventListener('visibilitychange', () => {
-  if (document.hidden) pauseAutoRead();
-  else if (curBook && autoRead.bookId === curBook.id && autoRead.page === curPage) runAutoRead();
-});
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) pauseAutoRead();
+    else if (curBook && autoRead.bookId === curBook.id && autoRead.page === curPage) runAutoRead();
+  });
+}
 
 function togglePageRead(auto = false) {
   if (!auto) cancelAutoRead();
@@ -2209,3 +2260,5 @@ function addToday(kind, v) {
   curBook.stats[k][kind] += v;
   updateBook(curBook.id, { stats: curBook.stats });
 }
+
+export { prunePageBuffers, pageBufferMap };

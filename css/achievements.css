@@ -103,7 +103,7 @@
 .achv-tab:focus-visible{outline:2px solid var(--color-focus);outline-offset:2px}
 
 .achv-near{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.achv-near-card{display:flex;flex-direction:column;align-items:center;gap:7px;padding:12px 8px;
+.achv-near-card{contain:layout style;display:flex;flex-direction:column;align-items:center;gap:7px;padding:12px 8px;
   background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);
   box-shadow:var(--shadow-sm);cursor:pointer;font-family:var(--font-ui);text-align:center;
   transition:transform var(--duration-fast) var(--ease-out),border-color var(--duration-fast)}
@@ -111,7 +111,7 @@
 .achv-near-card small{color:var(--color-text-secondary);font-size:11px;font-weight:500}
 
 .achv-list{display:flex;flex-direction:column;gap:8px}
-.achv-item{display:flex;align-items:center;gap:12px;width:100%;padding:12px 14px;text-align:start;
+.achv-item{contain:layout style;display:flex;align-items:center;gap:12px;width:100%;padding:12px 14px;text-align:start;
   background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);
   box-shadow:var(--shadow-sm);cursor:pointer;font-family:var(--font-ui);min-height:64px;
   transition:transform var(--duration-fast) var(--ease-out),border-color var(--duration-fast),background var(--duration-base)}

@@ -424,13 +424,26 @@ function syncRunningUI() {
   if (!session) return;
   const remain = remainingSec(session);
   const total = session.plannedDurationMin * 60;
+  const fpVal = total ? Math.round(((total - remain) / total) * 100) : 0;
   const ring = $('#focusRing');
-  if (ring) ring.style.setProperty('--fp', total ? ((total - remain) / total) * 100 : 0);
+  if (ring && ring.dataset.fp !== String(fpVal)) {
+    ring.dataset.fp = String(fpVal);
+    ring.style.setProperty('--fp', fpVal);
+  }
+  const clockStr = fmtClock(remain);
   const timeEl = $('#focusTime');
-  if (timeEl) timeEl.textContent = fmtClock(remain);
+  if (timeEl && timeEl.textContent !== clockStr) {
+    if (timeEl.firstChild && timeEl.childNodes.length === 1 && timeEl.firstChild.nodeType === 3) {
+      timeEl.firstChild.nodeValue = clockStr;
+    } else {
+      timeEl.textContent = clockStr;
+    }
+  }
   const stateEl = $('#focusState');
-  if (stateEl) stateEl.textContent = session.status === 'paused' ? 'متوقف شده' : 'در حال تمرکز…';
-  document.title = session.status === 'active' ? `${fmtClock(remain)} · دفتَرچه` : APP_TITLE;
+  const stateText = session.status === 'paused' ? 'متوقف شده' : 'در حال تمرکز…';
+  if (stateEl && stateEl.textContent !== stateText) stateEl.textContent = stateText;
+  const titleStr = session.status === 'active' ? `${clockStr} · دفتَرچه` : APP_TITLE;
+  if (document.title !== titleStr) document.title = titleStr;
 }
 
 /* ═══ Pick view — the task book ═══
@@ -766,9 +779,16 @@ function updateFocusPill() {
   pillEl.classList.toggle('running', session.status === 'active');
   const label = pillEl.querySelector('span');
   if (label) {
-    label.textContent = session.status === 'paused'
+    const nextText = session.status === 'paused'
       ? 'تمرکز متوقف شده — بازگشت به تمرکز'
       : `در حال تمرکز: ${taskTitle(session.taskId)} · ${fmtClock(remainingSec(session))}`;
+    if (label.textContent !== nextText) {
+      if (label.firstChild && label.childNodes.length === 1 && label.firstChild.nodeType === 3) {
+        label.firstChild.nodeValue = nextText;
+      } else {
+        label.textContent = nextText;
+      }
+    }
   }
 }
 
