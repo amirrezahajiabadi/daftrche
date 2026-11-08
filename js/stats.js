@@ -751,6 +751,52 @@ export function renderStats(force = false) {
   if (body) body.hidden = !model.hasAny;
 }
 
+const HISTORY_CHUNK_SIZE = 40;
+let statsHistoryObserver = null;
+let statsHistorySentinel = null;
+let statsHistoryRenderedCount = 0;
+
+function createSessionEl(s) {
+  const div = document.createElement('div');
+  div.className = 'stat-session';
+  const face = RATING_FACE[s.rating] || LIB_ICONS.meh;
+  const title = s.taskTitle ? esc(s.taskTitle) : 'بدون کار مشخص';
+  const label = RATING_LABEL[s.rating] || '';
+  div.innerHTML = `
+    <span class="stat-session-face" data-rating="${esc(s.rating)}" role="img" title="${esc(label)}" aria-label="${esc(label)}">${face}</span>
+    <span class="stat-session-title">${title}</span>
+    ${s.taskCompleted ? `<span class="stat-session-done" role="img" aria-label="به کار واقعی رسید" title="به کار واقعی رسید">${LIB_ICONS.check}</span>` : ''}
+    <span class="stat-session-when">${historyDayLabel(s.startedAt)}</span>
+    <span class="stat-session-min">${faNum(s.actualDurationMin)} دقیقه</span>`;
+  return div;
+}
+
+function appendNextHistoryChunk(list, sessions) {
+  if (statsHistoryRenderedCount >= sessions.length) {
+    if (statsHistoryObserver) { statsHistoryObserver.disconnect(); statsHistoryObserver = null; }
+    if (statsHistorySentinel && statsHistorySentinel.isConnected) statsHistorySentinel.remove();
+    statsHistorySentinel = null;
+    return;
+  }
+  const nextBatch = sessions.slice(statsHistoryRenderedCount, statsHistoryRenderedCount + HISTORY_CHUNK_SIZE);
+  statsHistoryRenderedCount += nextBatch.length;
+
+  const frag = document.createDocumentFragment();
+  nextBatch.forEach(s => frag.appendChild(createSessionEl(s)));
+
+  if (statsHistorySentinel && statsHistorySentinel.isConnected) {
+    list.insertBefore(frag, statsHistorySentinel);
+  } else {
+    list.appendChild(frag);
+  }
+
+  if (statsHistoryRenderedCount >= sessions.length) {
+    if (statsHistoryObserver) { statsHistoryObserver.disconnect(); statsHistoryObserver = null; }
+    if (statsHistorySentinel && statsHistorySentinel.isConnected) statsHistorySentinel.remove();
+    statsHistorySentinel = null;
+  }
+}
+
 /* ── سابقهٔ تمرکز ──
    The archive now lives here, under the window the reader is looking through:
    filter the page to three months and the sessions listed are the three months'
@@ -763,21 +809,51 @@ function paintHistory(model) {
   if (!wrap || !list) return;
   const sessions = model.focus.sessions || [];
   wrap.hidden = sessions.length === 0;
-  if (!sessions.length) { list.innerHTML = ''; return; }
+  if (!sessions.length) {
+    if (statsHistoryObserver) { statsHistoryObserver.disconnect(); statsHistoryObserver = null; }
+    list.innerHTML = '';
+    return;
+  }
 
-  const shown = historyExpanded ? sessions : sessions.slice(0, HISTORY_PREVIEW);
-  list.innerHTML = shown.map(s => {
-    const face = RATING_FACE[s.rating] || LIB_ICONS.meh;
-    const title = s.taskTitle ? esc(s.taskTitle) : 'بدون کار مشخص';
-    const label = RATING_LABEL[s.rating] || '';
-    return `<div class="stat-session">
-      <span class="stat-session-face" data-rating="${esc(s.rating)}" role="img" title="${esc(label)}" aria-label="${esc(label)}">${face}</span>
-      <span class="stat-session-title">${title}</span>
-      ${s.taskCompleted ? `<span class="stat-session-done" role="img" aria-label="به کار واقعی رسید" title="به کار واقعی رسید">${LIB_ICONS.check}</span>` : ''}
-      <span class="stat-session-when">${historyDayLabel(s.startedAt)}</span>
-      <span class="stat-session-min">${faNum(s.actualDurationMin)} دقیقه</span>
-    </div>`;
-  }).join('');
+  if (statsHistoryObserver) {
+    statsHistoryObserver.disconnect();
+    statsHistoryObserver = null;
+  }
+
+  if (!historyExpanded) {
+    const preview = sessions.slice(0, HISTORY_PREVIEW);
+    const frag = document.createDocumentFragment();
+    preview.forEach(s => frag.appendChild(createSessionEl(s)));
+    list.replaceChildren(frag);
+  } else {
+    const initial = sessions.slice(0, HISTORY_CHUNK_SIZE);
+    statsHistoryRenderedCount = initial.length;
+    const frag = document.createDocumentFragment();
+    initial.forEach(s => frag.appendChild(createSessionEl(s)));
+
+    if (statsHistoryRenderedCount < sessions.length) {
+      statsHistorySentinel = document.createElement('div');
+      statsHistorySentinel.className = 'stat-history-sentinel';
+      statsHistorySentinel.style.cssText = 'height:1px;pointer-events:none;';
+      frag.appendChild(statsHistorySentinel);
+
+      if (typeof IntersectionObserver !== 'undefined') {
+        statsHistoryObserver = new IntersectionObserver(entries => {
+          if (entries[0]?.isIntersecting) {
+            appendNextHistoryChunk(list, sessions);
+          }
+        }, { rootMargin: '300px 0px' });
+        statsHistoryObserver.observe(statsHistorySentinel);
+      } else {
+        sessions.slice(statsHistoryRenderedCount).forEach(s => frag.appendChild(createSessionEl(s)));
+        statsHistorySentinel.remove();
+        statsHistorySentinel = null;
+      }
+    } else {
+      statsHistorySentinel = null;
+    }
+    list.replaceChildren(frag);
+  }
 
   const count = $('#statsHistoryCount');
   const extra = sessions.length - HISTORY_PREVIEW;

@@ -454,7 +454,8 @@ export function initToday() {
       const ignored = parsed.ignored.filter(t => !dismissed.has(t));
       return ignored.length === parsed.ignored.length ? parsed : { ...parsed, ignored };
     };
-    todayInput.addEventListener('input', () => {
+    let todayTimer = null;
+    const processTodayQuickAdd = () => {
       const raw = todayInput.value;
       const parsed = withoutDismissed(parseQuickAdd(raw));
       for (const token of dismissed) if (!raw.includes(token)) dismissed.delete(token);
@@ -464,24 +465,29 @@ export function initToday() {
             dismissed.add(t);
             todayInput.value = stripQuickAddToken(todayInput.value, t);
           });
-          todayInput.dispatchEvent(new Event('input'));
+          processTodayQuickAdd();
           return;
         }
         const token = parsed.tokens?.[key];
         if (token) {
           todayInput.value = stripQuickAddToken(todayInput.value, token);
-          todayInput.dispatchEvent(new Event('input'));
+          processTodayQuickAdd();
         } else {
           todayPreview.querySelector(`[data-key="${key}"]`)?.remove();
           if (!todayPreview.children.length) todayPreview.hidden = true;
         }
       });
+    };
+    todayInput.addEventListener('input', () => {
+      clearTimeout(todayTimer);
+      todayTimer = setTimeout(processTodayQuickAdd, 120);
     });
   }
 
   if (form) {
     form.addEventListener('submit', e => {
       e.preventDefault();
+      clearTimeout(todayTimer);
       const input = $('#todayInput');
       const raw = input ? input.value.trim() : '';
       if (!raw) {

@@ -2,7 +2,7 @@ import { state, getTask } from './state.js';
 import { saveTasks, requestPersistentStorage } from './store.js';
 import { prefersReducedMotion } from './motion.js';
 import { $, faNum, startOfToday, dueKeyFromOffset, normalizeFa, parseDurationMin, formatDuration, formatClock, parseTimeRange, reorderSubset, isOverdueTask, stepOrder } from './utils.js';
-import { P_LABEL, CATS, ICONS, PRI_ICONS } from './constants.js';
+import { P_LABEL, CATS, ICONS, PRI_ICONS, LIB_ICONS } from './constants.js';
 import { notify } from './bus.js';
 import { bellHtml, refreshBell, setTaskNotify, notificationsSupported, bindPersistence } from './notifications.js';
 import { confetti } from './confetti.js';
@@ -180,26 +180,209 @@ function createTaskEl(task, delay = 0) {
   return li;
 }
 
-/* ── Render + Empty State ── */
-/* The entrance cascade only welcomes the first few rows.
-   At 45ms each, a list of thirty tasks kept animating for 1.35s after the page
-   had already been painted — the list read as slow rather than staged. Capping
-   the delay keeps the cascade legible and the list settled in a quarter second.
-   The rows are built into one fragment and inserted in a single call, so a long
-   list no longer interleaves layout work with every append. */
+/* ── Lightweight Header Counters & Today's Progress Bar ──
+   Updates the footer counter, category chips, and Today's progress track
+   (aria-valuenow and width percentage) directly without rebuilding list DOM nodes. */
+export function updateCountersAndProgress() {
+  const total = state.tasks.length;
+  const doneCount = state.tasks.filter(t => t.done).length;
+  const t0 = startOfToday().getTime();
+  const todayDoneCount = state.tasks.filter(t => t.done && t.doneAt && t.doneAt >= t0).length;
+
+  // 1. Task list footer counter
+  const counter = $('#counter');
+  if (counter) {
+    counter.textContent = total
+      ? `${faNum(total - doneCount)} کار باقی‌مانده` + (todayDoneCount ? ` · امروز ${faNum(todayDoneCount)} کار انجام دادی` : '')
+      : '';
+  }
+  const clearBtn = $('#clearBtn');
+  if (clearBtn) clearBtn.style.visibility = doneCount ? 'visible' : 'hidden';
+
+  // 2. Category badge counts
+  document.querySelectorAll('.cats .cat-chip').forEach(ch => {
+    const cntEl = ch.querySelector('.cnt');
+    if (!cntEl) return;
+    const k = ch.dataset.cat;
+    if (ch.dataset.flag === 'nodue') {
+      const n = state.tasks.filter(t => !t.done && !t.dueDate).length;
+      cntEl.textContent = n ? faNum(n) : '';
+      return;
+    }
+    const n = k === 'all'
+      ? state.tasks.filter(t => !t.done).length
+      : state.tasks.filter(t => !t.done && (t.cat || 'misc') === k).length;
+    cntEl.textContent = n ? faNum(n) : '';
+  });
+
+  // 3. Today's Progress Bar (aria-valuenow and width percentage)
+  const bar = $('#todayProgBar');
+  const track = $('#todayProgTrack');
+  const text = $('#todayProgText');
+  if (bar && track) {
+    const todayK = dueKeyFromOffset(0);
+    const pendingToday = state.tasks.filter(t => !t.done && t.dueDate && t.dueDate <= todayK);
+    const doneToday = state.tasks.filter(t => t.done && ((t.doneAt && t.doneAt >= t0) || (t.dueDate && t.dueDate === todayK)));
+    const todayTotal = pendingToday.length + doneToday.length;
+    if (!todayTotal) {
+      bar.style.width = '0%';
+      track.setAttribute('aria-valuenow', '0');
+      if (text) text.textContent = 'هنوز کاری برای امروز ثبت نشده';
+    } else {
+      const pct = Math.round((doneToday.length / todayTotal) * 100);
+      bar.style.width = pct + '%';
+      track.setAttribute('aria-valuenow', String(pct));
+      bar.classList.toggle('full', pct === 100);
+      if (text) {
+        text.innerHTML = pct === 100
+          ? `آفرین! هر <b>${faNum(todayTotal)}</b> کار امروز انجام شد ${LIB_ICONS?.spark || '✨'}`
+          : `<b>${faNum(doneToday.length)}</b> از <b>${faNum(todayTotal)}</b> کار انجام شده · ${faNum(pct)}٪`;
+      }
+    }
+  }
+}
+
+/* Surgical DOM update for a single task row — updates attributes, title, tags, chips in-place */
+export function updateTaskRow(li, task) {
+  if (!li || !task) return;
+  li.dataset.p = task.p || 'mid';
+  li.classList.toggle('done', !!task.done);
+
+  const titleEl = li.querySelector('.title');
+  if (titleEl) titleEl.textContent = task.text;
+
+  const dot = li.querySelector('.pri-dot');
+  if (dot) {
+    dot.innerHTML = PRI_ICONS[li.dataset.p];
+    dot.title = `اولویت: ${P_LABEL[li.dataset.p]} — کلیک برای تغییر`;
+    dot.setAttribute('aria-label', `اولویت: ${P_LABEL[li.dataset.p]} — تغییر`);
+  }
+
+  const cat = CATS.find(c => c.key === (task.cat || 'misc')) || CATS[5];
+  const catBtn = li.querySelector('.cat-tag');
+  if (catBtn) {
+    catBtn.style.setProperty('--cc', cat.color);
+    catBtn.textContent = cat.label;
+    catBtn.title = `دسته: ${cat.label} — کلیک برای تغییر`;
+  }
+
+  refreshDueChip(li, task);
+  refreshDurChip(li, task);
+  if (notificationsSupported()) refreshBell(li, task);
+
+  const spanLabel = timeRangeLabel(task);
+  let spanEl = li.querySelector('.span-chip');
+  if (spanLabel) {
+    if (!spanEl) {
+      spanEl = document.createElement('span');
+      spanEl.className = 'span-chip';
+      spanEl.title = 'بازهٔ این کار در روز';
+      li.querySelector('.cat-tag')?.after(spanEl);
+    }
+    spanEl.textContent = spanLabel;
+  } else if (spanEl) {
+    spanEl.remove();
+  }
+}
+
+/* ── Chunked Rendering (Infinite Scroll) for Large Lists ──
+   In unbounded lists ("All Tasks", "Completed Tasks", etc.), rendering hundreds of
+   rows at once blocks the main thread. We render an initial batch of 40 items, and
+   observe a sentinel element via IntersectionObserver to append subsequent 40-item
+   chunks with DocumentFragment as the user scrolls. */
+const CHUNK_SIZE = 40;
 const STAGGER_MS = 45;
 const STAGGER_CAP = 6;
 
-export function renderList() {
-  const rows = visible();
+let renderedCount = 0;
+let sentinelEl = null;
+let listObserver = null;
+
+function appendNextChunk(allRows) {
+  if (renderedCount >= allRows.length) {
+    if (listObserver) { listObserver.disconnect(); listObserver = null; }
+    if (sentinelEl && sentinelEl.isConnected) sentinelEl.remove();
+    sentinelEl = null;
+    return;
+  }
+
+  const nextBatch = allRows.slice(renderedCount, renderedCount + CHUNK_SIZE);
+  renderedCount += nextBatch.length;
+
   const frag = document.createDocumentFragment();
-  rows.forEach((t, i) => frag.appendChild(createTaskEl(t, Math.min(i, STAGGER_CAP) * STAGGER_MS)));
+  nextBatch.forEach(t => frag.appendChild(createTaskEl(t, 0)));
+
+  if (sentinelEl && sentinelEl.isConnected) {
+    listEl.insertBefore(frag, sentinelEl);
+  } else {
+    listEl.appendChild(frag);
+  }
+
+  if (renderedCount >= allRows.length) {
+    if (listObserver) { listObserver.disconnect(); listObserver = null; }
+    if (sentinelEl && sentinelEl.isConnected) sentinelEl.remove();
+    sentinelEl = null;
+  }
+}
+
+function setupSentinelObserver(allRows) {
+  if (!sentinelEl) return;
+  if (typeof IntersectionObserver === 'undefined') {
+    // Graceful fallback for non-browser / test environments
+    if (sentinelEl.isConnected) sentinelEl.remove();
+    sentinelEl = null;
+    const remaining = allRows.slice(renderedCount);
+    if (remaining.length) {
+      const frag = document.createDocumentFragment();
+      remaining.forEach(t => frag.appendChild(createTaskEl(t, 0)));
+      listEl.appendChild(frag);
+      renderedCount = allRows.length;
+    }
+    return;
+  }
+
+  listObserver = new IntersectionObserver(entries => {
+    const entry = entries[0];
+    if (entry && entry.isIntersecting) {
+      appendNextChunk(allRows);
+    }
+  }, { rootMargin: '300px 0px' });
+
+  listObserver.observe(sentinelEl);
+}
+
+export function renderList() {
+  if (listObserver) {
+    listObserver.disconnect();
+    listObserver = null;
+  }
+  const rows = visible();
+  const initialBatch = rows.slice(0, CHUNK_SIZE);
+  renderedCount = initialBatch.length;
+
+  const frag = document.createDocumentFragment();
+  initialBatch.forEach((t, i) => frag.appendChild(createTaskEl(t, Math.min(i, STAGGER_CAP) * STAGGER_MS)));
+
+  if (renderedCount < rows.length) {
+    sentinelEl = document.createElement('li');
+    sentinelEl.className = 'task-sentinel';
+    sentinelEl.setAttribute('aria-hidden', 'true');
+    sentinelEl.style.cssText = 'height:1px;list-style:none;margin:0;padding:0;border:0;pointer-events:none;';
+    frag.appendChild(sentinelEl);
+  } else {
+    sentinelEl = null;
+  }
+
   listEl.replaceChildren(frag);
+  if (sentinelEl) {
+    setupSentinelObserver(rows);
+  }
   updateEmpty();
+  updateCountersAndProgress();
 }
 
 export function updateEmpty() {
-  const anyVisible = [...listEl.children].some(el => !el.classList.contains('removing'));
+  const anyVisible = [...listEl.querySelectorAll('.task')].some(el => !el.classList.contains('removing'));
   $('#empty').hidden = anyVisible;
   // The empty-state CTA is presentation-only and rebuilt on each render
   $('#emptyAddBtn')?.remove();
@@ -249,12 +432,14 @@ export function setTaskDone(id, done) {
 function toggleTask(li, task) {
   setTaskDone(task.id, !task.done);
   li.classList.toggle('done', task.done);
+  refreshDueChip(li, task);
   /* A small answer to every tick, not just to the last one: the box pops, and the
      «امروز N کار» line in the footer bumps (js/progress.js writes it). */
   if (task.done) {
     li.classList.add('just-done'); setTimeout(() => li.classList.remove('just-done'), 700);
     const c = $('#counter'); if (c) { c.classList.remove('bump'); void c.offsetWidth; c.classList.add('bump'); }
   }
+  updateCountersAndProgress();
   if (!matches(task)) setTimeout(() => hideFromView(li), 650);
 }
 
@@ -400,7 +585,9 @@ export function collapse(el, id) {
   state.tasks = state.tasks.filter(t => t.id !== id);
   save();
   if (state.session && state.session.taskId === id) clearFocus();
-  animateOut(el);
+  animateOut(el, () => {
+    updateCountersAndProgress();
+  });
   notify();
   if (task) showUndo(task, index);
 }
@@ -409,16 +596,36 @@ export function collapse(el, id) {
    (e.g. after checking it off in the "Active" filter, or changing its category while a category filter is set)
    Unlike collapse, this function does not remove any data from state.tasks. */
 export function hideFromView(el) {
-  animateOut(el);
+  animateOut(el, () => {
+    updateCountersAndProgress();
+  });
 }
 
 function startEditTitle(titleEl, task) {
   const inp = document.createElement('input'); inp.className = 'title-input'; inp.value = task.text;
   titleEl.replaceWith(inp); inp.focus(); inp.select();
   let doneE = false;
-  const commit = () => { if (doneE) return; doneE = true; const v = inp.value.trim(); if (v) { task.text = v; save(); } renderList(); };
-  inp.addEventListener('blur', commit);
-  inp.addEventListener('keydown', ev => { if (ev.key === 'Enter') commit(); if (ev.key === 'Escape') { doneE = true; renderList(); } });
+  const finish = () => {
+    if (doneE) return;
+    doneE = true;
+    const v = inp.value.trim();
+    if (v && v !== task.text) {
+      task.text = v;
+      save();
+      notify();
+    }
+    titleEl.textContent = task.text;
+    inp.replaceWith(titleEl);
+  };
+  inp.addEventListener('blur', finish);
+  inp.addEventListener('keydown', ev => {
+    if (ev.key === 'Enter') finish();
+    if (ev.key === 'Escape') {
+      doneE = true;
+      titleEl.textContent = task.text;
+      inp.replaceWith(titleEl);
+    }
+  });
 }
 
 export function flashTask(id) {
@@ -462,9 +669,22 @@ function applyEdits(task, c) {
   // A new deadline re-arms the reminder so nothing fires twice for one date
   if (dateChanged && task.notifiedStatus) task.notifiedStatus = 'none';
   task.durationMin = parseDurationMin(c.durationMin);
-  save(); notify(); renderList();
+  save(); notify();
+
   const row = listEl.querySelector(`[data-id="${task.id}"]`);
-  if (row) { row.classList.add('flash'); setTimeout(() => row.classList.remove('flash'), 1200); }
+  if (row) {
+    if (!matches(task) || (state.catFilter !== 'all' && (task.cat || 'misc') !== state.catFilter) || (state.noDue && task.dueDate)) {
+      hideFromView(row);
+    } else {
+      updateTaskRow(row, task);
+      row.classList.add('flash');
+      setTimeout(() => row.classList.remove('flash'), 1200);
+    }
+  } else if (matches(task) && (state.catFilter === 'all' || (task.cat || 'misc') === state.catFilter) && (!state.noDue || !task.dueDate)) {
+    renderList();
+  }
+  updateEmpty();
+  updateCountersAndProgress();
 }
 
 /* ── Reordering without a mouse ──
@@ -737,7 +957,15 @@ export function initTasks() {
       if (!task) return;
       /* Dropping on «بدون مهلت» takes the deadline off (it used to be a pill). */
       if (chip.dataset.flag === 'nodue') {
-        if (task.dueDate) { task.dueDate = undefined; save(); notify(); renderList(); }
+        if (task.dueDate) {
+          task.dueDate = undefined; save(); notify();
+          const el = listEl.querySelector(`[data-id="${id}"]`);
+          if (el) {
+            refreshDueChip(el, task);
+            if (state.noDue) hideFromView(el);
+          }
+          updateCountersAndProgress();
+        }
         return;
       }
       const targetCat = chip.dataset.cat;
@@ -749,12 +977,15 @@ export function initTasks() {
         void chip.offsetWidth;
         chip.classList.add('drop-pop');
         setTimeout(() => chip.classList.remove('drop-pop'), 260);
-        if (state.catFilter !== 'all' && state.catFilter !== targetCat) {
-          const el = listEl.querySelector(`[data-id="${id}"]`);
-          if (el) hideFromView(el);
-        } else {
-          renderList();
+        const el = listEl.querySelector(`[data-id="${id}"]`);
+        if (el) {
+          if (state.catFilter !== 'all' && state.catFilter !== targetCat) {
+            hideFromView(el);
+          } else {
+            updateTaskRow(el, task);
+          }
         }
+        updateCountersAndProgress();
       }
     });
   }
@@ -794,10 +1025,22 @@ export function initTasks() {
 
       if (f === 'done' && !task.done) {
         setTaskDone(task.id, true);
-        renderList();
+        const el = listEl.querySelector(`[data-id="${task.id}"]`);
+        if (el) {
+          el.classList.toggle('done', true);
+          refreshDueChip(el, task);
+          if (!matches(task)) hideFromView(el);
+        }
+        updateCountersAndProgress();
       } else if (f === 'active' && task.done) {
         setTaskDone(task.id, false);
-        renderList();
+        const el = listEl.querySelector(`[data-id="${task.id}"]`);
+        if (el) {
+          el.classList.toggle('done', false);
+          refreshDueChip(el, task);
+          if (!matches(task)) hideFromView(el);
+        }
+        updateCountersAndProgress();
       }
     });
   }
@@ -825,17 +1068,31 @@ export function initTasks() {
       void tab.offsetWidth;
       tab.classList.add('drop-pop');
       setTimeout(() => tab.classList.remove('drop-pop'), 260);
-      renderList();
+      const el = listEl.querySelector(`[data-id="${id}"]`);
+      if (el) {
+        refreshDueChip(el, task);
+        if (state.noDue) hideFromView(el);
+      }
+      updateCountersAndProgress();
     });
   });
 
   window.addEventListener('dragend', clearDragVisuals);
 
-  /* Clear-search button */
+  /* Clear-search button with 120ms debounce */
   const searchInput = $('#searchInput'), searchClear = $('#searchClear');
   if (searchInput && searchClear) {
-    searchInput.addEventListener('input', () => { searchClear.hidden = !searchInput.value; });
+    let sT = null;
+    searchInput.addEventListener('input', () => {
+      searchClear.hidden = !searchInput.value;
+      clearTimeout(sT);
+      sT = setTimeout(() => {
+        state.query = searchInput.value.trim();
+        renderList();
+      }, 120);
+    });
     searchClear.addEventListener('click', () => {
+      clearTimeout(sT);
       searchInput.value = ''; state.query = ''; searchClear.hidden = true;
       renderList(); searchInput.focus();
     });
@@ -953,8 +1210,9 @@ export function initAddForm() {
     durInput.addEventListener('blur', () => { if (durInput.value === '') showDurHint(false); });
   }
 
-const taskInput = $('#taskInput');
+  const taskInput = $('#taskInput');
   const taskPreview = $('#taskQuickAddPreview');
+  let quickAddTimer = null;
   if (taskInput && taskPreview) {
     /* A token the parser set aside has no raw span in `parsed.tokens` yet, so
        the × used to be a dead button: the chip vanished, then the next
@@ -967,7 +1225,8 @@ const taskInput = $('#taskInput');
       const ignored = parsed.ignored.filter(t => !dismissed.has(t));
       return ignored.length === parsed.ignored.length ? parsed : { ...parsed, ignored };
     };
-    taskInput.addEventListener('input', () => {
+
+    const processQuickAdd = () => {
       const raw = taskInput.value;
       const parsed = withoutDismissed(parseQuickAdd(raw));
       /* A dismissed spelling is forgotten as soon as it is really gone from the
@@ -981,14 +1240,14 @@ const taskInput = $('#taskInput');
             dismissed.add(t);
             taskInput.value = stripQuickAddToken(taskInput.value, t);
           });
-          taskInput.dispatchEvent(new Event('input'));
+          processQuickAdd();
           return;
         }
         renderDueRow();
         const token = parsed.tokens?.[key];
         if (token) {
           taskInput.value = stripQuickAddToken(taskInput.value, token);
-          taskInput.dispatchEvent(new Event('input'));
+          processQuickAdd();
         } else {
           taskPreview.querySelector(`[data-key="${key}"]`)?.remove();
           if (!taskPreview.children.length) taskPreview.hidden = true;
@@ -1003,6 +1262,11 @@ const taskInput = $('#taskInput');
         $('#durRow .sel')?.classList.remove('sel');
         $(`#durRow button[data-dur="${parsed.durationMin}"]`)?.classList.add('sel');
       } else if (fromText.dur) resetDetail('dur');
+    };
+
+    taskInput.addEventListener('input', () => {
+      clearTimeout(quickAddTimer);
+      quickAddTimer = setTimeout(processQuickAdd, 120);
     });
   }
 
@@ -1014,6 +1278,7 @@ const taskInput = $('#taskInput');
 
   $('#addForm').addEventListener('submit', e => {
     e.preventDefault();
+    clearTimeout(quickAddTimer);
     /* `e.currentTarget` is null once the handler has returned, so the timeout
        below must hold the form itself — reading it there threw, and the red
        shake border was never taken off again. */

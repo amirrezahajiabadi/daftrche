@@ -753,7 +753,7 @@ function initSearch() {
   if (!si) return;
   si.addEventListener('input', e => {
     clearTimeout(sT);
-    sT = setTimeout(() => { state.query = e.target.value.trim(); renderList(); }, 140);
+    sT = setTimeout(() => { state.query = e.target.value.trim(); renderList(); }, 120);
   });
 }
 
