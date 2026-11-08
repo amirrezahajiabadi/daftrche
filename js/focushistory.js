@@ -10,6 +10,7 @@
    exported for that page rather than painted onto a page of their own. */
 
 import { loadFocusHistory, saveFocusHistory } from './store.js';
+import { invalidateDayCache } from './daycache.js';
 import { startOfToday } from './utils.js';
 import { LIB_ICONS } from './constants.js';
 import { formatJalaliDate } from './jalali.js';
@@ -87,6 +88,7 @@ export function addSessionToHistory(session) {
   if (!record) return loadFocusHistory().map(normalizeHistoryRecord).filter(Boolean);
   const next = mergeHistory(loadFocusHistory(), record);
   saveFocusHistory(next);
+  invalidateDayCache();
   return next;
 }
 

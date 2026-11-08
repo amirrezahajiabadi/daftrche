@@ -18,10 +18,10 @@ import { initReader } from './reader.js';
 import { initProfile, renderProfile } from './profile.js';
 import { initSettings, renderSettings } from './settings.js';
 import { initInsights } from './insights.js';
-import { initStats } from './stats.js';
+import { initStats, renderStats } from './stats.js';
 import { initShareCard } from './sharecard.js';
 import { initAchievements, renderAchievements } from './achievementsview.js';
-import { initToday } from './today.js';
+import { initToday, renderToday } from './today.js';
 import { initPlanner, renderPlanner } from './planner.js';
 import { initNotifications, notificationsSupported } from './notifications.js';
 import { initDuePicker } from './duepicker.js';
@@ -141,7 +141,8 @@ function initNavigation() {
        In-list jumps still scroll smoothly — there the movement is the point. */
     window.scrollTo({ top: 0, behavior: 'instant' });
     moveGlider();
-    if (page === 'today' || page === 'stats') notify();
+    if (page === 'today') renderToday();
+    if (page === 'stats') renderStats();
     if (page === 'tasks') renderList(); // Keep the imperative list in sync with state
     if (page === 'focus') syncFocusPage();
     if (page === 'profile') renderProfile();
@@ -831,8 +832,11 @@ function initIOSInstallGuide() {
   }
 }
 
-safe('رندر تنظیمات', renderSettings);
-safe('رندر اولیه', () => { renderList(); notify(); });
+if (startPage() === 'settings') safe('رندر تنظیمات', renderSettings);
+safe('رندر اولیه', () => {
+  if (startPage() === 'tasks') renderList();
+  notify();
+});
 safe('میانبرها', initShortcuts);
 safe('راهنمای نصب iOS', initIOSInstallGuide);
 safe('پوستهٔ آفلاین', initPWA);

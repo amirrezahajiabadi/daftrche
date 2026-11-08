@@ -789,7 +789,8 @@ export function initPlanner() {
   syncSpan();
   if (spanPicker) spanPicker.mark(spanSlot);
   subscribe(onData);
-  /* Painted at boot as well as on entry: the page can be the one the URL hash
-     names, and then no navigation has happened yet. */
-  renderPlanner();
+  /* Painted only when active at boot (e.g. direct URL hash); otherwise lazy */
+  if (document.getElementById('page-week')?.classList.contains('active')) {
+    renderPlanner();
+  }
 }

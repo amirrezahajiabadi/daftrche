@@ -32,6 +32,7 @@ import { dayKey, shiftKey } from './utils.js';
 import { getBooks, bookComplete } from './library.js';
 import { getHistory } from './focushistory.js';
 import { dateToJalali } from './jalali.js';
+import { getAllDayBuckets } from './daycache.js';
 
 export const LEDGER_VERSION = 1;
 
@@ -151,61 +152,45 @@ const emptyDay = key => ({
 
 export function collectTotals(now = new Date()) {
   const today = dayKey(now);
+  const buckets = getAllDayBuckets(now);
   const days = new Map();
-  const day = key => {
-    if (!isKey(key)) return null;
-    if (!days.has(key)) days.set(key, emptyDay(key));
-    return days.get(key);
-  };
+  for (const [k, b] of buckets) {
+    days.set(k, {
+      key: k,
+      done: b.done,
+      dated: b.dated,
+      onTime: b.onTime,
+      focusMin: b.focusMin,
+      sessions: b.sessions,
+      readMin: b.readMin,
+      pages: b.pages,
+      notes: b.marks,
+      mood: b.mood,
+      opened: b.opened,
+      freeze: false,
+    });
+  }
 
-  /* · tasks — ticks, and the punctuality of the ticks that had a deadline */
   const tasks = (Array.isArray(state.tasks) ? state.tasks : []).filter(t => t && typeof t === 'object');
   const catsDone = new Map();
-  for (const t of tasks) {
-    if (!t.done) continue;
-    const cat = typeof t.cat === 'string' && t.cat ? t.cat : 'misc';
-    catsDone.set(cat, (catsDone.get(cat) || 0) + 1);
-    const ts = Number(t.doneAt);
-    if (!Number.isFinite(ts) || ts <= 0) continue;
-    const d = day(dayKey(new Date(ts)));
-    if (!d) continue;
-    d.done++;
-    if (isKey(t.dueDate)) {
-      d.dated++;
-      if (dayKey(new Date(ts)) <= t.dueDate) d.onTime++;
+  for (const b of buckets.values()) {
+    for (const [cat, cnt] of Object.entries(b.cats || {})) {
+      catsDone.set(cat, (catsDone.get(cat) || 0) + cnt);
     }
   }
 
-  /* · opened days — every day the app was used (its own store, never trimmed) */
-  for (const k of Array.isArray(state.history) ? state.history : []) {
-    const d = isKey(k) ? day(k) : null;
-    if (d) d.opened = 1;
-  }
-
-  /* · moods — the mood of a day can be changed but never removed */
-  for (const [k, v] of Object.entries(state.moods && typeof state.moods === 'object' ? state.moods : {})) {
-    const d = isKey(k) ? day(k) : null;
-    const n = Number(v);
-    if (d && Number.isInteger(n) && n >= 1 && n <= 5) d.mood = n;
-  }
-
-  /* · reading — each book carries its own per-day pages and minutes */
   const books = getBooks();
   let readMinutes = 0, pages = 0, notes = 0, booksDone = 0;
   for (const b of books) {
     if (bookComplete(b)) booksDone++;
     notes += (Array.isArray(b.highlights) ? b.highlights.length : 0)
       + (Array.isArray(b.notes) ? b.notes.length : 0);
-    for (const [k, s] of Object.entries(b.stats && typeof b.stats === 'object' ? b.stats : {})) {
-      if (!s || typeof s !== 'object') continue;
-      const m = pos(s.minutes), p = pos(s.pages);
-      readMinutes += m; pages += p;
-      const d = isKey(k) ? day(k) : null;
-      if (d) { d.readMin += m; d.pages += p; }
-    }
+  }
+  for (const b of buckets.values()) {
+    readMinutes += b.readMin;
+    pages += b.pages;
   }
 
-  /* · focus — the archive is capped, so these two are the reason the ledger exists */
   const history = getHistory();
   let focusMinutes = 0, longest = 0, longestAt = null, second = 0, hard = 0, dawn = 0;
   for (const s of history) {
@@ -218,22 +203,6 @@ export function collectTotals(now = new Date()) {
     if (s.rating === 'hard' && s.taskCompleted) hard++;
     const started = new Date(pos(s.startedAt));
     if (started.getHours() < 4) dawn++;
-    const d = day(dayKey(started));
-    if (!d) continue;
-    d.sessions++;
-    d.focusMin += min;
-  }
-
-  /* ── Floors ──
-     live-first: whichever of the two is larger wins, so nothing is lost and
-     nothing is counted twice. */
-  const led = readLedger();
-  for (const [k, v] of Object.entries(led.days)) {
-    const d = day(k);
-    if (!d) continue;
-    d.done = Math.max(d.done, v.done);
-    d.sessions = Math.max(d.sessions, v.sessions);
-    d.focusMin = Math.max(d.focusMin, v.focusMin);
   }
 
   /* ── Derived, day by day ──
@@ -290,10 +259,8 @@ export function collectTotals(now = new Date()) {
 
   /* ── Extras that are not per-day ── */
   let morning = 0;
-  for (const t of tasks) {
-    const ts = Number(t.doneAt);
-    if (!t.done || !Number.isFinite(ts) || ts <= 0) continue;
-    if (new Date(ts).getHours() < 7) morning++;
+  for (const b of buckets.values()) {
+    morning += b.morning;
   }
   const catsWith5 = CATS.filter(c => (catsDone.get(c.key) || 0) >= 5).length;
 

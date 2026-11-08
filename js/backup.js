@@ -20,6 +20,8 @@
    device have usually both moved on since they last met, so each key is merged
    by the meaning it has in the rest of the app rather than overwritten. */
 
+import { invalidateAllBuckets } from './daycache.js';
+
 export const BACKUP_APP = 'daftarche';
 export const BACKUP_FORMAT = 1;
 
@@ -148,6 +150,7 @@ export function applyBackup(storage, backup) {
     rollback();
     return { ok: false, reason: 'جا برای بازگرداندن کافی نبود؛ چیزی عوض نشد.' };
   }
+  invalidateAllBuckets();
   return { ok: true, restored: Object.keys(backup.data).length };
 }
 
@@ -536,5 +539,6 @@ export function mergeBackup(storage, backup) {
     rollback();
     return { ok: false, reason: 'جا برای ادغام کافی نبود؛ چیزی عوض نشد.' };
   }
+  invalidateAllBuckets();
   return { ok: true, written: Object.keys(writes).length };
 }

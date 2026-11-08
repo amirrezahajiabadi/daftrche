@@ -31,6 +31,7 @@ import { subscribe } from './bus.js';
 import { qorqoriMarkup } from './qorqori.js';
 import { loadStatsRange, saveStatsRange } from './store.js';
 import { streakToday } from './ledger.js';
+import { getDayBucket, getDayCacheVersion } from './daycache.js';
 
 /* ── The five windows ──
    `bucket` decides how the window is drawn: a bar per day for the two short
@@ -137,62 +138,23 @@ function weekStartTs(ts) {
   return d.getTime();
 }
 
-/* ── Filling a window's days from every source the app has ── */
+/* ── Filling a window's days from the daily aggregation cache ── */
 
-function fillDays(days) {
-  const byKey = new Map(days.map(d => [d.key, d]));
-  const first = days[0].ts;
-  const last = shiftDays(days[days.length - 1].ts, 1);
-
-  const tasks = (Array.isArray(state.tasks) ? state.tasks : []).map(normalizeTask).filter(Boolean);
-  for (const t of tasks) {
-    if (t.created !== null && t.created >= first && t.created < last) {
-      const d = byKey.get(dayKey(new Date(t.created))); if (d) d.created++;
-    }
-    if (t.doneAt !== null && t.doneAt >= first && t.doneAt < last) {
-      const d = byKey.get(dayKey(new Date(t.doneAt))); if (d) d.done++;
-    }
+function fillDays(days, nowTs) {
+  const nowDate = new Date(nowTs);
+  for (const d of days) {
+    const b = getDayBucket(d.key, nowDate);
+    d.created = b.created;
+    d.done = b.done;
+    d.focusMin = b.focusMin;
+    d.readMin = b.readMin;
+    d.readPages = b.pages;
+    d.marks = b.marks;
+    d.mood = b.mood;
+    d.onTime = b.onTime;
+    d.late = b.late;
+    d.cats = b.cats;
   }
-
-  /* History records name the minutes `actualDurationMin`; the model below and
-     the insights engine both speak `actualMin`, so the rename happens once, here,
-     where the archive meets the math. Reading the wrong name is not a crash — it
-     is worse: a silent zero in every focus total on the page. */
-  const sessions = getHistory()
-    .map(r => ({ ...r, status: 'completed', actualMin: r.actualDurationMin }))
-    .filter(s => s.startedAt >= first && s.startedAt < last);
-  for (const s of sessions) {
-    const d = byKey.get(dayKey(new Date(s.startedAt)));
-    if (d) d.focusMin += s.actualMin || 0;
-  }
-
-  const books = getBooks();
-  for (const b of books) {
-    /* Reading minutes and pages are already stored per day (reader.js) */
-    for (const [k, v] of Object.entries(b.stats || {})) {
-      const d = byKey.get(k);
-      if (!d || !v) continue;
-      d.readMin += Number(v.minutes) || 0;
-      d.readPages += Number(v.pages) || 0;
-    }
-    /* Marks carry their own timestamp, so they can be windowed honestly */
-    for (const list of [b.highlights, b.notes]) {
-      for (const m of (list || [])) {
-        const ts = Number(m && m.createdAt);
-        if (!validTs(ts) || ts < first || ts >= last) continue;
-        const d = byKey.get(dayKey(new Date(ts))); if (d) d.marks++;
-      }
-    }
-  }
-
-  if (state.moods && typeof state.moods === 'object') {
-    for (const d of days) {
-      const m = Number(state.moods[d.key]);
-      if (Number.isInteger(m) && m >= 1 && m <= MOODS.length) d.mood = m;
-    }
-  }
-
-  return { tasks, sessions };
 }
 
 /* ── Buckets: the days of a window, gathered the way the range is drawn ── */
@@ -265,33 +227,9 @@ const sum = (list, pick) => list.reduce((s, x) => s + (pick(x) || 0), 0);
    the day the window ends on. */
 let memo = { key: '', model: null };
 
-function fingerprint(rangeKey, now) {
-  const parts = [rangeKey, dayKey(new Date(now))];
-  const tasks = Array.isArray(state.tasks) ? state.tasks : [];
-  parts.push('t' + tasks.length);
-  for (const t of tasks) {
-    parts.push(`${t.done ? 1 : 0}:${t.cat || ''}:${t.dueDate || ''}:${t.doneAt || 0}:${t.created || 0}:${t.text ? 1 : 0}`);
-  }
-  const hist = getHistory();
-  parts.push('h' + hist.length);
-  for (const r of hist) parts.push(`${r.id}:${r.startedAt}:${r.actualDurationMin}:${r.taskCompleted ? 1 : 0}`);
-  const moods = state.moods && typeof state.moods === 'object' ? state.moods : {};
-  const moodKeys = Object.keys(moods);
-  parts.push('m' + moodKeys.length);
-  for (const k of moodKeys) parts.push(`${k}=${moods[k]}`);
-  parts.push('s' + (Array.isArray(state.history) ? state.history.length : 0));
-  for (const b of getBooks()) {
-    parts.push('b' + (b.id || ''));
-    for (const [k, v] of Object.entries(b.stats || {})) parts.push(`${k}:${Number(v && v.pages) || 0}:${Number(v && v.minutes) || 0}`);
-    for (const m of (b.highlights || [])) parts.push('M' + (Number(m && m.createdAt) || 0));
-    for (const m of (b.notes || [])) parts.push('N' + (Number(m && m.createdAt) || 0));
-    parts.push('C' + ((b.completedPages || []).length));
-  }
-  return parts.join('|');
-}
-
 export function computeStats(rangeKey = DEFAULT_RANGE, now = Date.now()) {
-  const key = fingerprint(rangeKey, now);
+  const version = getDayCacheVersion(new Date(now));
+  const key = `${rangeKey}|${dayKey(new Date(now))}|${version}`;
   if (memo.model && key === memo.key) return memo.model;
   const model = buildStats(rangeKey, now);
   memo = { key, model };
@@ -307,27 +245,18 @@ function buildStats(rangeKey = DEFAULT_RANGE, now = Date.now()) {
   const days = daysBetween(from, now);
   const prevDays = daysBetween(prevFrom, shiftDays(from, -1));
 
-  const { tasks, sessions } = fillDays(days);
-  const prev = fillDays(prevDays);
+  fillDays(days, now);
+  fillDays(prevDays, now);
 
-  /* ── Tasks ──
-     The same denominator the insights use: everything that was created in the
-     window or finished in it — a task carried over from before counts as work
-     of this window once it is ticked.
+  const done = sum(days, d => d.done);
+  const created = sum(days, d => d.created);
+  const donePrev = sum(prevDays, d => d.done);
 
-     Both windows are bounded on both sides. The previous one needs its upper
-     bound most of all: without it, everything completed since it ended falls
-     inside it as well (a completion is always "after" that window), and the
-     comparison this page leads with would be measured against a window that
-     never existed. */
+  const tasks = Array.isArray(state.tasks) ? state.tasks : [];
   const inWindow = (t, start, end) =>
     (t.created !== null && t.created >= start && t.created < end) ||
     (t.doneAt !== null && t.doneAt >= start && t.doneAt < end);
-  const windowTasks = tasks.filter(t => inWindow(t, from, Infinity));
-  const done = windowTasks.filter(t => t.doneAt !== null).length;
-  const created = windowTasks.filter(t => t.created !== null && t.created >= from).length;
-  const prevTasks = prev.tasks.filter(t => inWindow(t, prevFrom, from));
-  const donePrev = prevTasks.filter(t => t.doneAt !== null).length;
+  const windowTasksCount = tasks.filter(t => inWindow(t, from, Infinity)).length;
 
   const activeDays = days.filter(d => d.done > 0).length;
   const prevActiveDays = prevDays.filter(d => d.done > 0).length;
@@ -337,15 +266,20 @@ function buildStats(rangeKey = DEFAULT_RANGE, now = Date.now()) {
   for (const d of days) { run = d.done > 0 ? run + 1 : 0; if (run > bestStreak) bestStreak = run; }
 
   /* ── Focus ── */
-  const focusMinutes = sum(sessions, s => s.actualMin);
-  const prevFocusMinutes = sum(prev.sessions, s => s.actualMin);
+  const focusMinutes = sum(days, d => d.focusMin);
+  const prevFocusMinutes = sum(prevDays, d => d.focusMin);
+  const last = shiftDays(days[days.length - 1].ts, 1);
+  const sessions = getHistory()
+    .map(r => ({ ...r, status: 'completed', actualMin: r.actualDurationMin }))
+    .filter(s => s.startedAt >= from && s.startedAt < last);
   const bestSession = sessions.slice().sort((a, b) => (b.actualMin || 0) - (a.actualMin || 0))[0] || null;
 
   /* ── Categories: share of the ticks that carry a category ── */
   const catCounts = new Map();
-  for (const t of windowTasks) {
-    if (t.doneAt === null) continue;
-    catCounts.set(t.cat, (catCounts.get(t.cat) || 0) + 1);
+  for (const d of days) {
+    for (const [key, count] of Object.entries(d.cats || {})) {
+      catCounts.set(key, (catCounts.get(key) || 0) + count);
+    }
   }
   const catTotal = done;
   const cats = [...catCounts.entries()]
@@ -372,12 +306,8 @@ function buildStats(rangeKey = DEFAULT_RANGE, now = Date.now()) {
   };
 
   /* ── Timing: ticked before the deadline, or after it ── */
-  let onTime = 0, late = 0;
-  for (const t of windowTasks) {
-    if (t.doneAt === null) continue;
-    if (!t.dueDate) continue;
-    if (dayKey(new Date(t.doneAt)) <= t.dueDate) onTime++; else late++;
-  }
+  const onTime = sum(days, d => d.onTime);
+  const late = sum(days, d => d.late);
   const dated = onTime + late;
 
   /* ── Best day and best weekday ── */
@@ -406,7 +336,7 @@ function buildStats(rangeKey = DEFAULT_RANGE, now = Date.now()) {
     headline: {
       done, donePrev, delta: done - donePrev,
       created,
-      rate: rate(done, windowTasks.length),
+      rate: rate(done, windowTasksCount),
       activeDays, activeDaysPrev: prevActiveDays, days: days.length,
       focusMinutes, focusMinutesPrev: prevFocusMinutes,
       streak: streak.current, bestStreak,

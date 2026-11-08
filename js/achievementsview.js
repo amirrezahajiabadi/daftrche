@@ -524,5 +524,9 @@ export function initAchievements() {
   }
 
   subscribe(() => tick());
-  tick(true);
+  const needsBaseline = !loadAchv()?.baselineAt;
+  const isAchvOrProfileActive = $('#page-achv')?.classList.contains('active') || $('#page-profile')?.classList.contains('active');
+  if (needsBaseline || isAchvOrProfileActive) {
+    tick(true);
+  }
 }

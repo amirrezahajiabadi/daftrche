@@ -11,17 +11,26 @@ class MemoryStorage {
     if (typeof globalThis.__DAFTARCHE_CLEAR_DIRTY__ === 'function') {
       globalThis.__DAFTARCHE_CLEAR_DIRTY__(k);
     }
+    if (typeof globalThis.__DAFTARCHE_INVALIDATE_DAYCACHE__ === 'function') {
+      globalThis.__DAFTARCHE_INVALIDATE_DAYCACHE__();
+    }
   }
   removeItem(k) {
     this.map.delete(k);
     if (typeof globalThis.__DAFTARCHE_CLEAR_DIRTY__ === 'function') {
       globalThis.__DAFTARCHE_CLEAR_DIRTY__(k);
     }
+    if (typeof globalThis.__DAFTARCHE_INVALIDATE_DAYCACHE__ === 'function') {
+      globalThis.__DAFTARCHE_INVALIDATE_DAYCACHE__();
+    }
   }
   clear() {
     this.map.clear();
     if (typeof globalThis.__DAFTARCHE_RESET_PENDING__ === 'function') {
       globalThis.__DAFTARCHE_RESET_PENDING__();
+    }
+    if (typeof globalThis.__DAFTARCHE_INVALIDATE_DAYCACHE__ === 'function') {
+      globalThis.__DAFTARCHE_INVALIDATE_DAYCACHE__();
     }
   }
 }

@@ -85,6 +85,7 @@ const SHELL = [
   'js/chipgroup.js',
   'js/confetti.js',
   'js/constants.js',
+  'js/daycache.js',
   'js/decision.js',
   'js/decisioncontext.js',
   'js/dialog.js',
