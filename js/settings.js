@@ -24,7 +24,7 @@ import { TEXT_SIZES, loadTextSize, saveTextSize } from './textsize.js';
 import { markBackupDone } from './backup-nudge.js';
 import { collectBackup, parseBackup, applyBackup, mergeBackup, backupFileName, BACKUP_MAX_CHARS } from './backup.js';
 import { confirmDialog, showNotice } from './dialog.js';
-import { clearAll } from './store.js';
+import { clearAll, flushPending, resetPending } from './store.js';
 import { systemReducedMotion, userReducedMotion, setUserReducedMotion } from './motion.js';
 import { isNative, saveAndShareBlob } from './native.js';
 
@@ -249,6 +249,7 @@ export function initSettings() {
 
   $('#backupExport')?.addEventListener('click', async () => {
     try {
+      flushPending();
       const backup = collectBackup(localStorage, { release: APP_VERSION });
       const blob = new Blob([JSON.stringify(backup)], { type: 'application/json' });
       const res = await saveAndShareBlob(blob, backupFileName(), { title: 'پشتیبان دَفتَرچه' });
@@ -345,6 +346,7 @@ export function initSettings() {
     if (choice === null) { say('وارد شدن پشتیبان لغو شد؛ چیزی عوض نشد.'); return; }
 
     let res;
+    resetPending();
     if (choice === 'merge') res = mergeBackup(localStorage, parsed.backup);
     else res = applyBackup(localStorage, parsed.backup);
     if (!res.ok) { say(res.reason); return; }

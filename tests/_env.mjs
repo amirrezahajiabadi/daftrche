@@ -5,9 +5,25 @@ class MemoryStorage {
   get length() { return this.map.size; }
   key(i) { return [...this.map.keys()][i] ?? null; }
   getItem(k) { return this.map.has(k) ? this.map.get(k) : null; }
-  setItem(k, v) { this.writes++; this.map.set(k, String(v)); }
-  removeItem(k) { this.map.delete(k); }
-  clear() { this.map.clear(); }
+  setItem(k, v) {
+    this.writes++;
+    this.map.set(k, String(v));
+    if (typeof globalThis.__DAFTARCHE_CLEAR_DIRTY__ === 'function') {
+      globalThis.__DAFTARCHE_CLEAR_DIRTY__(k);
+    }
+  }
+  removeItem(k) {
+    this.map.delete(k);
+    if (typeof globalThis.__DAFTARCHE_CLEAR_DIRTY__ === 'function') {
+      globalThis.__DAFTARCHE_CLEAR_DIRTY__(k);
+    }
+  }
+  clear() {
+    this.map.clear();
+    if (typeof globalThis.__DAFTARCHE_RESET_PENDING__ === 'function') {
+      globalThis.__DAFTARCHE_RESET_PENDING__();
+    }
+  }
 }
 export const ls = new MemoryStorage();
 globalThis.localStorage = ls;

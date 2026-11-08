@@ -27,7 +27,7 @@
 
 import { state } from './state.js';
 import { STORAGE_KEYS, CATS } from './constants.js';
-import { loadFreeze, safeSet, readJSON } from './store.js';
+import { loadFreeze, scheduleSave, readJSON } from './store.js';
 import { dayKey, shiftKey } from './utils.js';
 import { getBooks, bookComplete } from './library.js';
 import { getHistory } from './focushistory.js';
@@ -83,7 +83,7 @@ export function readLedger() {
 }
 
 function writeLedger(led) {
-  safeSet(STORAGE_KEYS.ledger, JSON.stringify(led)); // failure is reported by the storage layer
+  scheduleSave(STORAGE_KEYS.ledger, led);
 }
 
 /* ── Writing a floor ──

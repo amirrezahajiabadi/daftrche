@@ -1,6 +1,6 @@
 /* ═══ Library: Reading Workspace — Shelf, Reading State, Goal, Storage ═══ */
 import { $, faNum, dayKey, esc, nextId, normalizeFa } from './utils.js';
-import { readJSON, safeSet, STORAGE_ERROR_EVENT, requestPersistentStorage } from './store.js';
+import { readJSON, safeSet, scheduleSave, STORAGE_ERROR_EVENT, requestPersistentStorage } from './store.js';
 import { showNotice } from './dialog.js';
 import { LIB_ICONS } from './constants.js';
 import { openChipPicker } from './taskedit.js';
@@ -14,7 +14,7 @@ const META_KEY = 'daftarche-books-meta';
 const storedBooks = readJSON(META_KEY, null);
 let books = Array.isArray(storedBooks) ? storedBooks : [];
 const saveMeta = () => {
-  const ok = safeSet(META_KEY, JSON.stringify(books));
+  const ok = scheduleSave(META_KEY, books);
   /* The Today page shows the reading goals; it hears about a change here instead of
      having every writer (the reader, the goal sheet, import) call it. */
   try { window.dispatchEvent(new Event('daftarche:books-changed')); } catch { /* no window */ }

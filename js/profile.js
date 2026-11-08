@@ -3,7 +3,7 @@
    has not changed: every render used to replace the character sprite, the four
    stat chips and the six badges with identical markup, which is visible as a
    blink on a theme flip or a rename. */
-import { safeSet, safeRemove, readString, readJSON } from './store.js';
+import { safeSet, safeRemove, scheduleSave, readString, readJSON } from './store.js';
 import { $, dayKey } from './utils.js';
 import { state } from './state.js';
 import { showNotice } from './dialog.js';
@@ -72,14 +72,14 @@ export function getAvatar() {
   } else {
     // Stale/unknown stored avatar (removed human avatars, old photos, bad data) → Qorqori.
     charCache = { type: 'char', id: 'qorqori' };
-    safeSet(AV_KEY, JSON.stringify(charCache));
+    scheduleSave(AV_KEY, charCache);
   }
   return charCache;
 }
 
 function setAvatar(a) {
   charCache = a;
-  safeSet(AV_KEY, JSON.stringify(a));
+  scheduleSave(AV_KEY, a);
   renderProfile();
 }
 

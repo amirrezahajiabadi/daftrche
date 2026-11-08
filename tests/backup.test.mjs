@@ -394,14 +394,14 @@ test('safeSet: returns true on success, false + event on failure, never throws',
     removeItem() { throw new Error('denied'); },
     getItem() { return null; },
   };
-  const { safeSet, safeRemove, saveTasks, readJSON } = await import('../js/store.js');
+  const { safeSet, safeRemove, saveTasks, readJSON, scheduleSave, flushPending, isDirty, resetPending, migrateStorage } = await import('../js/store.js');
 
   assert.equal(safeSet('daftarche-x', '1'), false);
   assert.equal(events.length, 1);
   assert.equal(events[0].key, 'daftarche-x');
   assert.equal(safeRemove('daftarche-x'), false);
   assert.equal(events.length, 2);
-  assert.equal(saveTasks([{ id: 1 }]), false);   // the real save path is guarded too
+  assert.equal(saveTasks([{ id: 1 }], { sync: true }), false);   // the real save path is guarded too
   assert.equal(readJSON('daftarche-x', 'fallback'), 'fallback');
 
   const written = new Map();
@@ -411,4 +411,66 @@ test('safeSet: returns true on success, false + event on failure, never throws',
 
   delete globalThis.window;
   delete globalThis.localStorage;
+});
+
+test('persistence manager: scheduleSave queues debounced writes and serves 0ms in-memory reads', async () => {
+  const store = new Map();
+  globalThis.localStorage = {
+    setItem: (k, v) => store.set(k, String(v)),
+    getItem: k => store.get(k) ?? null,
+    removeItem: k => store.delete(k),
+    clear: () => store.clear(),
+  };
+
+  const { scheduleSave, flushPending, resetPending, isDirty, readJSON, readString } = await import('../js/store.js');
+  resetPending();
+
+  // 1. Initial scheduleSave updates memory immediately
+  scheduleSave('daftarche-v1', [{ id: 't1', text: 'کار اول' }]);
+  assert.equal(isDirty('daftarche-v1'), true);
+  assert.equal(isDirty(), true);
+  // localStorage does not have it yet (debounced / queued)
+  assert.equal(store.has('daftarche-v1'), false);
+  // but in-memory read returns it immediately (0ms UI latency)
+  assert.deepEqual(readJSON('daftarche-v1', []), [{ id: 't1', text: 'کار اول' }]);
+
+  // 2. Schedule another dirty slice
+  scheduleSave('daftarche-name', 'سارا');
+  assert.equal(readString('daftarche-name'), 'سارا');
+  assert.equal(store.has('daftarche-name'), false);
+
+  // 3. Flush pending writes to disk synchronously
+  assert.equal(flushPending(), true);
+  assert.equal(isDirty(), false);
+  assert.equal(store.has('daftarche-v1'), true);
+  assert.equal(JSON.parse(store.get('daftarche-v1'))[0].text, 'کار اول');
+  assert.equal(store.get('daftarche-name'), 'سارا');
+
+  resetPending();
+  delete globalThis.localStorage;
+});
+
+test('transparent migration: migrateStorage extracts monolithic legacy keys into dedicated shards', async () => {
+  const fake = new FakeStorage({
+    'daftarche-state': JSON.stringify({
+      tasks: [{ id: 'old1', text: 'وظیفه قدیمی' }],
+      history: ['2026-08-01'],
+      userName: 'رضا',
+      theme: 'graphite',
+      moods: { '2026-08-01': 'happy' },
+    }),
+  });
+
+  const { migrateStorage } = await import('../js/store.js');
+  const migrated = migrateStorage(fake);
+  assert.equal(migrated, true);
+
+  // Legacy key removed
+  assert.equal(fake.getItem('daftarche-state'), null);
+  // Individual shards created
+  assert.ok(fake.getItem('daftarche-v1'));
+  assert.equal(JSON.parse(fake.getItem('daftarche-v1'))[0].id, 'old1');
+  assert.equal(fake.getItem('daftarche-name'), 'رضا');
+  assert.equal(fake.getItem('theme'), 'graphite');
+  assert.deepEqual(JSON.parse(fake.getItem('daftarche-history')), ['2026-08-01']);
 });
