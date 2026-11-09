@@ -1,0 +1,21 @@
+# robots.txt for app.daftrche.ir
+Content-Signal: search=yes, ai-input=yes, ai-train=no
+
+User-agent: *
+Allow: /
+
+# AI search engines
+User-agent: PerplexityBot
+User-agent: Claude-SearchBot
+User-agent: OAI-SearchBot
+Allow: /
+
+# AI training crawlers
+User-agent: GPTBot
+User-agent: ClaudeBot
+User-agent: Google-Extended
+User-agent: CCBot
+Disallow: /
+
+Sitemap: https://app.daftrche.ir/sitemap.xml
+# LLMs: https://app.daftrche.ir/llms.txt
