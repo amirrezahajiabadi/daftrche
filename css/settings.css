@@ -89,7 +89,7 @@
 /* ═══ Settings Dual Tabs ═══ */
 .settings-tabs{
   display:grid;
-  grid-template-columns:repeat(2,1fr);
+  grid-template-columns:repeat(3,1fr);
   gap:4px;
   padding:4px;
   background:var(--color-surface);
@@ -115,6 +115,7 @@
   border-radius:var(--radius-xs);
   cursor:pointer;
   transition:color var(--duration-base),background var(--duration-base);
+  white-space:nowrap;
 }
 .settings-tab small{
   color:var(--color-text-muted);
@@ -132,6 +133,18 @@
   color:var(--color-accent-text);
   opacity:.9;
 }
+.settings-tab-badge{
+  color:var(--color-text-on-accent);
+  background:var(--color-accent);
+  font-size:10px;
+  font-weight:700;
+  line-height:1.2;
+  padding:2px 6px;
+  border-radius:var(--radius-full);
+}
+.settings-tab-badge[hidden]{
+  display:none !important;
+}
 .settings-tab:focus-visible{
   outline:2px solid var(--color-focus);
   outline-offset:2px;
@@ -139,11 +152,104 @@
 @media (pointer: coarse){
   .settings-tab{min-height:44px}
 }
+@media (max-width:480px){
+  .settings-tabs{
+    overflow-x:auto;
+    scrollbar-width:none;
+    -webkit-overflow-scrolling:touch;
+  }
+  .settings-tabs::-webkit-scrollbar{
+    display:none;
+  }
+}
+@media (max-width:380px){
+  .settings-tab{
+    font-size:11.5px;
+    padding:8px 6px;
+    gap:4px;
+  }
+  .settings-tabs{
+    grid-template-columns:repeat(3,minmax(90px,1fr));
+  }
+}
 @media (prefers-reduced-motion: reduce){
   .settings-tab{transition:none}
 }
 html[data-motion="reduced"] .settings-tab{
   transition:none;
+}
+
+/* ═══ Update Section ═══ */
+.update-status-badge{
+  display:inline-flex;
+  align-items:center;
+  font-size:11px;
+  font-weight:600;
+  line-height:1.4;
+  padding:2px 8px;
+  border-radius:var(--radius-full);
+  background:var(--color-accent-soft);
+  color:var(--color-accent-text);
+  border:1px solid var(--color-border);
+}
+.update-status-badge.ok{
+  background:var(--color-accent-soft);
+  color:var(--color-accent-text);
+}
+.update-status-badge.ready{
+  background:var(--color-accent);
+  color:var(--color-text-on-accent);
+  border-color:var(--color-accent);
+}
+.update-status-badge.error,
+.update-status-badge.offline{
+  background:var(--color-surface);
+  color:var(--color-text-secondary);
+}
+.settings-btn-primary{
+  background:var(--color-accent);
+  color:var(--color-text-on-accent);
+  border-color:var(--color-accent);
+}
+@media (hover:hover){
+  .settings-btn-primary:hover{
+    opacity:.92;
+  }
+}
+.settings-btn:disabled{
+  opacity:.55;
+  cursor:not-allowed;
+}
+.update-progress-wrap{
+  width:100%;
+  margin-block-start:8px;
+}
+.update-progress-wrap[hidden]{
+  display:none !important;
+}
+.update-progress-bar{
+  width:100%;
+  height:6px;
+  background:var(--color-accent-soft);
+  border-radius:var(--radius-full);
+  overflow:hidden;
+}
+.update-progress-fill{
+  height:100%;
+  width:45%;
+  background:var(--color-accent);
+  border-radius:var(--radius-full);
+  animation:update-progress-pulse 1.2s ease-in-out infinite alternate;
+}
+@keyframes update-progress-pulse{
+  0%{width:15%;margin-inline-start:0%}
+  100%{width:60%;margin-inline-start:40%}
+}
+@media (prefers-reduced-motion: reduce){
+  .update-progress-fill{animation:none}
+}
+html[data-motion="reduced"] .update-progress-fill{
+  animation:none;
 }
 
 .settings-panel{

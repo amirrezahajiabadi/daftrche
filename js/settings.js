@@ -36,9 +36,12 @@ import { renderAchievements } from './achievementsview.js';
 import { renderPlanner } from './planner.js';
 
 let activeSettingsTab = 'general';
+let updateStatus = 'idle';
+let cachedRemoteRelease = null;
 
 export function switchSettingsTab(tabKey) {
-  const target = tabKey === 'themes' ? 'themes' : 'general';
+  const validTabs = ['general', 'themes', 'updates'];
+  const target = validTabs.includes(tabKey) ? tabKey : 'general';
   activeSettingsTab = target;
 
   const tabBtns = document.querySelectorAll('.settings-tab');
@@ -46,6 +49,7 @@ export function switchSettingsTab(tabKey) {
     const isSel = btn.dataset.settingsTab === target;
     btn.classList.toggle('sel', isSel);
     btn.setAttribute('aria-selected', String(isSel));
+    btn.setAttribute('tabindex', isSel ? '0' : '-1');
   });
 
   const panels = document.querySelectorAll('.settings-panel');
@@ -55,6 +59,9 @@ export function switchSettingsTab(tabKey) {
   });
 
   renderSettingsThemeCount();
+  if (target === 'updates') {
+    renderUpdateSection();
+  }
 }
 
 export function currentSettingsTab() {
@@ -79,6 +86,333 @@ export function ensureSettingsElementVisible(elOrSelector) {
   }
 }
 
+export function renderUpdateSection() {
+  const badge = $('#updateStatusBadge');
+  const btn = $('#checkUpdateBtn');
+  const statusEl = $('#checkUpdateStatus');
+  const actionLabel = $('#checkUpdateActionLabel');
+  const tabBadge = $('#settingsUpdateBadge');
+  const progressWrap = $('#checkUpdateProgress');
+
+  if (updateStatus === 'installing' || updateStatus === 'downloading') return;
+
+  if (isNative()) {
+    if (badge) {
+      badge.textContent = 'به‌روز';
+      badge.className = 'update-status-badge ok';
+    }
+    if (statusEl) {
+      statusEl.textContent = 'نسخهٔ نصب‌شده به‌روز است. دریافت نسخه‌های تازه از طریق مایکت و بازار انجام می‌شود.';
+    }
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'بررسی آپدیت';
+    }
+    if (actionLabel) actionLabel.textContent = 'وضعیت نسخه';
+    if (tabBadge) tabBadge.hidden = true;
+    if (progressWrap) progressWrap.hidden = true;
+    return;
+  }
+
+  if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistration().then(reg => {
+      if (reg?.waiting) {
+        markUpdateAvailable({ remoteRelease: cachedRemoteRelease });
+      } else if (reg?.installing) {
+        const worker = reg.installing;
+        worker.addEventListener('statechange', function onState() {
+          if (worker.state === 'installed' || reg.waiting) {
+            worker.removeEventListener('statechange', onState);
+            markUpdateAvailable({ remoteRelease: cachedRemoteRelease });
+          }
+        });
+      }
+    }).catch(() => {});
+  }
+}
+
+export function markUpdateAvailable({ remoteRelease } = {}) {
+  updateStatus = 'available';
+  const badge = $('#updateStatusBadge');
+  const btn = $('#checkUpdateBtn');
+  const statusEl = $('#checkUpdateStatus');
+  const actionLabel = $('#checkUpdateActionLabel');
+  const tabBadge = $('#settingsUpdateBadge');
+  const progressWrap = $('#checkUpdateProgress');
+
+  if (progressWrap) progressWrap.hidden = true;
+  if (tabBadge) tabBadge.hidden = false;
+  if (badge) {
+    badge.textContent = 'نسخهٔ جدید آماده است';
+    badge.className = 'update-status-badge ready';
+  }
+  if (actionLabel) {
+    actionLabel.textContent = 'دریافت نسخه جدید';
+  }
+  if (btn) {
+    btn.disabled = false;
+    btn.textContent = 'دریافت و نصب به‌روزرسانی';
+    btn.classList.add('settings-btn-primary');
+  }
+  const rel = remoteRelease || cachedRemoteRelease;
+  if (statusEl) {
+    statusEl.textContent = rel
+      ? `نسخهٔ جدید (${faNum(rel)}) در دسترس است! برای دریافت روی دکمهٔ بالا بزنید.`
+      : 'نسخهٔ جدید دفترچه آماده است! برای اعمال به‌روزرسانی روی دکمهٔ بالا بزنید.';
+  }
+}
+
+export function markAppUpToDate() {
+  updateStatus = 'latest';
+  const badge = $('#updateStatusBadge');
+  const btn = $('#checkUpdateBtn');
+  const statusEl = $('#checkUpdateStatus');
+  const actionLabel = $('#checkUpdateActionLabel');
+  const tabBadge = $('#settingsUpdateBadge');
+  const progressWrap = $('#checkUpdateProgress');
+
+  if (progressWrap) progressWrap.hidden = true;
+  if (tabBadge) tabBadge.hidden = true;
+  if (badge) {
+    badge.textContent = 'به‌روز';
+    badge.className = 'update-status-badge ok';
+  }
+  if (actionLabel) {
+    actionLabel.textContent = 'بررسی نسخه جدید';
+  }
+  if (btn) {
+    btn.disabled = false;
+    btn.textContent = 'بررسی مجدد';
+    btn.classList.remove('settings-btn-primary');
+  }
+  const ver = APP_VERSION || (typeof self !== 'undefined' ? self.DAFTARCHE_RELEASE : '') || '';
+  if (statusEl) {
+    statusEl.textContent = ver
+      ? `دفتَرچه به‌روز است — شما از آخرین نسخه (${faNum(ver)}) استفاده می‌کنید ✨`
+      : 'دفتَرچه به‌روز است — شما از آخرین نسخه استفاده می‌کنید ✨';
+  }
+}
+
+export async function checkAppUpdate({ userInitiated = false } = {}) {
+  const btn = $('#checkUpdateBtn');
+  const badge = $('#updateStatusBadge');
+  const statusEl = $('#checkUpdateStatus');
+  const progressWrap = $('#checkUpdateProgress');
+
+  if (updateStatus === 'installing') return;
+
+  if (isNative()) {
+    if (badge) {
+      badge.textContent = 'به‌روز';
+      badge.className = 'update-status-badge ok';
+    }
+    if (statusEl) {
+      statusEl.textContent = 'برنامهٔ شما به‌روز است. دریافت به‌روزرسانی‌های نسخهٔ اندروید از طریق بازار و مایکت انجام می‌شود.';
+    }
+    updateStatus = 'latest';
+    return;
+  }
+
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    if (badge) {
+      badge.textContent = 'آفلاین';
+      badge.className = 'update-status-badge offline';
+    }
+    if (statusEl) {
+      statusEl.textContent = 'اتصال اینترنت برقرار نیست. برای بررسی نسخه جدید به اینترنت نیاز است.';
+    }
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'بررسی دوباره';
+    }
+    if (progressWrap) progressWrap.hidden = true;
+    updateStatus = 'offline';
+    return;
+  }
+
+  let reg = null;
+  if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+    try {
+      reg = await navigator.serviceWorker.getRegistration();
+    } catch { /* ignore */ }
+  }
+
+  if (reg?.waiting) {
+    markUpdateAvailable({ remoteRelease: cachedRemoteRelease });
+    return;
+  }
+
+  if (userInitiated) {
+    updateStatus = 'checking';
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'در حال بررسی…';
+    }
+    if (badge) {
+      badge.textContent = 'در حال بررسی';
+      badge.className = 'update-status-badge';
+    }
+    if (statusEl) {
+      statusEl.textContent = 'در حال بررسی نسخهٔ جدید روی سرور…';
+    }
+    if (progressWrap) {
+      progressWrap.hidden = false;
+    }
+  }
+
+  let updateFound = false;
+  let remoteRelease = null;
+  let remoteBuild = null;
+  let fetchSucceeded = false;
+
+  try {
+    const versionUrl = typeof document !== 'undefined' && document.baseURI
+      ? new URL('js/version.js?_t=' + Date.now(), document.baseURI)
+      : 'js/version.js?_t=' + Date.now();
+
+    const res = await fetch(versionUrl, { cache: 'no-store' });
+    if (res.ok) {
+      fetchSucceeded = true;
+      const text = await res.text();
+      const mRel = text.match(/DAFTARCHE_RELEASE\s*=\s*['"]([^'"]+)['"]/);
+      const mBld = text.match(/DAFTARCHE_BUILD\s*=\s*['"]([^'"]+)['"]/);
+      if (mRel) remoteRelease = mRel[1];
+      if (mBld) remoteBuild = mBld[1];
+      if (remoteRelease) cachedRemoteRelease = remoteRelease;
+    }
+  } catch {
+    fetchSucceeded = false;
+  }
+
+  const curBuild = typeof self !== 'undefined' ? self.DAFTARCHE_BUILD : null;
+  const curRelease = APP_VERSION || (typeof self !== 'undefined' ? self.DAFTARCHE_RELEASE : null);
+
+  if ((remoteBuild && curBuild && remoteBuild !== curBuild) ||
+      (remoteRelease && curRelease && remoteRelease !== curRelease)) {
+    updateFound = true;
+  }
+
+  let swTriggered = false;
+  if (reg && typeof reg.update === 'function') {
+    try {
+      const updatePromise = reg.update();
+      swTriggered = true;
+      if (reg.installing) {
+        updateFound = true;
+      }
+      await updatePromise;
+      if (reg.installing || reg.waiting) {
+        updateFound = true;
+      }
+    } catch {
+      // SW update network failure
+    }
+  }
+
+  if (!fetchSucceeded && !swTriggered && !reg?.waiting) {
+    if (userInitiated) {
+      updateStatus = 'error';
+      if (progressWrap) progressWrap.hidden = true;
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'بررسی دوباره';
+      }
+      if (badge) {
+        badge.textContent = 'خطا در بررسی';
+        badge.className = 'update-status-badge error';
+      }
+      if (statusEl) {
+        statusEl.textContent = 'بررسی با خطا مواجه شد. لطفاً اتصال اینترنت را بررسی کنید.';
+      }
+    }
+    return;
+  }
+
+  if (reg?.installing && !reg?.waiting) {
+    updateStatus = 'downloading';
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'در حال دریافت فایل‌ها…';
+    }
+    if (badge) {
+      badge.textContent = 'در حال دریافت';
+      badge.className = 'update-status-badge';
+    }
+    if (statusEl) {
+      statusEl.textContent = 'نسخهٔ تازه پیدا شد؛ در حال دانلود فایل‌ها روی دستگاه…';
+    }
+    if (progressWrap) progressWrap.hidden = false;
+
+    const worker = reg.installing;
+    worker.addEventListener('statechange', function onState() {
+      if (worker.state === 'installed' || reg.waiting) {
+        worker.removeEventListener('statechange', onState);
+        markUpdateAvailable({ remoteRelease });
+      }
+    });
+    return;
+  }
+
+  if (updateFound || reg?.waiting) {
+    markUpdateAvailable({ remoteRelease });
+  } else {
+    markAppUpToDate();
+  }
+}
+
+export async function applyAppUpdate() {
+  updateStatus = 'installing';
+  const btn = $('#checkUpdateBtn');
+  const statusEl = $('#checkUpdateStatus');
+  const progressWrap = $('#checkUpdateProgress');
+
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'در حال نصب…';
+  }
+  if (statusEl) {
+    statusEl.textContent = 'در حال اعمال به‌روزرسانی و بارگذاری برگهٔ تازه…';
+  }
+  if (progressWrap) {
+    progressWrap.hidden = false;
+  }
+
+  if (typeof document !== 'undefined' && typeof document.dispatchEvent === 'function') {
+    document.dispatchEvent(new CustomEvent('daftarche:apply-update'));
+  }
+
+  let reloaded = false;
+  const doReload = () => {
+    if (reloaded) return;
+    reloaded = true;
+    if (typeof location !== 'undefined') {
+      location.reload();
+    }
+  };
+
+  if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+    try {
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        setTimeout(doReload, 300);
+      }, { once: true });
+
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (reg?.waiting) {
+        reg.waiting.postMessage('SKIP_WAITING');
+      } else if (reg?.installing) {
+        const worker = reg.installing;
+        worker.addEventListener('statechange', () => {
+          if (worker.state === 'installed') {
+            worker.postMessage('SKIP_WAITING');
+          }
+        });
+      }
+    } catch { /* ignore */ }
+  }
+
+  setTimeout(doReload, 3500);
+}
+
 /* What the page says about itself, painted on entry. The picker is marked here
    as well as by js/theme.js because the two halves of the table are remembered
    per half: opening the page must show the theme the app is actually wearing,
@@ -91,16 +425,15 @@ export function renderSettings() {
   if (pm) pm.textContent = faNum(state.pomoMin) + ' دقیقه';
 
   /* The release number alone — the row it sits in is already labelled «نسخه»,
-     so the cell must not say the word twice. Persian digits, "2.0.0" → "۲.۰".
-     The number comes from js/version.js; without that file the cell is left
-     empty rather than showing a wrong version. */
+     so the cell must not say the word twice. Persian digits, "3.3.0" → "۳.۳.۰". */
   const pv = $('#profVersion');
-  if (pv && APP_VERSION) pv.textContent = APP_VERSION.split('.').slice(0, 2).join('.').replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[d]);
+  if (pv && APP_VERSION) pv.textContent = faNum(APP_VERSION);
 
   renderPersistRow();
   renderThemeAutoRow();
   renderMotionRow();
   renderSettingsThemeCount();
+  renderUpdateSection();
   switchSettingsTab(activeSettingsTab);
 }
 
@@ -166,6 +499,22 @@ export function initSettings() {
   $('#profTour')?.addEventListener('click', () => startTour());
 
   $('#openShortcutsBtn')?.addEventListener('click', () => openShortcuts());
+
+  $('#checkUpdateBtn')?.addEventListener('click', () => {
+    if (updateStatus === 'available') {
+      applyAppUpdate();
+    } else {
+      checkAppUpdate({ userInitiated: true });
+    }
+  });
+
+  $('#profTourUpdates')?.addEventListener('click', () => startTour());
+
+  if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+    document.addEventListener('daftarche:update-available', () => {
+      markUpdateAvailable();
+    });
+  }
 
   const autoBtn = $('#themeAutoBtn');
   if (autoBtn) {

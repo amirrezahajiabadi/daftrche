@@ -1034,12 +1034,16 @@
     </header>
 
     <div class="settings-tabs" role="tablist" aria-label="بخش‌های تنظیمات">
-      <button type="button" class="settings-tab sel" role="tab" id="settingsTabGeneral" aria-selected="true" aria-controls="settingsPanelGeneral" data-settings-tab="general">
+      <button type="button" class="settings-tab sel" role="tab" id="settingsTabGeneral" aria-selected="true" aria-controls="settingsPanelGeneral" data-settings-tab="general" tabindex="0">
         <span>عمومی</span>
       </button>
-      <button type="button" class="settings-tab" role="tab" id="settingsTabThemes" aria-selected="false" aria-controls="settingsPanelThemes" data-settings-tab="themes">
+      <button type="button" class="settings-tab" role="tab" id="settingsTabThemes" aria-selected="false" aria-controls="settingsPanelThemes" data-settings-tab="themes" tabindex="-1">
         <span>تم و دنیاها</span>
         <small id="settingsThemeCount"></small>
+      </button>
+      <button type="button" class="settings-tab" role="tab" id="settingsTabUpdates" aria-selected="false" aria-controls="settingsPanelUpdates" data-settings-tab="updates" tabindex="-1">
+        <span>بررسی آپدیت</span>
+        <small id="settingsUpdateBadge" class="settings-tab-badge" hidden>جدید</small>
       </button>
     </div>
 
@@ -1104,31 +1108,6 @@
         </div>
       </div>
 
-      <div class="vibe-card">
-        <div class="vibe-head"><strong>درباره</strong></div>
-        <div class="set-item">
-          <div class="settings-row">
-            <span class="settings-label">راهنمای دفترچه</span>
-            <button class="settings-btn" id="profTour" type="button">بریم</button>
-          </div>
-          <p class="settings-hint">تور کوتاهی که همه‌جای دفترچه رو نشون می‌ده — همونی که بار اول دیدی، از اول.</p>
-        </div>
-        <div class="settings-divider"></div>
-        <div class="set-item">
-          <div class="settings-row">
-            <span class="settings-label">نسخه</span>
-            <div class="settings-value"><span id="profVersion"></span></div>
-          </div>
-        </div>
-        <div class="settings-divider"></div>
-        <div class="set-item">
-          <div class="settings-row">
-            <span class="settings-label">تازه‌های دفترچه</span>
-            <button class="settings-btn" id="profNotes" type="button">ببین</button>
-          </div>
-          <p class="settings-hint">هر بار دفترچه به‌روز می‌شه، این‌جا می‌تونی ببینی چی عوض شده.</p>
-        </div>
-      </div>
 
       <div class="vibe-card">
         <div class="vibe-head"><strong>پشتیبان‌گیری و ماندگاری</strong></div>
@@ -1195,6 +1174,14 @@
         <div class="vibe-head"><strong>راهنما و میانبرها</strong></div>
         <div class="set-item">
           <div class="settings-row">
+            <span class="settings-label">راهنمای دفترچه</span>
+            <button class="settings-btn" id="profTour" type="button">بریم</button>
+          </div>
+          <p class="settings-hint">تور کوتاهی که همه‌جای دفترچه رو نشون می‌ده — همونی که بار اول دیدی، از اول.</p>
+        </div>
+        <div class="settings-divider"></div>
+        <div class="set-item">
+          <div class="settings-row">
             <span class="settings-label">کلیدهای میانبر صفحه‌کلید</span>
             <button class="settings-btn" id="openShortcutsBtn" type="button">راهنما (؟)</button>
           </div>
@@ -1249,6 +1236,61 @@
         </div>
         <p class="settings-hint">هفده تم: هفت تم پایه همیشه باز (دفترچه، فیروزه، کبالت، آرورا در روشن / لاجورد، گرافیت، شب‌شیشه در تیره) و ده دنیای ویژه که با نشان‌ها باز می‌شوند و هر کدام کارت تعاملی به صفحهٔ امروز می‌آورند.</p>
       </div>
+    </div>
+
+    <!-- ═══ Panel 3: Updates & About ═══ -->
+    <div class="settings-panel" data-settings-panel="updates" id="settingsPanelUpdates" role="tabpanel" aria-labelledby="settingsTabUpdates" hidden>
+      <div class="vibe-card">
+        <div class="vibe-head"><strong>بررسی آپدیت</strong></div>
+        <div class="set-item">
+          <div class="settings-row">
+            <span class="settings-label">نسخهٔ فعلی</span>
+            <div class="settings-value">
+              <span id="profVersion"></span>
+              <span class="update-status-badge" id="updateStatusBadge">نصب‌شده</span>
+            </div>
+          </div>
+          <p class="settings-hint" id="updateStatusHint">نسخهٔ نصب‌شدهٔ دفترچه روی این دستگاه.</p>
+        </div>
+        <div class="settings-divider"></div>
+        <div class="set-item">
+          <div class="settings-row">
+            <span class="settings-label" id="checkUpdateActionLabel">بررسی نسخه جدید</span>
+            <button class="settings-btn settings-btn-primary" id="checkUpdateBtn" type="button">بررسی آپدیت</button>
+          </div>
+          <p class="settings-hint" id="checkUpdateStatus" role="status" aria-live="polite">با زدن دکمه، وضعیت انتشار نسخهٔ جدید دفتَرچه بررسی می‌شود.</p>
+          <div class="update-progress-wrap" id="checkUpdateProgress" hidden>
+            <div class="update-progress-bar">
+              <div class="update-progress-fill"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="vibe-card">
+        <div class="vibe-head"><strong>تازه‌ها و تغییرات</strong></div>
+        <div class="set-item">
+          <div class="settings-row">
+            <span class="settings-label">تازه‌های دفترچه</span>
+            <button class="settings-btn" id="profNotes" type="button">ببین</button>
+          </div>
+          <p class="settings-hint">هر بار دفترچه به‌روز می‌شه، این‌جا می‌تونی ببینی چی عوض شده.</p>
+        </div>
+      </div>
+
+      <div class="vibe-card">
+        <div class="vibe-head"><strong>راهنما و درباره</strong></div>
+        <div class="set-item">
+          <div class="settings-row">
+            <span class="settings-label">راهنمای دفترچه</span>
+            <button class="settings-btn" id="profTourUpdates" type="button">بریم</button>
+          </div>
+          <p class="settings-hint">مرور تور معرفی امکانات و بخش‌های مختلف دفترچه از ابتدا.</p>
+        </div>
+        <div class="settings-divider"></div>
+        <p class="settings-hint">دفتَرچه یک برنامهٔ یادداشت و کارهای روزانه است که کاملاً آفلاین و روی دستگاه شما کار می‌کند.</p>
+      </div>
+      <p class="settings-about">کار هاتو به دفتَرچه بسپار</p>
     </div>
   </main>
 </div>

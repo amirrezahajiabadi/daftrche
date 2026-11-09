@@ -115,6 +115,9 @@ export function initPWA() {
       snoozed = false;
       if (message) message.textContent = 'نسخهٔ جدید اومده!';
       if (!applying) resetUI();
+      if (typeof document !== 'undefined' && typeof document.dispatchEvent === 'function') {
+        document.dispatchEvent(new CustomEvent('daftarche:update-available'));
+      }
     }
     observe(worker);
     showOffer();
@@ -270,6 +273,12 @@ export function initPWA() {
     dismissBtn.addEventListener('click', () => {
       snoozed = true;
       hideOffer();
+    });
+  }
+
+  if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+    document.addEventListener('daftarche:apply-update', () => {
+      button?.click();
     });
   }
 
