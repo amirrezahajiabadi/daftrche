@@ -3,13 +3,10 @@ import { isBusy } from './calm.js';
 const CHECK_INTERVAL = 30 * 60 * 1000;
 const RETRY_DELAY = 60 * 1000;
 const ACTIVATION_TIMEOUT = 15000;
-
-/* The worker usually activates in a few hundred milliseconds, and a state that
-   blinks past reads as a glitch rather than as work. The note holds its loading
-   line for this long from the tap, then shows the filled line for one more beat,
-   and only then does the page come back. */
-const WORK_MIN = 1200;
-const DONE_BEAT = 450;
+const SAFETY_TIMEOUT = 3500;
+const ANIM_DURATION = 1600;
+const CELEBRATION_BEAT = 280;
+const REDUCED_DURATION = 400;
 
 export function initPWA() {
   const isNative = typeof window !== 'undefined' && Boolean(window.Capacitor?.isNativePlatform?.());
@@ -32,20 +29,19 @@ export function initPWA() {
   const toast = document.querySelector('#updateToast');
   const button = document.querySelector('#updateBtn');
   const message = toast?.querySelector('.toast-text');
-  /* The quiet line under the title carries the stage, so the words live in the
-     markup (index.html) and js/i18n.js rewrites them; pwa.js only picks one. */
-  const sub = toast?.querySelector('.update-sub');
-  const idleLabel = button?.textContent?.trim() || 'دریافتش کن';
-  const workingLabel = button?.dataset?.working || 'در حال به‌روزرسانی…';
-  /* performance.now is monotonic; the test harness only provides Date. Both
-     answer the same question: how long the note has been saying «working». */
+  const sub = toast?.querySelector('#updateSub');
+  const dismissBtn = toast?.querySelector('#updateDismiss');
+  const fillEl = toast?.querySelector('.update-toast__fill');
+  const barEl = toast?.querySelector('.update-toast__bar');
+  const percentEl = toast?.querySelector('#updatePercent');
+
+  const toFa = n => String(n).replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[d]);
+  const prefersReduced = () =>
+    document.documentElement?.dataset?.motion === 'reduced' ||
+    (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)')?.matches);
+
   const clock = () => (typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now());
-  const setStage = stage => {
-    if (!sub) return;
-    if (sub.dataset) sub.dataset.stage = stage;
-    const text = sub.dataset?.[stage];
-    if (text) sub.textContent = text;
-  };
+
   let applyStart = 0;
   let controller = sw.controller;
   let registration = null;
@@ -55,8 +51,10 @@ export function initPWA() {
   let reloading = false;
   let poll = 0;
   let activationTimer = 0;
+  let safetyTimer = 0;
   let checking = false;
   let lastCheck = -Infinity;
+  let snoozed = false;
   const observed = new WeakSet();
 
   const stopPolling = () => { clearInterval(poll); poll = 0; };
@@ -64,22 +62,37 @@ export function initPWA() {
     stopPolling();
     if (!toast) return;
     toast.hidden = true;
-    toast.classList.remove('show', 'is-applying', 'is-done');
-    setStage('idle');
+    toast.classList.remove('show');
   };
-  const resetButton = () => {
+
+  const setState = state => {
+    if (toast?.dataset) toast.dataset.state = state;
+    else if (typeof toast?.setAttribute === 'function') toast.setAttribute('data-state', state);
+  };
+
+  const resetUI = () => {
     applyStart = 0;
-    toast?.classList.remove('is-applying', 'is-done');
-    setStage('idle');
-    if (!button) return;
-    button.disabled = false;
-    button.textContent = idleLabel;
+    setState('idle');
+    if (button) {
+      button.disabled = false;
+      button.textContent = 'دریافتش کن';
+    }
+    if (message) message.textContent = 'نسخهٔ جدید اومده!';
+    if (sub) sub.textContent = 'یک برگهٔ تازه و بهینه‌تر از دفتَرچه آماده است.';
+    if (percentEl) {
+      percentEl.textContent = '۰٪';
+      percentEl.setAttribute?.('aria-valuenow', '0');
+    }
+    if (fillEl?.style) fillEl.style.transform = 'scaleX(0)';
+    if (barEl?.style) barEl.style.transform = 'scaleX(0)';
+    if (dismissBtn?.style) dismissBtn.style.display = '';
   };
+
   const calm = () => !document.hidden && !isBusy() &&
     [...document.querySelectorAll('.toast')].every(t => t === toast || t.hidden);
 
   function showOffer() {
-    if (!waiting || applying || !toast || !button) return;
+    if (snoozed || !waiting || applying || !toast || !button) return;
     if (!calm()) {
       if (!poll) poll = setInterval(showOffer, 2000);
       return;
@@ -99,8 +112,9 @@ export function initPWA() {
     }
     if (worker !== waiting) {
       waiting = worker;
+      snoozed = false;
       if (message) message.textContent = 'نسخهٔ جدید اومده!';
-      if (!applying) resetButton();
+      if (!applying) resetUI();
     }
     observe(worker);
     showOffer();
@@ -114,11 +128,22 @@ export function initPWA() {
 
   function retryActivation() {
     clearTimeout(activationTimer);
+    clearTimeout(safetyTimer);
     activationTimer = 0;
+    safetyTimer = 0;
     applying = null;
-    resetButton();
+    resetUI();
     syncWaiting();
     if (waiting && message) message.textContent = 'به‌روزرسانی کامل نشد؛ دوباره امتحان کن.';
+  }
+
+  function triggerReload() {
+    if (reloading) return;
+    reloading = true;
+    clearTimeout(activationTimer);
+    clearTimeout(safetyTimer);
+    hideOffer();
+    location.reload();
   }
 
   // Reload only when an existing controller is replaced.
@@ -126,19 +151,99 @@ export function initPWA() {
     const previous = controller;
     controller = sw.controller;
     if (!previous || !controller || previous === controller || reloading) return;
-    reloading = true;
     clearTimeout(activationTimer);
-    /* The update is already active by the time this fires; what is left is the
-       moment the reader is owed. The ink line finishes, the line under the title
-       says it is ready, and the reload follows the beat rather than the event. */
+    clearTimeout(safetyTimer);
+
     const elapsed = applyStart ? clock() - applyStart : 0;
+    const remaining = Math.max(0, ANIM_DURATION - elapsed);
     setTimeout(() => {
-      setStage('done');
-      toast?.classList.remove('is-applying');
-      toast?.classList.add('is-done');
-      setTimeout(() => { hideOffer(); location.reload(); }, DONE_BEAT);
-    }, Math.max(0, WORK_MIN - elapsed));
+      if (message) message.textContent = 'همه‌چیز آماده است ✨';
+      setState('done');
+      if (percentEl) {
+        percentEl.textContent = '۱۰۰٪';
+        percentEl.setAttribute?.('aria-valuenow', '100');
+      }
+      setTimeout(() => {
+        triggerReload();
+      }, CELEBRATION_BEAT);
+    }, remaining);
   });
+
+  function getProgress(t) {
+    if (t <= 0) return 0;
+    if (t >= 1) return 100;
+    if (t < 0.35) {
+      const p = t / 0.35;
+      return 45 * (1 - Math.pow(1 - p, 2));
+    } else if (t < 0.80) {
+      const p = (t - 0.35) / 0.45;
+      return 45 + 40 * p;
+    } else {
+      const p = (t - 0.80) / 0.20;
+      const ease = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+      return 85 + 15 * ease;
+    }
+  }
+
+  function startProgressFlow() {
+    if (prefersReduced()) {
+      if (message) message.textContent = 'در حال به‌روزرسانی...';
+      if (sub) sub.textContent = 'کارها و یادداشتهات کاملاً امنه';
+      if (percentEl) {
+        percentEl.textContent = '۰٪';
+        percentEl.setAttribute?.('aria-valuenow', '0');
+      }
+      setTimeout(() => {
+        if (message) message.textContent = 'همه‌چیز آماده است ✨';
+        if (percentEl) {
+          percentEl.textContent = '۱۰۰٪';
+          percentEl.setAttribute?.('aria-valuenow', '100');
+        }
+        setState('done');
+      }, REDUCED_DURATION);
+      return;
+    }
+
+    let startTime = null;
+    let lastReportedP = -1;
+    let lastTick = -1;
+    let tickCount = 0;
+    if (message) message.textContent = 'در حال صحافی برگهٔ تازه...';
+    if (sub) sub.textContent = 'کارها و یادداشتهات کاملاً امنه';
+
+    function step(ts) {
+      const now = typeof ts === 'number' ? ts : clock();
+      if (now === lastTick) {
+        if (++tickCount > 2) return;
+      } else {
+        lastTick = now;
+        tickCount = 1;
+      }
+      if (startTime === null) startTime = now;
+      const elapsed = now - startTime;
+      const t = Math.min(1, Math.max(0, elapsed / ANIM_DURATION));
+      const progress = getProgress(t);
+
+      const scale = (progress / 100).toFixed(4);
+      if (fillEl?.style) fillEl.style.transform = `scaleX(${scale})`;
+      if (barEl?.style) barEl.style.transform = `scaleX(${scale})`;
+
+      const pRound = Math.round(progress);
+      if (percentEl) {
+        percentEl.textContent = `${toFa(pRound)}٪`;
+        if (pRound >= lastReportedP + 10 || pRound === 100) {
+          lastReportedP = pRound;
+          percentEl.setAttribute?.('aria-valuenow', String(pRound));
+        }
+      }
+
+      if (t < 1) {
+        if (typeof requestAnimationFrame === 'function') requestAnimationFrame(step);
+      }
+    }
+
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(step);
+  }
 
   button?.addEventListener('click', () => {
     if (applying || reloading) return;
@@ -147,14 +252,26 @@ export function initPWA() {
     applying = waiting;
     applyStart = clock();
     button.disabled = true;
-    button.textContent = workingLabel;
-    setStage('working');
-    toast?.classList.remove('is-done');
-    toast?.classList.add('is-applying');
+    setState('updating');
+    if (dismissBtn?.style) dismissBtn.style.display = 'none';
+
     activationTimer = setTimeout(retryActivation, ACTIVATION_TIMEOUT);
+    safetyTimer = setTimeout(() => {
+      if (applying && !reloading) triggerReload();
+    }, SAFETY_TIMEOUT);
+
     try { applying.postMessage('SKIP_WAITING'); }
-    catch { retryActivation(); }
+    catch { retryActivation(); return; }
+
+    startProgressFlow();
   });
+
+  if (typeof dismissBtn?.addEventListener === 'function') {
+    dismissBtn.addEventListener('click', () => {
+      snoozed = true;
+      hideOffer();
+    });
+  }
 
   async function checkForUpdate(force = false) {
     if (!registration || checking || navigator.onLine === false) return;

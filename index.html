@@ -1490,20 +1490,36 @@
      and the action — plus an ink line that runs while the new build is being
      written. js/pwa.js drives the three stages (idle / applying / done) and
      never keeps the note past the reload. -->
-<div class="toast toast-sticky sheet-paper update-toast" id="updateToast" role="status" aria-live="polite" hidden>
-  <span class="update-mark" aria-hidden="true">
-    <svg class="update-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 4.5h8.7L19 9.3v10.2H5.5z"/><path d="M14 4.6v4.8h4.9"/><path d="M8.4 13.6h5.6"/><path d="M8.4 16.6h3.6"/></svg>
-    <svg class="update-ink" viewBox="0 0 24 24"><circle cx="14" cy="14" r="8.4"/></svg>
+<div class="toast toast-sticky sheet-paper update-toast" id="updateToast" role="status" aria-live="polite" data-state="idle" hidden>
+  <span class="update-toast__fill" aria-hidden="true"></span>
+  <span class="update-toast__bar" aria-hidden="true"></span>
+  <span class="update-toast__start">
+    <span class="update-toast__badge" aria-hidden="true">
+      <svg class="update-toast__icon update-toast__icon--page" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a2.5 2.5 0 0 1-2.5-2.5z"/>
+        <path d="M8 7h6M8 11h4"/>
+        <path d="M15 13v4M13 15h4"/>
+      </svg>
+      <svg class="update-toast__icon update-toast__icon--check" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 13l4 4L19 7"/>
+      </svg>
+    </span>
+    <span class="update-toast__copy">
+      <strong class="update-toast__title toast-text">نسخهٔ جدید اومده!</strong>
+      <span class="update-toast__sub" id="updateSub">یک برگهٔ تازه و بهینه‌تر از دفتَرچه آماده است.</span>
+    </span>
   </span>
-  <span class="update-body">
-    <span class="toast-text">نسخهٔ جدید اومده!</span>
-    <span class="update-sub" id="updateSub" data-stage="idle"
-      data-idle="یک برگهٔ تازه از دفترچه"
-      data-working="نسخهٔ تازه رو می‌نویسم…"
-      data-done="آماده‌ست؛ بازش می‌کنم…">یک برگهٔ تازه از دفترچه</span>
+  <span class="update-toast__end">
+    <span class="update-toast__actions">
+      <button class="toast-btn" id="updateBtn" type="button">دریافتش کن</button>
+      <span class="update-toast__percent" id="updatePercent" role="progressbar" aria-label="پیشرفت به‌روزرسانی" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-live="off">۰٪</span>
+    </span>
+    <button class="update-toast__dismiss" id="updateDismiss" type="button" aria-label="بعداً" title="بعداً">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="M18 6L6 18M6 6l12 12"/>
+      </svg>
+    </button>
   </span>
-  <button class="toast-btn" id="updateBtn" data-working="در حال به‌روزرسانی…">دریافتش کن</button>
-  <span class="update-progress" aria-hidden="true"><i></i></span>
 </div>
 
 <!-- Release identity: the one file that names the current release and the

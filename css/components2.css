@@ -236,81 +236,298 @@ html[data-mode="dark"] .toast-sticky .toast-btn{color:var(--color-text-on-accent
   .toast-sticky .toast-btn:hover,.toast-sticky .toast-btn:active{transform:none}
 }
 
-/* ═══ The update note ═══
-   The storage warning and the update prompt are the two notes that wait for an
-   answer, so they are the same slip of paper (.toast-sticky). This one is
-   dressed as a small record of the update itself: a mark in the margin, the
-   title with one quiet line under it, the action, and a hairline of ink that
-   runs while the new build is being written and settles when it is done.
-
-   Everything is a token — no colour, radius or duration is written by hand — so
-   the note reads as paper in all sixteen worlds and in dark mode. Its size is
-   capped, not fixed: 400px at most and always 32px narrower than the screen, so
-   it is a note on a desktop and still a note on a 320px phone, never a banner.
-
-   Three stages, driven by js/pwa.js: idle (waiting for a tap), applying (the ink
-   ring turns, the hairline sweeps) and done (the ring is gone, the hairline is
-   full and holds for one beat before the reload). */
-.update-toast{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:start;
-  column-gap:10px;row-gap:10px;
-  width:min(400px,calc(100vw - 32px));max-width:min(400px,calc(100vw - 32px));
-  padding:14px 14px 12px;border-radius:var(--radius-md)}
-/* Same pairing as every other component that sets a display value (the rule in
-   tests/css.test.mjs): the element in index.html carries `hidden`, and the user
-   agent's [hidden] is a bare attribute that a class rule would outrank. */
-.update-toast[hidden]{display:none}
-.update-mark{grid-area:1/1;position:relative;display:grid;place-items:center;
-  width:34px;height:34px;border-radius:var(--radius-xs);
-  background:var(--color-accent-soft);color:var(--color-accent-text)}
-.update-ico{width:18px;height:18px;transition:opacity var(--duration-base) var(--ease-out)}
-.update-ink{position:absolute;inset:0;width:100%;height:100%;fill:none;
-  stroke:var(--color-accent);stroke-width:2;stroke-linecap:round;
-  stroke-dasharray:16 54;opacity:0}
-.update-body{grid-area:1/2;display:flex;flex-direction:column;gap:2px;min-width:0}
-/* The title wraps instead of truncating here: on this note a second line is
-   information, where the undo bar's ellipsis is only a shorter echo of the task. */
-.update-toast .toast-text{display:block;max-width:none;white-space:normal;
-  overflow:visible;text-overflow:clip;font-size:13.5px;font-weight:600;line-height:1.6}
-.update-sub{font-size:11.5px;font-weight:500;line-height:1.65;color:var(--color-text-muted);
-  overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;
-  transition:color var(--duration-base) var(--ease-out)}
-/* Below the title on every screen, not beside it: two columns and an action
-   already share the width, and a third column would push the sentence into an
-   ellipsis at exactly the widths where the note is most often seen. */
-.update-toast .toast-btn{grid-area:2/1/2/-1;justify-self:start;
-  min-height:40px;padding:9px 18px;font-size:12.5px}
-.update-toast .toast-btn:disabled{opacity:.75;cursor:progress}
-/* Flush with the paper's bottom edge rather than a grid row of its own: a row
-   would add the bar's height and a gap to a note that is meant to stay small,
-   and the bottom edge is where a line of ink belongs anyway. .sheet-paper is
-   already position:relative, so this needs no extra positioning context. */
-.update-progress{position:absolute;inset-inline:0;bottom:0;height:3px;
-  border-radius:0 0 var(--radius-md) var(--radius-md);
-  background:var(--color-accent-soft);overflow:hidden;opacity:0;
-  transition:opacity var(--duration-base) var(--ease-out)}
-.update-progress i{display:block;width:38%;height:100%;border-radius:var(--radius-pill);
-  background:var(--color-accent);transform:translateX(-120%)}
-.update-toast.is-applying .update-ico{opacity:.28}
-.update-toast.is-applying .update-ink{opacity:1;animation:updateInk 1.25s ease-in-out infinite}
-.update-toast.is-applying .update-progress{opacity:1}
-.update-toast.is-applying .update-progress i{animation:updateSweep 1.15s var(--ease-out) infinite}
-@keyframes updateInk{from{stroke-dashoffset:70}to{stroke-dashoffset:-8}}
-@keyframes updateSweep{to{transform:translateX(300%)}}
-.update-toast.is-done .update-progress{opacity:1}
-.update-toast.is-done .update-progress i{transform:none;width:100%;border-radius:inherit}
-.update-toast.is-done .update-sub{color:var(--color-accent-text)}
-@media (prefers-reduced-motion:reduce){
-  .update-toast .update-ico,
-  .update-toast .update-sub,
-  .update-toast .update-progress{transition:none}
-  .update-toast.is-applying .update-ink{animation:none;opacity:.55}
-  .update-toast.is-applying .update-progress i{animation:none;width:100%;transform:none}
+/* ═══ Update Toast: Morphing Ink Pill with Paper Tape ═══ */
+/* Compact, warm, theme-adaptive floating card featuring paper tape and
+   progressive ink-fill loading flow. */
+.update-toast{
+  position:fixed;
+  inset-inline:1rem;
+  bottom:calc(var(--bottom-nav-height,var(--nav-height,68px)) + env(safe-area-inset-bottom,0px) + 12px);
+  max-width:420px;
+  width:calc(100% - 2rem);
+  margin-inline:auto;
+  border-radius:16px;
+  overflow:hidden;
+  box-shadow:var(--shadow-2);
+  z-index:96;
+  padding:12px 14px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  background:var(--color-elev,var(--color-surface));
+  border:1px solid var(--color-border);
+  color:var(--color-text-primary);
+  box-sizing:border-box;
+  transform:none;
+  font-family:var(--font-ui);
+  flex-wrap:nowrap;
 }
-/* A short window — a phone in landscape, a split screen — leaves no room for the
-   quiet line, and the title with its action is what the note is for. */
-@media (max-height:430px){
-  .update-sub{display:none}
-  .update-toast{row-gap:8px;padding:12px 12px 10px}
+.update-toast[hidden]{display:none}
+.update-toast::before{
+  content:'';
+  position:absolute;
+  top:0;
+  inset-inline:0;
+  margin-inline:auto;
+  width:44px;
+  height:6px;
+  background:var(--color-tape,var(--color-accent-soft));
+  border-radius:0 0 4px 4px;
+  transform:none;
+  opacity:1;
+  z-index:3;
+  pointer-events:none;
+}
+body.has-focus-pill .update-toast{
+  bottom:calc(var(--bottom-nav-height,var(--nav-height,68px)) + env(safe-area-inset-bottom,0px) + 64px)!important;
+}
+.update-toast__fill{
+  position:absolute;
+  inset:0;
+  background:var(--color-accent-soft);
+  transform-origin:right center;
+  transform:scaleX(0);
+  pointer-events:none;
+  z-index:0;
+  will-change:transform;
+}
+[dir="ltr"] .update-toast__fill{
+  transform-origin:left center;
+}
+.update-toast__bar{
+  position:absolute;
+  bottom:0;
+  inset-inline:0;
+  height:2px;
+  background:var(--color-accent);
+  transform-origin:right center;
+  transform:scaleX(0);
+  pointer-events:none;
+  z-index:1;
+  will-change:transform;
+}
+[dir="ltr"] .update-toast__bar{
+  transform-origin:left center;
+}
+.update-toast__start{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  min-width:0;
+  flex:1 1 auto;
+  position:relative;
+  z-index:2;
+}
+.update-toast__badge{
+  width:36px;
+  height:36px;
+  border-radius:10px;
+  background:var(--color-accent-soft);
+  color:var(--color-accent-text);
+  display:grid;
+  place-items:center;
+  flex-shrink:0;
+  position:relative;
+}
+.update-toast__icon{
+  position:absolute;
+  display:block;
+  transition:transform var(--duration-fast,180ms) var(--ease-out,ease-out),
+              opacity var(--duration-fast,180ms) var(--ease-out,ease-out);
+}
+.update-toast__icon--check{
+  opacity:0;
+  transform:scale(0.5);
+}
+.update-toast[data-state="done"] .update-toast__icon--page{
+  opacity:0;
+  transform:scale(0.5);
+}
+.update-toast[data-state="done"] .update-toast__icon--check{
+  opacity:1;
+  transform:scale(1);
+}
+.update-toast__copy{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  min-width:0;
+  text-align:start;
+}
+.update-toast .toast-text,
+.update-toast__title{
+  display:block;
+  font-weight:700;
+  font-size:0.92rem;
+  color:var(--color-text-primary);
+  line-height:1.4;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  flex:none;
+}
+.update-toast__sub{
+  display:block;
+  font-size:0.78rem;
+  color:var(--color-text-secondary);
+  line-height:1.4;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.update-toast__end{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  flex-shrink:0;
+  position:relative;
+  z-index:2;
+}
+.update-toast__actions{
+  position:relative;
+  display:grid;
+  place-items:center;
+}
+.update-toast .toast-btn{
+  min-height:40px;
+  padding-inline:14px;
+  border-radius:999px;
+  background:var(--color-accent);
+  color:var(--color-text-on-accent);
+  font-weight:600;
+  font-size:0.82rem;
+  border:none;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  white-space:nowrap;
+  box-shadow:none;
+  grid-area:1 / 1;
+  align-self:auto;
+  transition:transform var(--duration-fast,150ms) var(--ease-out,ease-out),
+              opacity var(--duration-fast,150ms) var(--ease-out,ease-out);
+}
+.update-toast .toast-btn:active{
+  transform:scale(0.97);
+}
+.update-toast .toast-btn:focus-visible{
+  outline:1.5px solid var(--color-accent);
+  outline-offset:-2px;
+}
+.update-toast__percent{
+  font-size:0.88rem;
+  font-weight:700;
+  color:var(--color-accent-text);
+  font-variant-numeric:tabular-nums;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:40px;
+  padding-inline:8px;
+  opacity:0;
+  transform:scale(0.9);
+  pointer-events:none;
+  grid-area:1 / 1;
+  transition:transform var(--duration-fast,150ms) var(--ease-out,ease-out),
+              opacity var(--duration-fast,150ms) var(--ease-out,ease-out);
+}
+.update-toast[data-state="updating"] .toast-btn,
+.update-toast[data-state="done"] .toast-btn{
+  opacity:0;
+  transform:scale(0.9);
+  pointer-events:none;
+}
+.update-toast[data-state="updating"] .update-toast__percent,
+.update-toast[data-state="done"] .update-toast__percent{
+  opacity:1;
+  transform:scale(1);
+}
+.update-toast__dismiss{
+  min-width:36px;
+  min-height:40px;
+  background:transparent;
+  border:none;
+  border-radius:8px;
+  color:var(--color-text-muted);
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:0;
+  transition:color var(--duration-fast,150ms) var(--ease-out,ease-out),
+              transform var(--duration-fast,150ms) var(--ease-out,ease-out);
+}
+.update-toast__dismiss:hover{
+  color:var(--color-text-primary);
+}
+.update-toast__dismiss:active{
+  transform:scale(0.95);
+}
+.update-toast__dismiss:focus-visible{
+  outline:1.5px solid var(--color-accent);
+  outline-offset:-2px;
+}
+.update-toast[data-state="updating"] .update-toast__dismiss,
+.update-toast[data-state="done"] .update-toast__dismiss{
+  display:none;
+}
+.update-toast[data-state="done"]{
+  transform:scale(1.015);
+  transition:transform 280ms cubic-bezier(0.34,1.56,0.64,1);
+}
+html[data-mode="dark"] .update-toast{
+  background:var(--color-elev,var(--color-surface));
+  border:1px solid var(--color-border);
+  color:var(--color-text-primary);
+  box-shadow:var(--shadow-2);
+}
+@media (prefers-reduced-motion: reduce){
+  .update-toast,
+  .update-toast *,
+  .update-toast::before{
+    animation:none!important;
+    transition:none!important;
+  }
+  .update-toast[data-state="done"]{
+    transform:none!important;
+  }
+}
+html[data-motion="reduced"] .update-toast,
+html[data-motion="reduced"] .update-toast *,
+html[data-motion="reduced"] .update-toast::before{
+  animation:none!important;
+  transition:none!important;
+}
+html[data-motion="reduced"] .update-toast[data-state="done"]{
+  transform:none!important;
+}
+@media (max-width:380px){
+  .update-toast{
+    inset-inline:0.5rem;
+    width:calc(100% - 1rem);
+    padding:10px 12px;
+    gap:8px;
+  }
+  .update-toast__start{
+    gap:8px;
+  }
+  .update-toast__badge{
+    width:32px;
+    height:32px;
+  }
+  .update-toast__title{
+    font-size:0.86rem;
+  }
+  .update-toast__sub{
+    font-size:0.74rem;
+  }
+  .update-toast .toast-btn{
+    min-height:38px;
+    padding-inline:10px;
+    font-size:0.78rem;
+  }
 }
 
 /* ═══ 12. Empty State ═══
