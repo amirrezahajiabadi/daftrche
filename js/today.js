@@ -428,7 +428,7 @@ function renderReading() {
   }));
 }
 
-function renderToday() {
+export function renderToday() {
   renderHeader();
   renderFrog();
   renderTodayList();
@@ -443,6 +443,7 @@ export function initToday() {
   const form = $('#todayAddForm');
   const todayInput = $('#todayInput');
   const todayPreview = $('#todayQuickAddPreview');
+  let todayTimer = null;
 
   if (todayInput && todayPreview) {
     /* See js/tasks.js: an ignored token has no raw span to strip, so the ×
@@ -454,7 +455,6 @@ export function initToday() {
       const ignored = parsed.ignored.filter(t => !dismissed.has(t));
       return ignored.length === parsed.ignored.length ? parsed : { ...parsed, ignored };
     };
-    let todayTimer = null;
     const processTodayQuickAdd = () => {
       const raw = todayInput.value;
       const parsed = withoutDismissed(parseQuickAdd(raw));

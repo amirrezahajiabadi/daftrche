@@ -14,7 +14,7 @@ import { rememberDone } from './ledger.js';
 import { openChipPicker, closeChipPicker, openTaskEditor, initTaskEditor, catOptions, priOptions, durOptions } from './taskedit.js';
 import { parseQuickAdd, renderQuickAddPreview, stripQuickAddToken } from './quickadd.js';
 
-const listEl = $('#taskList');
+let listEl = typeof document !== 'undefined' ? $('#taskList') : null;
 const save = () => saveTasks(state.tasks);
 
 /* The notifications module persists through these hooks so it never touches
@@ -738,6 +738,8 @@ function placeRow(dragging, clientY) {
 
 /* ── Events ── */
 export function initTasks() {
+  if (!listEl && typeof document !== 'undefined') listEl = $('#taskList');
+  if (!listEl) return;
   initTaskEditor();
   listEl.addEventListener('click', async e => {
     const li = e.target.closest('.task'); if (!li) return;
