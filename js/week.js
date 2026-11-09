@@ -14,6 +14,7 @@ import { subscribe } from './bus.js';
 
 export function recordDay() {
   const k = dayKey(new Date());
+  if (!Array.isArray(state.history)) state.history = [];
   if (!state.history.includes(k)) {
     state.history.push(k);
     saveHistory(state.history);
@@ -40,6 +41,7 @@ function buildMoods() {
     if (m.sub) b.dataset.sub = m.sub;
     b.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${FACES[i]}</svg>`;
     b.onclick = () => {
+      if (!state.moods || typeof state.moods !== 'object') state.moods = {};
       state.moods[dayKey(new Date())] = i + 1;
       saveMoods(state.moods);
       renderMoods();

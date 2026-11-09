@@ -13,7 +13,7 @@ import { initProgress } from './progress.js';
 import { initWeek } from './week.js';
 import { initFocusPage, syncFocusPage } from './focus.js';
 import { initRoll } from './roll.js';
-import { initLibrary } from './library.js';
+import { initLibrary, renderShelf } from './library.js';
 import { initReader } from './reader.js';
 import { initProfile, renderProfile } from './profile.js';
 import { initSettings, renderSettings } from './settings.js';
@@ -149,6 +149,7 @@ function initNavigation() {
     if (page === 'achv') renderAchievements();
     if (page === 'settings') renderSettings();
     if (page === 'week') renderPlanner();
+    if (page === 'library') renderShelf();
 
     if (page !== 'library') {
       const rv = document.getElementById('readerView');
@@ -781,7 +782,6 @@ safe('وضعیت نمایش', initVisibility);
    contained. */
 safe('دربرگیری رویه‌ها', initModalContainment);
 safe('اسم', initName);
-safe('ناوبری', initNavigation);
 safe('تسک‌ها', initTasks);
 safe('فرم افزودن', initAddForm);
 safe('پیشرفت', initProgress);
@@ -813,6 +813,7 @@ const dl = $('#dateLine');
 if (dl) dl.textContent = new Intl.DateTimeFormat('fa-IR', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date());
 
 safe('نام', applyName);
+safe('ناوبری', initNavigation);
 /* Painted at boot as well as on entry, because the page can be the one the URL
    hash names — and then neither of the two events above has happened yet. */
 function initIOSInstallGuide() {
@@ -834,7 +835,9 @@ function initIOSInstallGuide() {
 
 if (startPage() === 'settings') safe('رندر تنظیمات', renderSettings);
 safe('رندر اولیه', () => {
-  if (startPage() === 'tasks') renderList();
+  const sp = startPage();
+  if (sp === 'tasks') renderList();
+  else if (sp === 'today') renderToday();
   notify();
 });
 safe('میانبرها', initShortcuts);

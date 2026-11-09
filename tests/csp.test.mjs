@@ -33,3 +33,10 @@ test('the policy does not weaken script execution', () => {
   assert.deepEqual(policy['base-uri'], ["'self'"]);
   assert.ok(!html.match(/ on[a-z]+="/), 'inline event handlers would be blocked by the CSP');
 });
+
+test('_headers CSP matches index.html inline script hash', () => {
+  const headers = readFileSync(new URL('../_headers', import.meta.url), 'utf8');
+  const inline = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)];
+  const hash = 'sha256-' + createHash('sha256').update(inline[0][1], 'utf8').digest('base64');
+  assert.ok(headers.includes(`'${hash}'`), '_headers CSP hash is stale: expected ' + hash);
+});

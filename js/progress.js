@@ -4,7 +4,7 @@ import { state } from './state.js';
 import { $, faNum, startOfToday } from './utils.js';
 import { CATS, LIB_ICONS } from './constants.js';
 import { subscribe } from './bus.js';
-import { renderList, collapse } from './tasks.js';
+import { renderList, collapse, clearDoneTasks } from './tasks.js';
 
 /* ── Footer counter ──
    The progress ring and the sentence under it moved to the stats page
@@ -12,17 +12,22 @@ import { renderList, collapse } from './tasks.js';
    instead of for the whole list. What is left here is the list's own footer. */
 
 function updateProgress() {
-  const total = state.tasks.length;
-  const done = state.tasks.filter(t => t.done).length;
+  const tasks = (Array.isArray(state.tasks) ? state.tasks : []).filter(t => t && typeof t === 'object');
+  const total = tasks.length;
+  const done = tasks.filter(t => t.done).length;
 
   /* «امروز N کار»: what today has already given, next to what is left. Counted from
      the moment each task was ticked, so it is an honest tally and not a goal. */
   const t0 = startOfToday().getTime();
-  const today = state.tasks.filter(t => t.done && t.doneAt >= t0).length;
-  $('#counter').textContent = total
-    ? `${faNum(total - done)} کار باقی‌مانده` + (today ? ` · امروز ${faNum(today)} کار انجام دادی` : '')
-    : '';
-  $('#clearBtn').style.visibility = done ? 'visible' : 'hidden';
+  const today = tasks.filter(t => t.done && t.doneAt && t.doneAt >= t0).length;
+  const counter = $('#counter');
+  if (counter) {
+    counter.textContent = total
+      ? `${faNum(total - done)} کار باقی‌مانده` + (today ? ` · امروز ${faNum(today)} کار انجام دادی` : '')
+      : '';
+  }
+  const clearBtn = $('#clearBtn');
+  if (clearBtn) clearBtn.style.visibility = done ? 'visible' : 'hidden';
 }
 
 /* ── Category bar ── */
@@ -56,7 +61,7 @@ function buildCatBar() {
       return;
     }
     if (b.classList.contains('active')) return;
-    wrap.querySelector('.cat-chip.active').classList.remove('active');
+    wrap.querySelector('.cat-chip.active')?.classList.remove('active');
     b.classList.add('active');
     state.catFilter = b.dataset.cat;
     renderList();
@@ -64,17 +69,20 @@ function buildCatBar() {
 }
 
 function updateCatCounts() {
+  const tasks = (Array.isArray(state.tasks) ? state.tasks : []).filter(t => t && typeof t === 'object');
   document.querySelectorAll('.cats .cat-chip').forEach(ch => {
+    const cntEl = ch.querySelector('.cnt');
+    if (!cntEl) return;
     const k = ch.dataset.cat;
     if (ch.dataset.flag === 'nodue') {
-      const n = state.tasks.filter(t => !t.done && !t.dueDate).length;
-      ch.querySelector('.cnt').textContent = n ? faNum(n) : '';
+      const n = tasks.filter(t => !t.done && !t.dueDate).length;
+      cntEl.textContent = n ? faNum(n) : '';
       return;
     }
     const n = k === 'all'
-      ? state.tasks.filter(t => !t.done).length
-      : state.tasks.filter(t => !t.done && (t.cat || 'misc') === k).length;
-    ch.querySelector('.cnt').textContent = n ? faNum(n) : '';
+      ? tasks.filter(t => !t.done).length
+      : tasks.filter(t => !t.done && (t.cat || 'misc') === k).length;
+    cntEl.textContent = n ? faNum(n) : '';
   });
 }
 
@@ -96,6 +104,7 @@ function schedulePill() {
 
 /* ── Daily frog ── */
 export function frogScore(t) {
+  if (!t || typeof t !== 'object') return 0;
   let s = 0;
   if (t.p === 'high') s += 3; else if (t.p === 'mid') s += 1.5;
   if (t.dueDate) {
@@ -106,7 +115,8 @@ export function frogScore(t) {
 }
 
 export function findFrog() {
-  const pool = state.tasks.filter(t => !t.done);
+  const tasks = (Array.isArray(state.tasks) ? state.tasks : []).filter(t => t && typeof t === 'object');
+  const pool = tasks.filter(t => !t.done);
   if (!pool.length) return null;
   return pool.slice().sort((a, b) => frogScore(b) - frogScore(a))[0];
 }
@@ -138,7 +148,7 @@ export function initProgress() {
   $('#filters').addEventListener('click', e => {
     const btn = e.target.closest('button[data-filter]');
     if (!btn || btn.classList.contains('active')) return;
-    document.querySelector('.filters .active').classList.remove('active');
+    document.querySelector('.filters .active')?.classList.remove('active');
     btn.classList.add('active');
     state.filter = btn.dataset.filter;
     movePill();
@@ -148,7 +158,7 @@ export function initProgress() {
   movePill();
 
   $('#clearBtn').onclick = () => {
-    [...$('#taskList').querySelectorAll('.task.done')].forEach((el, i) => setTimeout(() => collapse(el, el.dataset.id), i * 80));
+    clearDoneTasks();
   };
 
   subscribe(() => { updateProgress(); updateCatCounts(); updateFrog(); });

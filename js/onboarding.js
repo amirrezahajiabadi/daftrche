@@ -111,6 +111,13 @@ function wire() {
   });
 
   skipBtn.addEventListener('click', () => close(true));
+  overlay.addEventListener('click', e => { if (e.target === overlay) close(true); });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && overlay && !overlay.hidden) {
+      e.stopPropagation();
+      close(true);
+    }
+  });
 }
 
 /* The entry point: runs after the name step, hands control back through `done`

@@ -91,7 +91,7 @@ export function initShortcuts() {
     if (isInputActive(e)) return;
     if (isAnyModalOpen()) return;
 
-    if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+    if (e.key === '?' || e.key === '؟' || (e.shiftKey && e.key === '/')) {
       e.preventDefault();
       openShortcuts();
       return;

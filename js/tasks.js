@@ -15,6 +15,10 @@ import { openChipPicker, closeChipPicker, openTaskEditor, initTaskEditor, catOpt
 import { parseQuickAdd, renderQuickAddPreview, stripQuickAddToken } from './quickadd.js';
 
 let listEl = typeof document !== 'undefined' ? $('#taskList') : null;
+export const getListEl = () => {
+  if (!listEl && typeof document !== 'undefined') listEl = $('#taskList');
+  return listEl;
+};
 const save = () => saveTasks(state.tasks);
 
 /* The notifications module persists through these hooks so it never touches
@@ -26,16 +30,18 @@ bindPersistence({ save, notify });
    hid every finished task and could not be combined with a category. Status
    decides here; the no-deadline flag narrows whatever status is chosen. */
 export const matches = t => {
+  if (!t || typeof t !== 'object') return false;
   if (state.filter === 'overdue') return isOverdueTask(t, dueKeyFromOffset(0));
   if (state.filter === 'active') return !t.done;
-  if (state.filter === 'done') return t.done;
+  if (state.filter === 'done') return !!t.done;
   return true;
 };
-export const visible = () => state.tasks.filter(t =>
+export const visible = () => (Array.isArray(state.tasks) ? state.tasks : []).filter(t =>
+  t &&
   matches(t) &&
   (!state.noDue || !t.dueDate) &&
   (state.catFilter === 'all' || (t.cat || 'misc') === state.catFilter) &&
-  (!state.query || normalizeFa(t.text).includes(normalizeFa(state.query)))
+  (!state.query || normalizeFa(t.text || '').includes(normalizeFa(state.query)))
 );
 
 function animatePriDotChange(dot) {
@@ -184,10 +190,12 @@ function createTaskEl(task, delay = 0) {
    Updates the footer counter, category chips, and Today's progress track
    (aria-valuenow and width percentage) directly without rebuilding list DOM nodes. */
 export function updateCountersAndProgress() {
-  const total = state.tasks.length;
-  const doneCount = state.tasks.filter(t => t.done).length;
+  if (typeof document === 'undefined') return;
+  const tasks = (Array.isArray(state.tasks) ? state.tasks : []).filter(t => t && typeof t === 'object');
+  const total = tasks.length;
+  const doneCount = tasks.filter(t => t.done).length;
   const t0 = startOfToday().getTime();
-  const todayDoneCount = state.tasks.filter(t => t.done && t.doneAt && t.doneAt >= t0).length;
+  const todayDoneCount = tasks.filter(t => t.done && t.doneAt && t.doneAt >= t0).length;
 
   // 1. Task list footer counter
   const counter = $('#counter');
@@ -205,13 +213,13 @@ export function updateCountersAndProgress() {
     if (!cntEl) return;
     const k = ch.dataset.cat;
     if (ch.dataset.flag === 'nodue') {
-      const n = state.tasks.filter(t => !t.done && !t.dueDate).length;
+      const n = tasks.filter(t => !t.done && !t.dueDate).length;
       cntEl.textContent = n ? faNum(n) : '';
       return;
     }
     const n = k === 'all'
-      ? state.tasks.filter(t => !t.done).length
-      : state.tasks.filter(t => !t.done && (t.cat || 'misc') === k).length;
+      ? tasks.filter(t => !t.done).length
+      : tasks.filter(t => !t.done && (t.cat || 'misc') === k).length;
     cntEl.textContent = n ? faNum(n) : '';
   });
 
@@ -221,8 +229,8 @@ export function updateCountersAndProgress() {
   const text = $('#todayProgText');
   if (bar && track) {
     const todayK = dueKeyFromOffset(0);
-    const pendingToday = state.tasks.filter(t => !t.done && t.dueDate && t.dueDate <= todayK);
-    const doneToday = state.tasks.filter(t => t.done && ((t.doneAt && t.doneAt >= t0) || (t.dueDate && t.dueDate === todayK)));
+    const pendingToday = tasks.filter(t => !t.done && t.dueDate && t.dueDate <= todayK);
+    const doneToday = tasks.filter(t => t.done && ((t.doneAt && t.doneAt >= t0) || (t.dueDate && t.dueDate === todayK)));
     const todayTotal = pendingToday.length + doneToday.length;
     if (!todayTotal) {
       bar.style.width = '0%';
@@ -352,6 +360,8 @@ function setupSentinelObserver(allRows) {
 }
 
 export function renderList() {
+  const lEl = getListEl();
+  if (!lEl || typeof document === 'undefined') return;
   if (listObserver) {
     listObserver.disconnect();
     listObserver = null;
@@ -373,7 +383,7 @@ export function renderList() {
     sentinelEl = null;
   }
 
-  listEl.replaceChildren(frag);
+  if (lEl) lEl.replaceChildren(frag);
   if (sentinelEl) {
     setupSentinelObserver(rows);
   }
@@ -382,32 +392,40 @@ export function renderList() {
 }
 
 export function updateEmpty() {
-  const anyVisible = [...listEl.querySelectorAll('.task')].some(el => !el.classList.contains('removing'));
-  $('#empty').hidden = anyVisible;
+  if (typeof document === 'undefined') return;
+  const lEl = getListEl();
+  const anyVisible = lEl ? [...lEl.querySelectorAll('.task')].some(el => !el.classList.contains('removing')) : false;
+  const emptyEl = $('#empty');
+  if (emptyEl) emptyEl.hidden = anyVisible;
   // The empty-state CTA is presentation-only and rebuilt on each render
   $('#emptyAddBtn')?.remove();
-  if (anyVisible) return;
-  const allDone = state.tasks.length && state.tasks.every(t => t.done);
-  $('#artDone').hidden = !allDone; $('#artEmpty').hidden = allDone;
+  if (anyVisible || !emptyEl) return;
+  const tasks = Array.isArray(state.tasks) ? state.tasks : [];
+  const allDone = tasks.length && tasks.every(t => t.done);
+  const artDone = $('#artDone'); if (artDone) artDone.hidden = !allDone;
+  const artEmpty = $('#artEmpty'); if (artEmpty) artEmpty.hidden = allDone;
   const voc = state.userName ? `${state.userName} جان، ` : '';
-  $('#emptyMsg').textContent =
-    state.query ? 'چیزی پیدا نشد. عبارت دیگری را امتحان کن.'
-    : !state.tasks.length ? 'فعلاً کاری روی میز نیست.'
-    : state.catFilter !== 'all' ? `توی دستهٔ «${CATS.find(c => c.key === state.catFilter)?.label}» کاری نیست.`
-    : state.noDue ? 'کار بدون مهلتی پیدا نشد.'
-    : state.filter === 'overdue' ? 'هیچ کاری عقب نیفتاده. آفرین.'
-    : state.filter === 'done' ? 'هنوز کاری را تمام نکرده‌ای.'
-    : allDone ? 'همهٔ کارهات انجام شده.'
-    : voc + 'لیستت خالیه. اولین کارت رو اضافه کن.';
+  const emptyMsg = $('#emptyMsg');
+  if (emptyMsg) {
+    emptyMsg.textContent =
+      state.query ? 'چیزی پیدا نشد. عبارت دیگری را امتحان کن.'
+      : !tasks.length ? 'فعلاً کاری روی میز نیست.'
+      : state.catFilter !== 'all' ? `توی دستهٔ «${CATS.find(c => c.key === state.catFilter)?.label}» کاری نیست.`
+      : state.noDue ? 'کار بدون مهلتی پیدا نشد.'
+      : state.filter === 'overdue' ? 'هیچ کاری عقب نیفتاده. آفرین.'
+      : state.filter === 'done' ? 'هنوز کاری را تمام نکرده‌ای.'
+      : allDone ? 'همهٔ کارهات انجام شده.'
+      : voc + 'لیستت خالیه. اولین کارت رو اضافه کن.';
+  }
   // A single calm CTA when the shelf is truly empty — no pressure copy
-  if (!state.tasks.length || allDone) {
+  if (!tasks.length || allDone) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'empty-add';
     btn.id = 'emptyAddBtn';
     btn.textContent = allDone ? 'افزودن کار جدید' : 'افزودن کار';
     btn.addEventListener('click', () => $('#taskInput')?.focus());
-    $('#empty').appendChild(btn);
+    emptyEl.appendChild(btn);
   }
 }
 
@@ -426,7 +444,8 @@ export function setTaskDone(id, done) {
     rememberDone();
   } else task.doneAt = null;
   save(); notify();
-  if (done && state.tasks.every(t => t.done)) confetti();
+  const tasks = (Array.isArray(state.tasks) ? state.tasks : []).filter(t => t && typeof t === 'object');
+  if (done && tasks.length > 0 && tasks.every(t => t.done)) confetti();
 }
 
 function toggleTask(li, task) {
@@ -496,8 +515,9 @@ function showUndo(task, index) {
   undoQueue.push({ task, index });
   /* The toast names the task that was just deleted, not the first of the run. */
   const toast = $('#undoToast');
+  if (!toast) return;
   const title = task && task.text ? (task.text.length > 25 ? task.text.slice(0, 24).trim() + '…' : task.text) : 'کار';
-  const label = toast?.querySelector('.toast-text');
+  const label = toast.querySelector('.toast-text');
   if (label) {
     label.textContent = undoQueue.length > 1
       ? `${faNum(undoQueue.length)} کار حذف شد`
@@ -505,7 +525,9 @@ function showUndo(task, index) {
   }
   // Reset the toast bar animation
   const bar = toast.querySelector('.toast-bar');
-  bar.style.animation = 'none'; void bar.offsetWidth; bar.style.animation = '';
+  if (bar) {
+    bar.style.animation = 'none'; void bar.offsetWidth; bar.style.animation = '';
+  }
   toast.hidden = false;
   requestAnimationFrame(() => toast.classList.add('show'));
   clearTimeout(undoTimer);
@@ -513,36 +535,53 @@ function showUndo(task, index) {
 }
 function commitUndo() {
   const toast = $('#undoToast');
-  toast.classList.remove('show');
-  setTimeout(() => { toast.hidden = true; }, 300);
+  if (toast) {
+    toast.classList.remove('show');
+    setTimeout(() => { toast.hidden = true; }, 300);
+  }
   undoQueue = [];
 }
 function performUndo() {
   if (!undoQueue.length) return;
   clearTimeout(undoTimer);
-  /* Newest first, so the list ends up in the order it was before the run of
-     deletions rather than reversed. */
-  const restored = undoQueue.slice().reverse();
+  const items = undoQueue.slice();
   undoQueue = [];
-  for (const { task, index } of restored) {
-    const at = Math.min(index, state.tasks.length);
-    state.tasks.splice(at, 0, task);
+
+  // When restoring multiple tasks (e.g. from clearDoneTasks), restoring in ascending order
+  // of original index accurately reconstructs their exact positions in state.tasks!
+  if (items.length > 1) {
+    items.sort((a, b) => a.index - b.index);
+    for (const { task, index } of items) {
+      const at = Math.min(index, state.tasks.length);
+      state.tasks.splice(at, 0, task);
+    }
+    save();
+    renderList();
+    notify();
+    commitUndo();
+    return;
   }
+
+  // Single task restore
+  const { task, index } = items[0];
+  const at = Math.min(index, state.tasks.length);
+  state.tasks.splice(at, 0, task);
   save();
-  /* The DOM is filtered, so the row is put back by matching the task that
-     follows it in the model — the same `normalizeFa` comparison the filter
-     itself uses — instead of by an array index that counts rows it is not in. */
+
   const shown = visible();
-  for (const { task } of restored) {
-    if (!shown.includes(task)) continue;
+  const lEl = getListEl();
+  if (lEl && shown.includes(task)) {
     const el = createTaskEl(task);
-    const at = shown.indexOf(task);
-    const nextId = shown[at + 1]?.id;
-    const nextEl = nextId ? listEl.querySelector(`[data-id="${nextId}"]`) : null;
-    if (nextEl) listEl.insertBefore(el, nextEl);
-    else listEl.appendChild(el);
+    const pos = shown.indexOf(task);
+    const nextId = shown[pos + 1]?.id;
+    const nextEl = nextId ? lEl.querySelector(`[data-id="${nextId}"]`) : null;
+    if (nextEl) lEl.insertBefore(el, nextEl);
+    else if (sentinelEl && sentinelEl.isConnected) lEl.insertBefore(el, sentinelEl);
+    else lEl.appendChild(el);
+    renderedCount++;
   }
   updateEmpty();
+  updateCountersAndProgress();
   notify();
   commitUndo();
 }
@@ -552,6 +591,7 @@ function animateOut(el, onDone) {
   /* Marked before the first frame so a reconcile on another page (the Today
      list) can tell "leaving on purpose" from "no longer in this view" and
      leave the exit animation alone. */
+  if (!el) { onDone && onDone(); return; }
   el.dataset.exiting = '1';
   const startH = el.offsetHeight;
   el.style.height = startH + 'px';
@@ -576,20 +616,18 @@ function animateOut(el, onDone) {
 
 /* Actually delete a task (trash button) — removes it from state and shows the undo toast */
 export function collapse(el, id) {
-  const task = state.tasks.find(t => t.id === id);
-  /* Where the row sat in the list the reader is looking at, so Undo can put it
-     back among the same neighbours rather than at a raw array position. */
-  const shown = visible();
-  const shownAt = shown.findIndex(t => t.id === id);
-  const index = shownAt >= 0 ? shownAt : state.tasks.findIndex(t => t.id === id);
-  state.tasks = state.tasks.filter(t => t.id !== id);
+  const tasks = Array.isArray(state.tasks) ? state.tasks : [];
+  const task = tasks.find(t => t && t.id === id);
+  const taskIndex = tasks.findIndex(t => t && t.id === id);
+  state.tasks = tasks.filter(t => t && t.id !== id);
   save();
   if (state.session && state.session.taskId === id) clearFocus();
+  renderedCount = Math.max(0, renderedCount - 1);
   animateOut(el, () => {
     updateCountersAndProgress();
   });
   notify();
-  if (task) showUndo(task, index);
+  if (task && taskIndex >= 0) showUndo(task, taskIndex);
 }
 
 /* Hide a task from the current view when it no longer matches the filter/category
@@ -599,6 +637,47 @@ export function hideFromView(el) {
   animateOut(el, () => {
     updateCountersAndProgress();
   });
+}
+
+/* Clears all completed tasks regardless of active filter or chunked scroll batch */
+export function clearDoneTasks() {
+  const currentTasks = Array.isArray(state.tasks) ? state.tasks : [];
+  const doneEntries = [];
+  currentTasks.forEach((task, index) => {
+    if (task && task.done) {
+      doneEntries.push({ task, index });
+    }
+  });
+  if (!doneEntries.length) return;
+  const doneIds = new Set(doneEntries.map(e => e.task.id));
+  state.tasks = currentTasks.filter(t => t && !t.done);
+  save();
+  if (state.session && doneIds.has(state.session.taskId)) clearFocus();
+
+  if (typeof document !== 'undefined') {
+    const lEl = getListEl();
+    const renderedDone = lEl ? [...lEl.querySelectorAll('.task.done')] : [];
+    renderedDone.forEach(el => el.remove());
+    renderedCount = Math.max(0, renderedCount - renderedDone.length);
+    updateEmpty();
+    updateCountersAndProgress();
+  }
+  notify();
+
+  doneEntries.forEach(entry => undoQueue.push(entry));
+  if (typeof document !== 'undefined') {
+    const toast = $('#undoToast');
+    if (toast) {
+      const label = toast.querySelector('.toast-text');
+      if (label) label.textContent = `${faNum(doneEntries.length)} کار انجام‌شده پاک شد`;
+      const bar = toast.querySelector('.toast-bar');
+      if (bar) { bar.style.animation = 'none'; void bar.offsetWidth; bar.style.animation = ''; }
+      toast.hidden = false;
+      requestAnimationFrame(() => toast.classList.add('show'));
+      clearTimeout(undoTimer);
+      undoTimer = setTimeout(commitUndo, 5000);
+    }
+  }
 }
 
 function startEditTitle(titleEl, task) {
@@ -1309,14 +1388,17 @@ export function initAddForm() {
       addBtn.classList.add('add-pop');
       setTimeout(() => addBtn.classList.remove('add-pop'), 340);
     }
-    if (matches(task) && (state.catFilter === 'all' || state.catFilter === catVal) && (!state.noDue || !task.dueDate) && !state.query) {
+    if (visible().includes(task)) {
       const el = createTaskEl(task);
-      listEl.prepend(el);
+      const lEl = getListEl();
+      if (lEl) lEl.prepend(el);
+      renderedCount++;
       // Glow highlight on the newly added task
       el.classList.add('just-added');
       setTimeout(() => el.classList.remove('just-added'), 1500);
-      updateEmpty();
     }
+    updateEmpty();
+    updateCountersAndProgress();
     if (taskPreview) { taskPreview.hidden = true; taskPreview.innerHTML = ''; }
     input.value = ''; input.focus();
     for (const key of ['due', 'dur']) if (fromText[key]) resetDetail(key);

@@ -470,7 +470,7 @@ function relDay(ts) {
    top. Everything else keeps the order the list already has — the picker never
    ranks, it only remembers. */
 function openTasksForPick() {
-  const open = state.tasks.filter(t => !t.done);
+  const open = (Array.isArray(state.tasks) ? state.tasks : []).filter(t => t && !t.done);
   const rec = getHistory().find(r => r.taskId && open.some(t => t.id === r.taskId));
   if (!rec) return { open, rec: null };
   return { open: [open.find(t => t.id === rec.taskId), ...open.filter(t => t.id !== rec.taskId)], rec };

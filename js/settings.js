@@ -12,11 +12,11 @@
    back, or the Android gesture (js/app.js). */
 
 import { $, faNum } from './utils.js';
-import { state } from './state.js';
+import { state, normalizeTask } from './state.js';
 import { markThemePicker, isAutoTheme, setAutoTheme, unlockedThemesCount, totalThemesCount } from './theme.js';
 import { APP_VERSION, openReleaseNotes } from './changelog.js';
 import { startTour } from './tour.js';
-import { clearLibraryData, exportBookPack, importBookPack } from './library.js';
+import { clearLibraryData, exportBookPack, importBookPack, reloadBooks } from './library.js';
 import { clearUserAudioData } from './audio.js';
 import { renderBirthdayRow } from './birthday.js';
 import { openShortcuts } from './shortcuts.js';
@@ -24,9 +24,16 @@ import { TEXT_SIZES, loadTextSize, saveTextSize } from './textsize.js';
 import { markBackupDone } from './backup-nudge.js';
 import { collectBackup, parseBackup, applyBackup, mergeBackup, backupFileName, BACKUP_MAX_CHARS } from './backup.js';
 import { confirmDialog, showNotice } from './dialog.js';
-import { clearAll, flushPending, resetPending } from './store.js';
+import { clearAll, flushPending, resetPending, loadTasks, loadName, loadHistory, loadMoods, loadPomo } from './store.js';
 import { systemReducedMotion, userReducedMotion, setUserReducedMotion } from './motion.js';
 import { isNative, saveAndShareBlob } from './native.js';
+import { notify } from './bus.js';
+import { invalidateAllBuckets } from './daycache.js';
+import { renderList } from './tasks.js';
+import { renderToday } from './today.js';
+import { renderProfile } from './profile.js';
+import { renderAchievements } from './achievementsview.js';
+import { renderPlanner } from './planner.js';
 
 let activeSettingsTab = 'general';
 
@@ -350,6 +357,7 @@ export function initSettings() {
     if (choice === 'merge') res = mergeBackup(localStorage, parsed.backup);
     else res = applyBackup(localStorage, parsed.backup);
     if (!res.ok) { say(res.reason); return; }
+    hydrateStateAfterRestore();
     say(choice === 'merge' ? 'ادغام شد؛ دفترچه دوباره بالا می‌آد…' : 'بازگردانی شد؛ دفترچه دوباره بالا می‌آد…');
     setTimeout(() => location.reload(), 600);
   });
@@ -362,7 +370,7 @@ export function initSettings() {
   const cl = $('#profClear');
   if (cl) cl.onclick = async () => {
     /* The most destructive action in the app, in the app's own dialog: a native
-       confirm cannot say «برگشت‌ناپذیر» in the notebook's voice, and its two
+       confirm cannot say «برگشت‌ناپذیر» در صدای دفترچه، and its two
        buttons are laid out for a left-to-right box, so «تأیید» and «انصراف»
        land in the opposite order from every other confirm on this page. */
     const ok = await confirmDialog({
@@ -388,4 +396,24 @@ export function initSettings() {
     }
     location.reload();
   };
+}
+
+export function hydrateStateAfterRestore() {
+  const loadedTasks = loadTasks();
+  state.tasks = (Array.isArray(loadedTasks) ? loadedTasks : []).map(normalizeTask).filter(Boolean);
+  state.userName = loadName();
+  state.history = loadHistory();
+  state.moods = loadMoods();
+  state.pomoMin = loadPomo();
+  try { reloadBooks(); } catch { /* ignore */ }
+  invalidateAllBuckets();
+  notify();
+  if (typeof document !== 'undefined') {
+    renderList();
+    renderToday();
+    renderProfile();
+    renderSettings();
+    renderAchievements();
+    renderPlanner();
+  }
 }

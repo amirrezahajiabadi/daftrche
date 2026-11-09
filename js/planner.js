@@ -403,7 +403,8 @@ function syncStrip(keys) {
      save in the app, and fourteen passes over a long list to answer the same
      question seven times is work nobody asked for. */
   const counts = new Map(keys.map(k => [k, { total: 0, done: 0 }]));
-  for (const t of state.tasks) {
+  for (const t of (Array.isArray(state.tasks) ? state.tasks : [])) {
+    if (!t || typeof t !== 'object') continue;
     const day = t.dueDate && counts.get(t.dueDate);
     if (!day) continue;
     day.total++;
@@ -527,7 +528,8 @@ function renderLists() {
      span is an anchor and the rest of the day hangs off it. Sorted by time
      alone, so ticking a task never makes its row jump away from the finger. */
   const untimed = 24 * 60;
-  const planned = state.tasks
+  const tasks = (Array.isArray(state.tasks) ? state.tasks : []).filter(t => t && typeof t === 'object');
+  const planned = tasks
     .filter(t => t.dueDate === key)
     .sort((a, b) => (a.timeFrom == null ? untimed : a.timeFrom) - (b.timeFrom == null ? untimed : b.timeFrom));
 
@@ -566,7 +568,7 @@ function renderLists() {
 
   /* Finished that day, but planned for another one (or for no day at all): the
      tick belongs to the day it happened on. */
-  const doneHere = state.tasks.filter(t =>
+  const doneHere = tasks.filter(t =>
     t.done && t.doneAt && dayKey(new Date(t.doneAt)) === key && t.dueDate !== key);
   const sec = $('#wkDoneSec');
   const doneList = $('#wkDoneList');

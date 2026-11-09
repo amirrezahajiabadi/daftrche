@@ -4,7 +4,7 @@
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()
   Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-dwGJ1IHIc9/aEAjwyuKDCZnje0ODUdP4hbmq9HMY0ZY=' https://cdn.jsdelivr.net; worker-src 'self' blob: https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' https://cdn.jsdelivr.net; media-src 'self' blob: data:; connect-src 'self' https://cdn.jsdelivr.net; frame-src blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-Pt0bdZftZNQ/cG580gD+I/tWgImLQwOORjHM7XDVeqg=' https://cdn.jsdelivr.net; worker-src 'self' blob: https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' https://cdn.jsdelivr.net; media-src 'self' blob: data:; connect-src 'self' https://cdn.jsdelivr.net; frame-src blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'
   Link: </llms.txt>; rel="describedby"; type="text/plain"
 
 /assets/fonts/*

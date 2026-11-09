@@ -222,6 +222,19 @@ const read = readJSON;
 export function migrateStorage(storage = (typeof localStorage !== 'undefined' ? localStorage : null)) {
   if (!storage) return false;
   try {
+    const mergeTaskArrays = (baseArr, incomingArr) => {
+      const list = Array.isArray(baseArr) ? [...baseArr] : [];
+      const ids = new Set(list.map(t => t && t.id).filter(Boolean));
+      for (const t of (Array.isArray(incomingArr) ? incomingArr : [])) {
+        if (!t || typeof t !== 'object') continue;
+        if (!t.id || !ids.has(t.id)) {
+          list.push(t);
+          if (t.id) ids.add(t.id);
+        }
+      }
+      return list;
+    };
+
     // 1. Monolithic single-key storage migrations
     const legacyKeys = ['daftarche-state', 'daftarche_state', 'daftarche_app_state', 'daftarche-all', 'daftarche-store'];
     for (const legacyKey of legacyKeys) {
@@ -230,20 +243,68 @@ export function migrateStorage(storage = (typeof localStorage !== 'undefined' ? 
       try {
         const parsed = JSON.parse(raw);
         if (parsed && typeof parsed === 'object') {
-          if (Array.isArray(parsed.tasks) && !storage.getItem(STORAGE_KEYS.tasks)) {
-            storage.setItem(STORAGE_KEYS.tasks, JSON.stringify(parsed.tasks));
+          if (Array.isArray(parsed.tasks)) {
+            const cur = storage.getItem(STORAGE_KEYS.tasks);
+            if (!cur) {
+              storage.setItem(STORAGE_KEYS.tasks, JSON.stringify(parsed.tasks));
+            } else {
+              try {
+                const merged = mergeTaskArrays(JSON.parse(cur), parsed.tasks);
+                storage.setItem(STORAGE_KEYS.tasks, JSON.stringify(merged));
+              } catch { /* keep existing */ }
+            }
           }
-          if (Array.isArray(parsed.history) && !storage.getItem(STORAGE_KEYS.history)) {
-            storage.setItem(STORAGE_KEYS.history, JSON.stringify(parsed.history));
+          if (Array.isArray(parsed.history)) {
+            const cur = storage.getItem(STORAGE_KEYS.history);
+            if (!cur) {
+              storage.setItem(STORAGE_KEYS.history, JSON.stringify(parsed.history));
+            } else {
+              try {
+                const combined = Array.from(new Set([...JSON.parse(cur), ...parsed.history])).sort();
+                storage.setItem(STORAGE_KEYS.history, JSON.stringify(combined));
+              } catch { /* keep existing */ }
+            }
           }
-          if (parsed.moods && typeof parsed.moods === 'object' && !storage.getItem(STORAGE_KEYS.moods)) {
-            storage.setItem(STORAGE_KEYS.moods, JSON.stringify(parsed.moods));
+          if (parsed.moods && typeof parsed.moods === 'object') {
+            const cur = storage.getItem(STORAGE_KEYS.moods);
+            if (!cur) {
+              storage.setItem(STORAGE_KEYS.moods, JSON.stringify(parsed.moods));
+            } else {
+              try {
+                const combined = { ...parsed.moods, ...JSON.parse(cur) };
+                storage.setItem(STORAGE_KEYS.moods, JSON.stringify(combined));
+              } catch { /* keep existing */ }
+            }
           }
-          if (Array.isArray(parsed.focusHistory) && !storage.getItem(STORAGE_KEYS.focusHistory)) {
-            storage.setItem(STORAGE_KEYS.focusHistory, JSON.stringify(parsed.focusHistory));
+          if (Array.isArray(parsed.focusHistory)) {
+            const cur = storage.getItem(STORAGE_KEYS.focusHistory);
+            if (!cur) {
+              storage.setItem(STORAGE_KEYS.focusHistory, JSON.stringify(parsed.focusHistory));
+            } else {
+              try {
+                const localF = JSON.parse(cur);
+                const ids = new Set(localF.map(f => f && f.id).filter(Boolean));
+                for (const f of parsed.focusHistory) {
+                  if (f && f.id && !ids.has(f.id)) localF.push(f);
+                }
+                storage.setItem(STORAGE_KEYS.focusHistory, JSON.stringify(localF));
+              } catch { /* keep existing */ }
+            }
           }
-          if (Array.isArray(parsed.books) && !storage.getItem('daftarche-books-meta')) {
-            storage.setItem('daftarche-books-meta', JSON.stringify(parsed.books));
+          if (Array.isArray(parsed.books)) {
+            const cur = storage.getItem('daftarche-books-meta');
+            if (!cur) {
+              storage.setItem('daftarche-books-meta', JSON.stringify(parsed.books));
+            } else {
+              try {
+                const localB = JSON.parse(cur);
+                const ids = new Set(localB.map(b => b && b.id).filter(Boolean));
+                for (const b of parsed.books) {
+                  if (b && b.id && !ids.has(b.id)) localB.push(b);
+                }
+                storage.setItem('daftarche-books-meta', JSON.stringify(localB));
+              } catch { /* keep existing */ }
+            }
           }
           if (typeof parsed.userName === 'string' && !storage.getItem(STORAGE_KEYS.name)) {
             storage.setItem(STORAGE_KEYS.name, parsed.userName);
@@ -264,8 +325,16 @@ export function migrateStorage(storage = (typeof localStorage !== 'undefined' ? 
 
     // 2. Unversioned task keys
     const rawOldTasks = storage.getItem('daftarche-tasks');
-    if (rawOldTasks && !storage.getItem(STORAGE_KEYS.tasks)) {
-      storage.setItem(STORAGE_KEYS.tasks, rawOldTasks);
+    if (rawOldTasks) {
+      const cur = storage.getItem(STORAGE_KEYS.tasks);
+      if (!cur) {
+        storage.setItem(STORAGE_KEYS.tasks, rawOldTasks);
+      } else {
+        try {
+          const merged = mergeTaskArrays(JSON.parse(cur), JSON.parse(rawOldTasks));
+          storage.setItem(STORAGE_KEYS.tasks, JSON.stringify(merged));
+        } catch { /* keep existing */ }
+      }
       storage.removeItem('daftarche-tasks');
     }
 
@@ -279,7 +348,10 @@ if (typeof localStorage !== 'undefined') {
   try { migrateStorage(localStorage); } catch { /* ignore */ }
 }
 
-export const loadTasks   = ()    => read(STORAGE_KEYS.tasks, null);
+export const loadTasks   = ()    => {
+  const val = read(STORAGE_KEYS.tasks, null);
+  return Array.isArray(val) ? val : null;
+};
 export const saveTasks   = (t, { sync = false } = {}) => {
   if (sync) {
     dirtySlices.delete(STORAGE_KEYS.tasks);
@@ -291,10 +363,16 @@ export const saveTasks   = (t, { sync = false } = {}) => {
 export const loadName    = ()    => readString(STORAGE_KEYS.name);
 export const saveName    = v    => scheduleSave(STORAGE_KEYS.name, v);
 
-export const loadHistory = ()    => read(STORAGE_KEYS.history, []);
+export const loadHistory = ()    => {
+  const val = read(STORAGE_KEYS.history, []);
+  return Array.isArray(val) ? val : [];
+};
 export const saveHistory = h    => scheduleSave(STORAGE_KEYS.history, h);
 
-export const loadMoods   = ()    => read(STORAGE_KEYS.moods, {});
+export const loadMoods   = ()    => {
+  const val = read(STORAGE_KEYS.moods, {});
+  return (val && typeof val === 'object' && !Array.isArray(val)) ? val : {};
+};
 export const saveMoods   = m    => scheduleSave(STORAGE_KEYS.moods, m);
 
 export const loadPomo    = ()    => Number(readString(STORAGE_KEYS.pomo)) || 25;
@@ -306,7 +384,10 @@ export const saveSession = s    => scheduleSave(STORAGE_KEYS.session, s ? s : ''
 export const clearSession = ()   => safeRemove(STORAGE_KEYS.session);
 
 /* Completed focus sessions archive (newest first, capped) */
-export const loadFocusHistory = ()  => read(STORAGE_KEYS.focusHistory, []);
+export const loadFocusHistory = ()  => {
+  const val = read(STORAGE_KEYS.focusHistory, []);
+  return Array.isArray(val) ? val : [];
+};
 export const saveFocusHistory = h  => scheduleSave(STORAGE_KEYS.focusHistory, h);
 
 /* The stats window the reader last chose. A view preference, not data — if it

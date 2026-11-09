@@ -29,6 +29,8 @@ let trackedTasksLen = -1;
 let trackedHistoryLen = -1;
 let trackedMoodsLen = -1;
 let trackedTasksDoneCount = -1;
+let trackedOpenedLen = -1;
+let trackedBooksFp = '';
 
 const validTs = t => Number.isFinite(t) && t > 0;
 const pos = n => (Number.isFinite(Number(n)) && Number(n) > 0 ? Number(n) : 0);
@@ -72,11 +74,24 @@ function checkDirectStateChanges(now) {
   }
   const historyLen = getHistory().length;
   const moodsLen = state.moods && typeof state.moods === 'object' ? Object.keys(state.moods).length : 0;
+  const openedLen = Array.isArray(state.history) ? state.history.length : 0;
+  const books = getBooks();
+  let booksFp = books.length + ':';
+  for (let i = 0; i < books.length; i++) {
+    const b = books[i];
+    if (!b) continue;
+    booksFp += (b.id || '') + ((b.highlights?.length || 0) + (b.notes?.length || 0)) + ':';
+    for (const [k, s] of Object.entries(b.stats || {})) {
+      booksFp += k + (s?.minutes || 0) + (s?.pages || 0) + ',';
+    }
+  }
 
   if (tasks.length !== trackedTasksLen ||
       doneCount !== trackedTasksDoneCount ||
       historyLen !== trackedHistoryLen ||
-      moodsLen !== trackedMoodsLen) {
+      moodsLen !== trackedMoodsLen ||
+      openedLen !== trackedOpenedLen ||
+      booksFp !== trackedBooksFp) {
     isHistoricalDirty = true;
     isTodayDirty = true;
     historicalBuckets.clear();
@@ -84,6 +99,8 @@ function checkDirectStateChanges(now) {
     trackedTasksDoneCount = doneCount;
     trackedHistoryLen = historyLen;
     trackedMoodsLen = moodsLen;
+    trackedOpenedLen = openedLen;
+    trackedBooksFp = booksFp;
     cacheVersion++;
   }
 }
@@ -306,7 +323,10 @@ export function ensureCache(now = new Date()) {
 }
 
 export function invalidateDayCache(key) {
-  if (!key || key === cachedTodayKey) {
+  if (!key) {
+    isTodayDirty = true;
+    isHistoricalDirty = true;
+  } else if (key === cachedTodayKey) {
     isTodayDirty = true;
   } else {
     isHistoricalDirty = true;

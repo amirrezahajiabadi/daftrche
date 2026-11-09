@@ -5,6 +5,7 @@ import { showNotice } from './dialog.js';
 import { LIB_ICONS } from './constants.js';
 import { openChipPicker } from './taskedit.js';
 import { buildZip, readZip, looksLikePdf } from './pdfpack.js';
+import { notify } from './bus.js';
 
 const META_KEY = 'daftarche-books-meta';
 /* Read through the storage layer's guarded reader: a corrupt value falls back
@@ -18,8 +19,16 @@ const saveMeta = () => {
   /* The Today page shows the reading goals; it hears about a change here instead of
      having every writer (the reader, the goal sheet, import) call it. */
   try { window.dispatchEvent(new Event('daftarche:books-changed')); } catch { /* no window */ }
+  notify();
   return ok;
 };
+
+export function reloadBooks() {
+  const stored = readJSON(META_KEY, null);
+  books = Array.isArray(stored) ? stored : [];
+  renderShelf();
+  try { window.dispatchEvent(new Event('daftarche:books-changed')); } catch { /* no window */ }
+}
 
 /* Books with a daily page goal that is still running, for the Today page. */
 export function readingGoalsToday() {
@@ -41,9 +50,9 @@ export function updateBook(id, patch) {
 }
 
 /* ── Reading progress (deterministic: completed pages / total pages) ── */
-export const bookDone = b => new Set(b.completedPages || []);
-export const bookPct = b => (b.numPages ? Math.round((bookDone(b).size / b.numPages) * 100) : 0);
-export const bookComplete = b => !!b.numPages && bookDone(b).size >= b.numPages;
+export const bookDone = b => new Set(b?.completedPages || []);
+export const bookPct = b => (b?.numPages ? Math.round((bookDone(b).size / b.numPages) * 100) : 0);
+export const bookComplete = b => !!b?.numPages && bookDone(b).size >= b.numPages;
 
 /* ── IndexedDB for the PDF file ── */
 const DB_NAME = 'daftarche-books';

@@ -252,7 +252,7 @@ function buildStats(rangeKey = DEFAULT_RANGE, now = Date.now()) {
   const created = sum(days, d => d.created);
   const donePrev = sum(prevDays, d => d.done);
 
-  const tasks = Array.isArray(state.tasks) ? state.tasks : [];
+  const tasks = (Array.isArray(state.tasks) ? state.tasks : []).filter(t => t && typeof t === 'object');
   const inWindow = (t, start, end) =>
     (t.created !== null && t.created >= start && t.created < end) ||
     (t.doneAt !== null && t.doneAt >= start && t.doneAt < end);
@@ -544,8 +544,8 @@ function paintRing(model, animate) {
     /* The final number is written first and the count-up then climbs from zero
        over it. A frame loop that never runs — a backgrounded tab — leaves the
        true value on screen rather than a stale one. */
-    pv.textContent = pct === null ? '۰' : faNum(pct);
-    if (animate && pct !== null) {
+    pv.textContent = (pct === null || Number.isNaN(pct)) ? '۰' : faNum(pct);
+    if (animate && pct !== null && !Number.isNaN(pct)) {
       const start = performance.now();
       const tick = now => {
         const t = Math.min((now - start) / 700, 1);
@@ -742,6 +742,10 @@ function paintHistory(model) {
   if (!sessions.length) {
     if (statsHistoryObserver) { statsHistoryObserver.disconnect(); statsHistoryObserver = null; }
     list.innerHTML = '';
+    const count = $('#statsHistoryCount');
+    if (count) count.textContent = '';
+    const more = $('#statsHistoryMore');
+    if (more) more.hidden = true;
     return;
   }
 

@@ -21,6 +21,7 @@
    by the meaning it has in the rest of the app rather than overwritten. */
 
 import { invalidateAllBuckets } from './daycache.js';
+import { flushPending, migrateStorage } from './store.js';
 
 export const BACKUP_APP = 'daftarche';
 export const BACKUP_FORMAT = 1;
@@ -71,6 +72,7 @@ function backupKeysOf(storage) {
 /* Everything that belongs in a backup, as a plain object ready for
    JSON.stringify. */
 export function collectBackup(storage, { now = new Date(), release = '' } = {}) {
+  try { flushPending(); } catch { /* ignore */ }
   const data = {};
   for (const k of backupKeysOf(storage)) {
     const v = storage.getItem(k);
@@ -106,6 +108,7 @@ export function parseBackup(text) {
     return { ok: false, reason: 'این پشتیبان با نسخهٔ جدیدتری از دفترچه ساخته شده؛ اول برنامه رو به‌روز کن.' };
   }
   if (!isPlainObject(obj.data)) return { ok: false, reason: 'داده‌ای داخل این پشتیبان نیست.' };
+  normalizeBackupData(obj.data);
 
   const keys = Object.keys(obj.data);
   if (!keys.length) return { ok: false, reason: 'داده‌ای داخل این پشتیبان نیست.' };
@@ -133,6 +136,7 @@ export function parseBackup(text) {
    person exactly where they were. Answers { ok: true, restored } or
    { ok: false, reason }. */
 export function applyBackup(storage, backup) {
+  if (backup && isPlainObject(backup.data)) normalizeBackupData(backup.data);
   const before = {};
   for (const k of backupKeysOf(storage)) before[k] = storage.getItem(k);
 
@@ -146,6 +150,7 @@ export function applyBackup(storage, backup) {
   try {
     for (const k of backupKeysOf(storage)) storage.removeItem(k);
     for (const [k, v] of Object.entries(backup.data)) storage.setItem(k, v);
+    try { migrateStorage(storage); } catch { /* ignore */ }
   } catch {
     rollback();
     return { ok: false, reason: 'جا برای بازگرداندن کافی نبود؛ چیزی عوض نشد.' };
@@ -489,6 +494,61 @@ const MERGERS = {
   'daftarche-achievements': mergeAchv,
 };
 
+export function normalizeBackupData(data) {
+  if (!isPlainObject(data)) return data;
+  const legacyKeys = ['daftarche-state', 'daftarche_state', 'daftarche_app_state', 'daftarche-all', 'daftarche-store'];
+  for (const legacyKey of legacyKeys) {
+    const raw = data[legacyKey];
+    if (!raw) continue;
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        if (Array.isArray(parsed.tasks)) {
+          const incomingRaw = JSON.stringify(parsed.tasks);
+          data['daftarche-v1'] = data['daftarche-v1'] ? mergeTaskList(data['daftarche-v1'], incomingRaw) : incomingRaw;
+        }
+        if (Array.isArray(parsed.history)) {
+          const incomingRaw = JSON.stringify(parsed.history);
+          data['daftarche-history'] = data['daftarche-history'] ? mergeDayList(data['daftarche-history'], incomingRaw) : incomingRaw;
+        }
+        if (parsed.moods && typeof parsed.moods === 'object') {
+          const incomingRaw = JSON.stringify(parsed.moods);
+          data['daftarche-moods'] = data['daftarche-moods'] ? mergeMoods(data['daftarche-moods'], incomingRaw) : incomingRaw;
+        }
+        if (Array.isArray(parsed.focusHistory)) {
+          const incomingRaw = JSON.stringify(parsed.focusHistory);
+          data['daftarche-focus-history'] = data['daftarche-focus-history'] ? mergeFocusHistory(data['daftarche-focus-history'], incomingRaw) : incomingRaw;
+        }
+        if (Array.isArray(parsed.books)) {
+          const incomingRaw = JSON.stringify(parsed.books);
+          data['daftarche-books-meta'] = data['daftarche-books-meta'] ? mergeBooks(data['daftarche-books-meta'], incomingRaw) : incomingRaw;
+        }
+        if (typeof parsed.userName === 'string' && !data['daftarche-name']) {
+          data['daftarche-name'] = parsed.userName;
+        }
+        if (typeof parsed.theme === 'string' && !data['theme']) {
+          data['theme'] = parsed.theme;
+        }
+        if (parsed.ledger && typeof parsed.ledger === 'object') {
+          const incomingRaw = JSON.stringify(parsed.ledger);
+          data['daftarche-ledger'] = data['daftarche-ledger'] ? mergeLedger(data['daftarche-ledger'], incomingRaw) : incomingRaw;
+        }
+        if (parsed.achievements && typeof parsed.achievements === 'object') {
+          const incomingRaw = JSON.stringify(parsed.achievements);
+          data['daftarche-achievements'] = data['daftarche-achievements'] ? mergeAchv(data['daftarche-achievements'], incomingRaw) : incomingRaw;
+        }
+      }
+      delete data[legacyKey];
+    } catch { /* ignore */ }
+  }
+  if (data['daftarche-tasks']) {
+    const rawOld = data['daftarche-tasks'];
+    data['daftarche-v1'] = data['daftarche-v1'] ? mergeTaskList(data['daftarche-v1'], rawOld) : rawOld;
+    delete data['daftarche-tasks'];
+  }
+  return data;
+}
+
 /* Combine a validated backup with what is already on the device, one key at a
    time, and write only the keys the file actually changed — keys the file does
    not mention are not touched at all, unlike applyBackup, which removes them.
@@ -500,6 +560,7 @@ export function mergeBackup(storage, backup) {
   if (!backup || !isPlainObject(backup.data)) {
     return { ok: false, reason: 'ساختار این پشتیبان درست نیست.' };
   }
+  normalizeBackupData(backup.data);
 
   const writes = {};
   for (const [k, v] of Object.entries(backup.data)) {
@@ -535,6 +596,7 @@ export function mergeBackup(storage, backup) {
 
   try {
     for (const [k, v] of Object.entries(writes)) storage.setItem(k, v);
+    try { migrateStorage(storage); } catch { /* ignore */ }
   } catch {
     rollback();
     return { ok: false, reason: 'جا برای ادغام کافی نبود؛ چیزی عوض نشد.' };
