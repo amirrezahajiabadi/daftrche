@@ -31,14 +31,20 @@
    Everything with a date in it is a pure function, so the rule can be tested by
    feeding it dates instead of waiting a year for one. */
 
-import { dateToJalali, JALALI_MONTHS } from "./jalali.js";
+import { dateToJalali, jalaliToDate, jalaliDaysInMonth, JALALI_MONTHS } from "./jalali.js";
 import { $, faDigits } from "./utils.js";
 import { renderMonthGrid, renderMonthHead, stepMonth, walkGridKeys } from "./jalalical.js";
 import { loadName } from "./store.js";
 import { loadBirthday, saveBirthday, loadBirthdaySeen, saveBirthdaySeen } from "./store.js";
 import { qorqoriMarkup } from "./qorqori.js";
+import { notify, subscribe } from "./bus.js";
+import { confetti } from "./confetti.js";
+import { applyBirthdayTheme, syncThemeColor } from "./theme.js";
 
 const DAY = "birthday";
+/* The theme key the day wears. It lives in js/constants.js with the others; the
+   root attribute is compared against it rather than against a second guess. */
+const THEME_DAY = "tavalod";
 
 /* The oldest year the picker will offer. Jalali 1250 is the 1300s in the
    Gregorian calendar, so this allows a reader to be 130 and no more — old enough
@@ -139,14 +145,42 @@ export function normalizeBirthday(raw) {
 
 const pad2 = n => String(n).padStart(2, '0');
 
-/* The key a greeting is recorded under, or null when the day is not today. One
-   function, so the greeter and the record can never disagree about which day they
-   are talking about. */
+/* The calendar day the user celebrates in a specific Jalali year.
+   For month 1-11 and month 12 days 1-29, this is always b.d.
+   For 30 Esfand in a common year (which has 29 days), it maps to day 29,
+   and in a leap year (30 days), it maps to day 30. */
+export function effectiveBirthdayDay(stored, jy) {
+  const b = normalizeBirthday(stored);
+  if (!b) return null;
+  return Math.min(b.d, jalaliDaysInMonth(jy, b.m));
+}
+
+/* The day of the celebration as «MM-DD», or null when today is not it. One
+   function, so the greeter, the calendar badge and the theme can never disagree
+   about which day they are talking about.
+
+   It carries no year on purpose: every caller asks «is today the day?», and a
+   birthday is the same day every year. What is written down after a greeting is
+   birthdayStamp(), which does carry the year. */
 export function birthdayKey(date, stored) {
   const b = normalizeBirthday(stored);
   if (!b) return null;
   const j = dateToJalali(date);
-  return j.jm === b.m && j.jd === b.d ? pad2(j.jm) + '-' + pad2(j.jd) : null;
+  const effD = effectiveBirthdayDay(b, j.jy);
+  return j.jm === b.m && j.jd === effD ? pad2(j.jm) + '-' + pad2(effD) : null;
+}
+
+/* The same day, filed under the Jalali year it was celebrated in: «1405-07-12».
+
+   The year is the whole point. A record that is only «07-12» cannot tell this
+   year's birthday from the last one's, so the greeting it suppresses is
+   suppressed for good: a reader gets one card in their life, and every birthday
+   after that passes in silence. Stamping the year makes the record expire by
+   itself at the next one. */
+export function birthdayStamp(date, stored) {
+  const key = birthdayKey(date, stored);
+  if (!key) return null;
+  return dateToJalali(date).jy + '-' + key;
 }
 
 /* How old the reader turned on a given date, or null when there is no year to go
@@ -167,22 +201,73 @@ export function birthdayAge(date, stored) {
   return age >= 0 ? age : null;
 }
 
-/* Is this the day, and has it not already been greeted? The whole feature in one
-   predicate — which is also what the tests drive. */
+/* Number of days remaining until the next birthday anniversary (0 if today is birthday). */
+export function nextBirthdayCountdown(date, stored) {
+  const b = normalizeBirthday(stored);
+  if (!b) return null;
+  const d = date instanceof Date ? date : new Date(date);
+  if (isNaN(d.getTime())) return null;
+  const j = dateToJalali(d);
+  if (!j) return null;
+
+  const currentJY = j.jy;
+  const effD = effectiveBirthdayDay(b, currentJY);
+  const bdayThisYear = jalaliToDate(currentJY, b.m, effD);
+  if (!bdayThisYear) return null;
+
+  const dMid = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const bMid = new Date(bdayThisYear.getFullYear(), bdayThisYear.getMonth(), bdayThisYear.getDate()).getTime();
+
+  if (dMid === bMid) return 0;
+  if (dMid < bMid) {
+    return Math.round((bMid - dMid) / 86400000);
+  }
+
+  const nextJY = currentJY + 1;
+  const effDNext = effectiveBirthdayDay(b, nextJY);
+  const bdayNextYear = jalaliToDate(nextJY, b.m, effDNext);
+  if (!bdayNextYear) return null;
+  const bNextMid = new Date(bdayNextYear.getFullYear(), bdayNextYear.getMonth(), bdayNextYear.getDate()).getTime();
+  return Math.round((bNextMid - dMid) / 86400000);
+}
+
+/* Is this the day, and has it not already been greeted this time round? The
+   whole feature in one predicate — which is also what the tests drive.
+
+   A record written before the year was part of it is a bare «07-12». It matches
+   no stamp, so the first birthday after this change is greeted again instead of
+   staying silent because of a value an older build left behind. */
 export function isBirthday(date, stored, seen) {
-  const key = birthdayKey(date, stored);
-  return !!key && key !== seen;
+  const stamp = birthdayStamp(date, stored);
+  return !!stamp && stamp !== seen;
 }
 
 /* ── The day on the document ──
    data-day is the root third face, after the theme and the mode. Setting it is the
    entire mechanism; removing it is the entire way back. Nothing about the theme
-   itself is touched, so the reader own colours are still underneath. */
+   itself is touched, so the reader own colours are still underneath.
+
+   It only ever goes on with the birthday theme, and it comes off with it. The
+   attribute repaints every colour token on the root, so leaving it behind after
+   the reader picks another theme would paint the day over their choice for the
+   rest of the day — the birthday card would be gone from Today while the whole
+   app still wore its palette. One day, one theme, and a way out. */
 export function applyBirthdayDay(active) {
   const root = document.documentElement;
   if (!root) return;
   if (active) root.dataset.day = DAY;
   else delete root.dataset.day;
+  /* The day face paints over the theme's --color-bg, so the browser chrome has
+     to be told again — including when the face comes off and the theme shows
+     through. */
+  syncThemeColor();
+}
+
+/* The day face follows whichever theme is actually on. Called on every theme
+   change, because the reader picking a theme is the one thing that can take the
+   birthday colours off in the middle of the day. */
+export function syncBirthdayDay() {
+  applyBirthdayDay(document.documentElement?.dataset.theme === THEME_DAY);
 }
 
 /* ── The one entry point ──
@@ -208,19 +293,76 @@ export function checkBirthday(opts) {
      occasion is the day, not the session, so the day has to be re-applied from
      the first question and only the card is allowed to be one-shot. */
   const today = !!birthdayKey(now, stored);
-  applyBirthdayDay(today);
+  /* The theme goes on with the day, before the card and without a question. It is
+     not remembered as a choice, so the reader's own theme is back tomorrow — or
+     immediately, if they pick one (see js/theme.js).
+
+     The day face is painted only while that theme is the one on screen, so a
+     reader who has already said «not today» gets their own colours and nothing
+     else — not just a swapped theme with the birthday palette underneath it. */
+  const themed = applyBirthdayTheme(now);
+  applyBirthdayDay(today && themed);
   if (!today || !isBirthday(now, stored, seen)) return false;
 
   /* Written down before the sheet is shown, not after it is dismissed: a reader
      who closes the tab on the greeting has still been greeted, and must not find
-     the same card waiting for them tomorrow. */
-  const key = birthdayKey(now, stored);
-  if (!o.dryRun) saveBirthdaySeen(key);
+     the same card waiting for them tomorrow. The year is in the record, so
+     «tomorrow» means tomorrow and not next year as well. */
+  if (!o.dryRun) saveBirthdaySeen(birthdayStamp(now, stored));
 
   if (!o.dryRun) showBirthdayCard(o.after);
   return true;
 }
 
+
+/* Celebratory SVG Cake for the birthday modal */
+export function birthdayCakeSvg() {
+  return `
+    <svg class="wc-cake is-lit" viewBox="0 0 200 120" role="img" aria-label="کیک جشن تولد">
+      <ellipse class="wc-cake-plate" cx="100" cy="108" rx="72" ry="7"/>
+      <path class="wc-cake-stand" d="M85 108 L80 115 H120 L115 108 Z"/>
+      <rect class="wc-cake-tier wc-tier-1" x="42" y="70" width="116" height="34" rx="6"/>
+      <path class="wc-cake-icing" d="M42 76 Q51 86 61 76 Q70 86 80 76 Q90 86 100 76 Q110 86 120 76 Q130 86 140 76 Q150 86 158 76 V70 H42 Z"/>
+      <rect class="wc-cake-tier wc-tier-2" x="62" y="44" width="76" height="26" rx="5"/>
+      <path class="wc-cake-icing" d="M62 50 Q71 58 81 50 Q90 58 100 50 Q110 58 119 50 Q129 58 138 50 V44 H62 Z"/>
+      <circle class="wc-cake-pearl" cx="54" cy="94" r="2.5"/>
+      <circle class="wc-cake-pearl" cx="74" cy="94" r="2.5"/>
+      <circle class="wc-cake-pearl" cx="100" cy="94" r="2.5"/>
+      <circle class="wc-cake-pearl" cx="126" cy="94" r="2.5"/>
+      <circle class="wc-cake-pearl" cx="146" cy="94" r="2.5"/>
+      <g class="wc-candle" transform="translate(78, 22)">
+        <rect class="wc-candle-stick" x="-2" y="6" width="4" height="16" rx="1"/>
+        <line class="wc-candle-wick" x1="0" y1="6" x2="0" y2="2"/>
+        <g class="wc-flame-group">
+          <ellipse class="wc-flame wc-flame-outer" cx="0" cy="-2" rx="3.5" ry="5.5"/>
+          <ellipse class="wc-flame wc-flame-inner" cx="0" cy="-1.5" rx="1.8" ry="3"/>
+        </g>
+      </g>
+      <g class="wc-candle is-center" transform="translate(100, 18)">
+        <rect class="wc-candle-stick" x="-2.5" y="6" width="5" height="20" rx="1"/>
+        <line class="wc-candle-wick" x1="0" y1="6" x2="0" y2="2"/>
+        <g class="wc-flame-group">
+          <ellipse class="wc-flame wc-flame-outer" cx="0" cy="-3" rx="4.5" ry="7"/>
+          <ellipse class="wc-flame wc-flame-inner" cx="0" cy="-2" rx="2.2" ry="4"/>
+        </g>
+      </g>
+      <g class="wc-candle" transform="translate(122, 22)">
+        <rect class="wc-candle-stick" x="-2" y="6" width="4" height="16" rx="1"/>
+        <line class="wc-candle-wick" x1="0" y1="6" x2="0" y2="2"/>
+        <g class="wc-flame-group">
+          <ellipse class="wc-flame wc-flame-outer" cx="0" cy="-2" rx="3.5" ry="5.5"/>
+          <ellipse class="wc-flame wc-flame-inner" cx="0" cy="-1.5" rx="1.8" ry="3"/>
+        </g>
+      </g>
+      <g class="wc-sparkles">
+        <path class="wc-sparkle sp-1" d="M30 45 L32 40 L34 45 L39 47 L34 49 L32 54 L30 49 L25 47 Z"/>
+        <path class="wc-sparkle sp-2" d="M165 40 L167 36 L169 40 L173 42 L169 44 L167 48 L165 44 L161 42 Z"/>
+        <circle class="wc-sparkle-dot sp-3" cx="48" cy="30" r="1.8"/>
+      </g>
+    </svg>`;
+}
+
+let activeBirthdayCloser = null;
 
 /* ── The greeting itself ──
    The one moment the app acknowledges the date, and it is built from parts the
@@ -230,13 +372,17 @@ export function checkBirthday(opts) {
    The name is the reader's own and is written with textContent. It came out of
    a field they typed into, so it is never interpolated into markup — a reader
    whose name contains an angle bracket gets a bracket, not an element. */
-function showBirthdayCard(after) {
+export function showBirthdayCard(after) {
   const overlay = $('#bdOverlay');
   if (!overlay) return;
 
+  if (activeBirthdayCloser) activeBirthdayCloser();
+
   const char = $('#bdChar');
+  const cakeBox = $('#bdCakeBox');
   const name = $('#bdName');
   if (char) char.innerHTML = qorqoriMarkup('celebrating');
+  if (cakeBox) cakeBox.innerHTML = birthdayCakeSvg();
 
   const who = loadName().trim();
   if (name) {
@@ -264,21 +410,62 @@ function showBirthdayCard(after) {
     ageLine.hidden = age === null || age < 1;
   }
 
-  /* Both ways out detach both listeners. Escape is the reason this is explicit:
-     `{ once: true }` on the click would only be consumed if the reader pressed
-     the button, so anyone who closed the card with the keyboard would carry a
-     live listener into next year's card — and a second Escape would then close a
-     card that was already gone. */
+  try { confetti(); } catch {}
+
+  /* One button, because there is no question to ask: the birthday theme and its
+     world are already on by the time this card exists (applyBirthdayTheme, called
+     from checkBirthday). «Do you want to enter?» was a door in front of a room the
+     reader was already standing in. */
   const go = $('#bdGo');
+
+  const prevActive = document.activeElement;
+
   const close = () => {
+    activeBirthdayCloser = null;
     overlay.hidden = true;
     go?.removeEventListener('click', close);
+    overlay.removeEventListener('click', onBackdrop);
+    cakeBox?.removeEventListener('click', onCakeClick);
     document.removeEventListener('keydown', onKey);
+    if (prevActive && typeof prevActive.focus === 'function' && prevActive.isConnected) {
+      try { prevActive.focus({ preventScroll: true }); } catch {}
+    }
     if (typeof after === 'function') after();
   };
-  const onKey = e => { if (e.key === 'Escape') close(); };
+  activeBirthdayCloser = close;
+
+  const onKey = e => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      close();
+      return;
+    }
+    if (e.key === 'Tab') {
+      const focusables = [go].filter(Boolean);
+      if (!focusables.length) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement;
+      if (e.shiftKey) {
+        if (active === first || !overlay.contains(active)) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (active === last || !overlay.contains(active)) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    }
+  };
+
+  const onBackdrop = e => { if (e.target === overlay) close(); };
+  const onCakeClick = () => { try { confetti(); } catch {} };
 
   go?.addEventListener('click', close);
+  overlay.addEventListener('click', onBackdrop);
+  cakeBox?.addEventListener('click', onCakeClick);
   document.addEventListener('keydown', onKey);
   overlay.hidden = false;
   go?.focus();
@@ -925,6 +1112,7 @@ function pickDay(key) {
   /* Someone who picks today's date has just decided the app greets them now,
      rather than on the next reload — waiting would make the row feel broken. */
   checkBirthday();
+  notify();
 }
 
 /* ── The settings row ── */
@@ -947,6 +1135,42 @@ export function renderBirthdayRow() {
       ? 'تاریخ تولد: ' + label.textContent + ' — برای تعویض کن'
       : 'تاریخ تولدت را ثبت کن');
   }
+
+  const badge = $('#bdCountdown');
+  if (badge) {
+    if (!stored) {
+      badge.hidden = true;
+      badge.textContent = '';
+      badge.classList.remove('is-today');
+      badge.removeAttribute?.('role');
+      badge.removeAttribute?.('tabindex');
+      badge.removeAttribute?.('aria-label');
+    } else {
+      const cd = nextBirthdayCountdown(new Date(), stored);
+      if (cd === 0) {
+        badge.hidden = false;
+        badge.textContent = 'امروز روز تولد شماست!';
+        badge.classList.add('is-today');
+        badge.setAttribute?.('role', 'button');
+        badge.setAttribute?.('tabindex', '0');
+        badge.setAttribute?.('aria-label', 'امروز روز تولد شماست! برای مشاهده کارت تبریک کلیک کنید');
+      } else if (cd !== null && cd > 0) {
+        badge.hidden = false;
+        badge.textContent = `${faDigits(cd)} روز تا تولد شما مانده`;
+        badge.classList.remove('is-today');
+        badge.removeAttribute?.('role');
+        badge.removeAttribute?.('tabindex');
+        badge.removeAttribute?.('aria-label');
+      } else {
+        badge.hidden = true;
+        badge.textContent = '';
+        badge.classList.remove('is-today');
+        badge.removeAttribute?.('role');
+        badge.removeAttribute?.('tabindex');
+        badge.removeAttribute?.('aria-label');
+      }
+    }
+  }
 }
 
 /* «۱۲ مهر ۱۳۷۰» — day and month first, because that is the part that comes round
@@ -965,6 +1189,7 @@ function clearBirthday() {
   /* Removing the date on the day itself takes the day off with it, rather than
      leaving a reader celebrating a birthday they just deleted. */
   checkBirthday();
+  notify();
 }
 
 /* ── The day turning over ──
@@ -975,15 +1200,26 @@ function clearBirthday() {
    in js/notifications.js rather than inventing a second one. */
 let lastDay = null;
 
+/* The whole local date, not just the number: an app opened on 3 Mehr and left
+   open for a month comes back on 3 Aban with the same day-of-month, and a
+   birthday in between must not be missed because the digits happened to match. */
+const localDayKey = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+};
+
 export function watchDayChange() {
   const tick = () => {
-    const day = new Date().getDate();
+    const day = localDayKey();
     if (day === lastDay) return;
     lastDay = day;
     checkBirthday();
+    renderBirthdayRow();
+    notify();
   };
   tick();
-  setInterval(tick, 60 * 1000);
+  const timer = setInterval(tick, 60 * 1000);
+  if (timer && typeof timer.unref === 'function') timer.unref();
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') tick();
   });
@@ -991,11 +1227,26 @@ export function watchDayChange() {
 
 export function initBirthday() {
   renderBirthdayRow();
+  subscribe(renderBirthdayRow);
+  /* The reader changing theme is the one event that can take the birthday
+     colours off mid-day; the day face follows the theme that actually landed. */
+  window.addEventListener('theme-applied', syncBirthdayDay);
   watchDayChange();
 
   const openBtn = $('#bdPick');
   const overlay = $('#bdPickOverlay');
   const closeBtn = $('#bdPickClose');
+  const badge = $('#bdCountdown');
+
+  badge?.addEventListener('click', () => {
+    if (badge.classList.contains('is-today')) showBirthdayCard();
+  });
+  badge?.addEventListener('keydown', e => {
+    if ((e.key === 'Enter' || e.key === ' ') && badge.classList.contains('is-today')) {
+      e.preventDefault();
+      showBirthdayCard();
+    }
+  });
 
   openBtn?.addEventListener('click', openBirthdayPicker);
   closeBtn?.addEventListener('click', closeBirthdayPicker);

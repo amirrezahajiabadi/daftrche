@@ -71,9 +71,16 @@ downloads/
 *.apk
 *.aab
 android/app/build/
+android/app/release/
 android/.gradle/
 android/build/
 android/app/src/main/assets/public/
+# SDK path and any other machine-local Gradle file
+android/local.properties
+android/app/capacitor.build.gradle.bak
+# The signing key itself is ignored above (*.jks, *.keystore, keystore.properties);
+# android/version-code.json is tracked on purpose: it is the memory of the last
+# versionCode the stores accepted, so a build can never go backwards.
 
 # Local server data
 /server/subscriptions.json

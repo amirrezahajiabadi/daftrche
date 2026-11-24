@@ -6,6 +6,7 @@ import { LIB_ICONS } from './constants.js';
 import { openChipPicker } from './taskedit.js';
 import { buildZip, readZip, looksLikePdf } from './pdfpack.js';
 import { notify } from './bus.js';
+import { mountSelectMenu, SORT_ICON } from './pickmenu.js';
 
 const META_KEY = 'daftarche-books-meta';
 /* Read through the storage layer's guarded reader: a corrupt value falls back
@@ -272,8 +273,10 @@ function updateLibraryStats() {
   if (nCnt) nCnt.textContent = faNum(totalNotes);
 }
 
+let lastShelfSig = '';
+
 /* ── Shelf + Currently Reading ── */
-export function renderShelf() {
+export function renderShelf(force = false) {
   updateLibraryStats();
   const ctrl = $('#shelfControls');
   if (ctrl) ctrl.hidden = books.length === 0;
@@ -281,6 +284,18 @@ export function renderShelf() {
   const grid = $('#shelfGrid');
   const doneGrid = $('#doneGrid');
   const doneWrap = $('#doneShelf');
+  if (!grid || !doneGrid) return;
+
+  const sig = [
+    shelfFilter, shelfSearchQuery, books.length,
+    books.map(b => `${b.id}:${b.title}:${b.currentPage}:${b.pageCount}:${bookStatus(b)}`).join(',')
+  ].join('|');
+
+  if (!force && sig === lastShelfSig && (grid.children.length > 0 || doneGrid.children.length > 0 || books.length === 0)) {
+    return;
+  }
+  lastShelfSig = sig;
+
   grid.innerHTML = ''; doneGrid.innerHTML = '';
 
   let filtered = [...books];
@@ -659,6 +674,10 @@ export function initLibrary() {
     shelfSort = e.target.value;
     renderShelf();
   });
+  /* The sort order is a short pick over a card of books, so it opens on the
+     app's own paper rather than in the phone's white system menu. The icon
+     carries the sort glyph the option labels used to spell with «⇅». */
+  mountSelectMenu(sortSelect, { icon: SORT_ICON });
 
   $('#importBtn').onclick = () => $('#bookFile').click();
   const emptyAdd = $('#emptyAdd');

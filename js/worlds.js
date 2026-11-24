@@ -12,24 +12,31 @@
      دریانورد    کشتیِ هفته  — a weekly goal, and a ship sailing toward its port */
 import { state } from './state.js';
 import { subscribe } from './bus.js';
-import { $, faNum, dayKey } from './utils.js';
+import { $, faNum, dayKey, esc, shiftKey } from './utils.js';
 import { collectTotals } from './ledger.js';
 import { moveTaskToDay } from './tasks.js';
 import { todayPending as pending, todayDone as doneToday } from './today.js';
-import { shiftKey } from './utils.js';
 import { STORAGE_KEYS } from './constants.js';
-import { readString, safeSet } from './store.js';
+import {
+  readString, safeSet,
+  loadBirthday, loadBirthdayCandle, saveBirthdayCandle,
+  loadBirthdayWishes, saveBirthdayWishes,
+} from './store.js';
 import { haptic } from './motion.js';
+import { openBirthdayShare } from './sharecard.js';
+import { confetti, beep } from './confetti.js';
 import {
   lastDays, radarPoints, ringPoints, weekdayLetter, plantStage,
   weekDone, shipProgress, clampGoal, stepGoal, orbitProgress, flightHours,
   miniatureStage, summitAltitude, elixirElements, constellationDays, simorghActiveDays,
+  birthdayWorldState,
 } from './worlds-data.js';
 
 const theme = () => document.documentElement.dataset.theme || '';
 export const WORLDS = new Set([
   'shabgard', 'tarnama', 'fazanavard', 'baghche', 'daryanavard',
   'negarkhane', 'qollenavard', 'kimiyagar', 'rasadkhane', 'simorgh',
+  'tavalod',
 ]);
 
 const svg = (inner, vb = '0 0 24 24', cls = 'ico') =>
@@ -44,6 +51,7 @@ const ICON = {
   flask: svg('<path d="M9 3h6M10 3v5l-6 10a2 2 0 0 0 1.7 3h12.6a2 2 0 0 0 1.7-3L14 8V3"/>'),
   telescope: svg('<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/>'),
   feather: svg('<path d="M20.2 3.8a6.5 6.5 0 0 0-9.2 0L3 11.8V17h5.2l8-8a6.5 6.5 0 0 0 4-5.2z"/><path d="M16 8l-8 8M3 21l3-3"/>'),
+  cake: svg('<path d="M20 21v-8a2 2 0 00-2-2H6a2 2 0 00-2 2v8"/><path d="M4 16s2-1 4-1 4 1 4 1 2-1 4-1 4 1 4 1"/><path d="M2 21h20"/><path d="M12 7v4"/><path d="M12 3a1.5 1.5 0 011 2.5L12 7l-1-1.5A1.5 1.5 0 0112 3z" fill="currentColor"/>'),
 };
 
 let lastMoved = [];
@@ -179,7 +187,7 @@ function summitCard(book) {
   const weekDays = (book.days || []).filter(d => d.key >= weekStart && d.key <= book.today);
   const activeDays = weekDays.filter(d => d.done > 0 || d.focusMin > 0 || d.readMin > 0 || d.opened).length;
   const alt = summitAltitude(activeDays);
-  const morningDone = (state.tasks || []).some(t => t.done && t.doneAt && new Date(t.doneAt).getHours() < 7);
+  const morningDone = (state.tasks || []).some(t => t && !t.deletedAt && t.done && t.doneAt && new Date(t.doneAt).getHours() < 7);
   const allDone = doneToday().length > 0 && pending().length === 0;
   const heroBonus = morningDone || allDone;
 
@@ -335,6 +343,242 @@ function simorghCard(book) {
      <div class="wc-actions"><button type="button" class="wc-btn" data-w="fly">پرواز سیمرغ</button></div>`;
 }
 
+/* ── تولد ── */
+let isEditingWish = false;
+
+function birthdayCard() {
+  const bState = birthdayWorldState({
+    date: new Date(),
+    stored: loadBirthday(),
+    candleDate: loadBirthdayCandle(),
+    todayKey: todayKey(),
+    wishes: loadBirthdayWishes(),
+  });
+
+  const sub = bState.isBirthdayToday
+    ? 'امروز روز درخشش توست! شمع کیک رو فوت کن و سال نوت رو جشن بگیر.'
+    : (bState.hasBirthday
+        ? (bState.daysUntil === 0
+            ? 'امروز روز درخشش توست! شمع کیک رو فوت کن و سال نوت رو جشن بگیر.'
+            : (bState.daysUntil !== null
+                ? `${faNum(bState.daysUntil)} روز تا سالروز تولد باقی مانده`
+                : 'دنیای جشن تولد و آرزوهای زندگی'))
+        : 'تاریخ تولدت رو در تنظیمات ثبت کن تا جشن تولدت آماده باشه.');
+
+  const cakeClass = bState.candleBlown ? 'wc-cake is-blown' : 'wc-cake is-lit';
+  const cakeAction = bState.candleBlown ? 'relight-candle' : 'blow-candle';
+  const cakeAriaLabel = bState.candleBlown
+    ? 'کیک تولد با شمع خاموش‌شده؛ برای روشن کردن دوباره ضربه بزنید'
+    : 'کیک تولد با شمع‌های روشن؛ برای فوت کردن شمع ضربه بزنید';
+
+  const cakeSvg = `
+    <svg class="${cakeClass}" viewBox="0 0 200 120" role="button" aria-label="${cakeAriaLabel}" data-w="${cakeAction}" tabindex="0">
+      <circle class="wc-cake-halo" cx="100" cy="64" r="62"/>
+      <ellipse class="wc-cake-plate" cx="100" cy="108" rx="72" ry="7"/>
+      <path class="wc-cake-stand" d="M85 108 L80 115 H120 L115 108 Z"/>
+      <rect class="wc-cake-tier wc-tier-1" x="42" y="70" width="116" height="34" rx="6"/>
+      <path class="wc-cake-icing" d="M42 76 Q51 86 61 76 Q70 86 80 76 Q90 86 100 76 Q110 86 120 76 Q130 86 140 76 Q150 86 158 76 V70 H42 Z"/>
+      <rect class="wc-cake-tier wc-tier-2" x="62" y="44" width="76" height="26" rx="5"/>
+      <path class="wc-cake-icing" d="M62 50 Q71 58 81 50 Q90 58 100 50 Q110 58 119 50 Q129 58 138 50 V44 H62 Z"/>
+      <g class="wc-sprinkles" aria-hidden="true">
+        <rect x="48" y="82" width="5" height="2" rx="1" transform="rotate(-18 48 82)"/>
+        <rect x="67" y="88" width="5" height="2" rx="1" transform="rotate(14 67 88)"/>
+        <rect x="88" y="80" width="5" height="2" rx="1" transform="rotate(-28 88 80)"/>
+        <rect x="108" y="88" width="5" height="2" rx="1" transform="rotate(22 108 88)"/>
+        <rect x="128" y="81" width="5" height="2" rx="1" transform="rotate(-12 128 81)"/>
+        <rect x="146" y="87" width="5" height="2" rx="1" transform="rotate(30 146 87)"/>
+        <rect x="72" y="58" width="4" height="2" rx="1" transform="rotate(18 72 58)"/>
+        <rect x="95" y="63" width="4" height="2" rx="1" transform="rotate(-24 95 63)"/>
+        <rect x="118" y="57" width="4" height="2" rx="1" transform="rotate(10 118 57)"/>
+      </g>
+      <circle class="wc-cake-pearl" cx="54" cy="94" r="2.5"/>
+      <circle class="wc-cake-pearl" cx="74" cy="94" r="2.5"/>
+      <circle class="wc-cake-pearl" cx="100" cy="94" r="2.5"/>
+      <circle class="wc-cake-pearl" cx="126" cy="94" r="2.5"/>
+      <circle class="wc-cake-pearl" cx="146" cy="94" r="2.5"/>
+
+      <!-- Left Candle -->
+      <g class="wc-candle" transform="translate(78, 22)">
+        <rect class="wc-candle-stick" x="-2" y="6" width="4" height="16" rx="1"/>
+        <line class="wc-candle-wick" x1="0" y1="6" x2="0" y2="2"/>
+        <g class="wc-flame-group">
+          <ellipse class="wc-flame wc-flame-outer" cx="0" cy="-2" rx="3.5" ry="5.5"/>
+          <ellipse class="wc-flame wc-flame-inner" cx="0" cy="-1.5" rx="1.8" ry="3"/>
+        </g>
+        <g class="wc-smoke-group">
+          <path class="wc-smoke" d="M0 2 Q-3 -5 0 -10 T2 -16"/>
+        </g>
+      </g>
+
+      <!-- Center Candle -->
+      <g class="wc-candle is-center" transform="translate(100, 18)">
+        <rect class="wc-candle-stick" x="-2.5" y="6" width="5" height="20" rx="1"/>
+        <line class="wc-candle-wick" x1="0" y1="6" x2="0" y2="2"/>
+        <g class="wc-flame-group">
+          <ellipse class="wc-flame wc-flame-outer" cx="0" cy="-3" rx="4.5" ry="7"/>
+          <ellipse class="wc-flame wc-flame-inner" cx="0" cy="-2" rx="2.2" ry="4"/>
+        </g>
+        <g class="wc-smoke-group">
+          <path class="wc-smoke" d="M0 2 Q-4 -6 0 -12 T3 -20"/>
+        </g>
+      </g>
+
+      <!-- Right Candle -->
+      <g class="wc-candle" transform="translate(122, 22)">
+        <rect class="wc-candle-stick" x="-2" y="6" width="4" height="16" rx="1"/>
+        <line class="wc-candle-wick" x1="0" y1="6" x2="0" y2="2"/>
+        <g class="wc-flame-group">
+          <ellipse class="wc-flame wc-flame-outer" cx="0" cy="-2" rx="3.5" ry="5.5"/>
+          <ellipse class="wc-flame wc-flame-inner" cx="0" cy="-1.5" rx="1.8" ry="3"/>
+        </g>
+        <g class="wc-smoke-group">
+          <path class="wc-smoke" d="M0 2 Q3 -5 0 -10 T-2 -16"/>
+        </g>
+      </g>
+
+      <!-- Celebration Sparkles -->
+      <g class="wc-sparkles">
+        <path class="wc-sparkle sp-1" d="M30 45 L32 40 L34 45 L39 47 L34 49 L32 54 L30 49 L25 47 Z"/>
+        <path class="wc-sparkle sp-2" d="M165 40 L167 36 L169 40 L173 42 L169 44 L167 48 L165 44 L161 42 Z"/>
+        <circle class="wc-sparkle-dot sp-3" cx="48" cy="30" r="1.8"/>
+        <circle class="wc-sparkle-dot sp-4" cx="152" cy="25" r="2"/>
+      </g>
+    </svg>
+  `;
+
+  /* The numbers as little cards, not a row of pills: the figure is what the eye
+     should land on, and a label underneath lets «۱۱۳۲۲» keep its unit without
+     the two fighting for the same line. */
+  const tiles = [];
+  if (bState.daysLived !== null) {
+    tiles.push(`<div class="wc-bday-pill"><b>${faNum(bState.daysLived)}</b><small>روز زندگی</small></div>`);
+  }
+  if (bState.age !== null) {
+    tiles.push(`<div class="wc-bday-pill"><b>${faNum(bState.age)}</b><small>سالگی</small></div>`);
+  }
+  if (!bState.isBirthdayToday && bState.daysUntil !== null) {
+    tiles.push(`<div class="wc-bday-pill"><b>${faNum(bState.daysUntil)}</b><small>روز تا تولد</small></div>`);
+  }
+  const tilesHtml = tiles.length ? `<div class="wc-bday-stats">${tiles.join('')}</div>` : '';
+
+  /* One banner instead of a pill that reads like the others: the day itself is
+     the headline, and the three numbers are the small print under it. */
+  const todayBanner = bState.isBirthdayToday
+    ? `<p class="wc-bday-today">${ICON.cake}<span>روز تولد شما مبارک!</span></p>`
+    : '';
+
+  /* A garland over the cake and a bunch of balloons behind it. Both are drawn
+     here, in the card, rather than in the page's fixed layers: they belong to the
+     birthday world and leave with it, and they cost one SVG each instead of a
+     full-screen layer that has to be masked. */
+  const garlandSvg = `
+    <svg class="wc-bday-garland" viewBox="0 0 320 46" aria-hidden="true" focusable="false">
+      <path class="wc-garland-string" d="M2 8 Q60 30 110 22 T210 22 Q265 30 318 8"/>
+      <g class="wc-garland-flags">
+        <polygon class="wc-flag" points="26,14 40,16 33,30"/>
+        <polygon class="wc-flag is-alt" points="58,21 72,23 65,37"/>
+        <polygon class="wc-flag" points="90,24 104,25 97,39"/>
+        <polygon class="wc-flag is-alt" points="122,23 136,23 129,37"/>
+        <polygon class="wc-flag" points="154,21 168,21 161,35"/>
+        <polygon class="wc-flag is-alt" points="186,21 200,21 193,35"/>
+        <polygon class="wc-flag" points="218,22 232,23 225,37"/>
+        <polygon class="wc-flag is-alt" points="250,24 264,25 257,39"/>
+        <polygon class="wc-flag" points="282,20 296,22 289,36"/>
+      </g>
+    </svg>`;
+
+  /* Each balloon carries its position in its own coordinates rather than a
+     transform attribute: the float animation is a CSS transform, and a CSS
+     transform replaces the attribute, which collapsed all five into the corner
+     the first time this was drawn. */
+  const balloonsSvg = `
+    <svg class="wc-balloons" viewBox="0 0 220 132" aria-hidden="true" focusable="false">
+      <g class="wc-balloon b1">
+        <ellipse class="wc-balloon-body" cx="26" cy="30" rx="14" ry="17"/>
+        <ellipse class="wc-balloon-shine" cx="21" cy="24" rx="3.4" ry="5.4"/>
+        <path class="wc-balloon-knot" d="M22 47l4 5 4-5z"/>
+        <path class="wc-balloon-string" d="M26 52Q18 76 30 104"/>
+      </g>
+      <g class="wc-balloon b2 is-alt">
+        <ellipse class="wc-balloon-body" cx="72" cy="22" rx="15" ry="18"/>
+        <ellipse class="wc-balloon-shine" cx="67" cy="15" rx="3.6" ry="5.8"/>
+        <path class="wc-balloon-knot" d="M68 40l4 5 4-5z"/>
+        <path class="wc-balloon-string" d="M72 45Q80 72 66 108"/>
+      </g>
+      <g class="wc-balloon b3">
+        <ellipse class="wc-balloon-body" cx="112" cy="34" rx="13" ry="16"/>
+        <ellipse class="wc-balloon-shine" cx="107" cy="28" rx="3" ry="5"/>
+        <path class="wc-balloon-knot" d="M108 50l4 5 4-5z"/>
+        <path class="wc-balloon-string" d="M112 55Q104 80 114 106"/>
+      </g>
+      <g class="wc-balloon b4 is-alt">
+        <ellipse class="wc-balloon-body" cx="154" cy="20" rx="15" ry="18"/>
+        <ellipse class="wc-balloon-shine" cx="149" cy="13" rx="3.6" ry="5.8"/>
+        <path class="wc-balloon-knot" d="M150 38l4 5 4-5z"/>
+        <path class="wc-balloon-string" d="M154 43Q164 70 152 108"/>
+      </g>
+      <g class="wc-balloon b5">
+        <ellipse class="wc-balloon-body" cx="196" cy="32" rx="13" ry="17"/>
+        <ellipse class="wc-balloon-shine" cx="191" cy="26" rx="3.2" ry="5.2"/>
+        <path class="wc-balloon-knot" d="M192 49l4 5 4-5z"/>
+        <path class="wc-balloon-string" d="M196 54Q206 78 194 104"/>
+      </g>
+    </svg>`;
+
+  // Main action buttons
+  let actionBtn = '';
+  if (bState.candleBlown) {
+    actionBtn = `<button type="button" class="wc-btn is-quiet" data-w="relight-candle">روشن کردن دوبارهٔ شمع</button>`;
+  } else {
+    actionBtn = `<button type="button" class="wc-btn wc-bday-blow-btn" data-w="blow-candle">فوت کردن شمع</button>`;
+  }
+  if (bState.hasBirthday) {
+    actionBtn += `<button type="button" class="wc-btn is-quiet" data-w="share-bday">کارت تولد برای اشتراک</button>`;
+  } else {
+    actionBtn += `<button type="button" class="wc-btn is-quiet" data-w="open-bday-picker">تنظیم تاریخ تولد</button>`;
+  }
+  const actionsHtml = `<div class="wc-actions">${actionBtn}</div>`;
+
+  // Wish capsule box
+  let wishHtml = '';
+  if (isEditingWish) {
+    wishHtml = `
+      <div class="wc-wish-box">
+        <div class="wc-wish-form">
+          <label class="wc-wish-label" for="wcWishInput">کپسول آرزوی سال ${faNum(bState.currentYear)}:</label>
+          <textarea id="wcWishInput" class="wc-wish-input" rows="2" maxlength="150" placeholder="آرزو و هدف امسال برای زندگی...">${esc(bState.wish)}</textarea>
+          <div class="wc-wish-btns">
+            <button type="button" class="wc-btn" data-w="save-wish">ذخیره در کپسول</button>
+            <button type="button" class="wc-btn is-quiet" data-w="cancel-wish">انصراف</button>
+          </div>
+        </div>
+      </div>
+    `;
+  } else if (bState.wish) {
+    wishHtml = `
+      <div class="wc-wish-box">
+        <div class="wc-wish-header">
+          <span class="wc-wish-title">کپسول آرزوی ${faNum(bState.currentYear)}</span>
+          <button type="button" class="wc-wish-edit-btn" data-w="edit-wish" aria-label="ویرایش آرزو">ویرایش</button>
+        </div>
+        <p class="wc-wish-text">${esc(bState.wish)}</p>
+      </div>
+    `;
+  } else {
+    wishHtml = `
+      <div class="wc-wish-box is-empty">
+        <button type="button" class="wc-wish-prompt" data-w="edit-wish">
+          <span>یک آرزو در کپسول امسال بنویس...</span>
+        </button>
+      </div>
+    `;
+  }
+
+  return head(ICON.cake, 'جشن تولد', sub) +
+    `<div class="wc-bday-scene">${garlandSvg}<div class="wc-bday-stage">${balloonsSvg}${cakeSvg}</div>${todayBanner}${tilesHtml}</div>` +
+    actionsHtml + wishHtml;
+}
+
 export const RENDER = {
   shabgard: patrol,
   tarnama: webCard,
@@ -346,6 +590,7 @@ export const RENDER = {
   kimiyagar: elixirCard,
   rasadkhane: constellationCard,
   simorgh: simorghCard,
+  tavalod: birthdayCard,
 };
 
 export function renderWorld() {
@@ -354,7 +599,7 @@ export function renderWorld() {
   const t = theme();
   if (!WORLDS.has(t)) { card.hidden = true; card.innerHTML = ''; delete card.dataset.world; return; }
   card.dataset.world = t;
-  const book = (t === 'shabgard' || t === 'baghche') ? null : collectTotals();
+  const book = (t === 'shabgard' || t === 'baghche' || t === 'tavalod') ? null : collectTotals();
   card.innerHTML = RENDER[t](book);
   card.hidden = false;
 }
@@ -380,6 +625,49 @@ function onClick(e) {
   } else if (act === 'goal-' || act === 'goal+') {
     safeSet(STORAGE_KEYS.weekGoal, String(stepGoal(loadGoal(), act === 'goal+' ? 1 : -1)));
     haptic('pick');
+  } else if (act === 'blow-candle') {
+    saveBirthdayCandle(todayKey());
+    haptic('done');
+    confetti();
+    beep();
+  } else if (act === 'relight-candle') {
+    saveBirthdayCandle('');
+    haptic('pick');
+  } else if (act === 'edit-wish') {
+    isEditingWish = true;
+    renderWorld();
+    const input = $('#wcWishInput');
+    if (input) input.focus();
+    return;
+  } else if (act === 'save-wish') {
+    const input = $('#wcWishInput');
+    const val = input ? input.value.trim() : '';
+    const bState = birthdayWorldState({
+      date: new Date(),
+      stored: loadBirthday(),
+      candleDate: loadBirthdayCandle(),
+      todayKey: todayKey(),
+      wishes: loadBirthdayWishes(),
+    });
+    const wishes = { ...(loadBirthdayWishes() || {}) };
+    if (val) {
+      wishes[bState.currentYear] = val;
+    } else {
+      delete wishes[bState.currentYear];
+      delete wishes[String(bState.currentYear)];
+    }
+    saveBirthdayWishes(wishes);
+    haptic('done');
+    isEditingWish = false;
+  } else if (act === 'cancel-wish') {
+    isEditingWish = false;
+  } else if (act === 'share-bday') {
+    haptic('pick');
+    openBirthdayShare();
+    return;
+  } else if (act === 'open-bday-picker') {
+    window.dispatchEvent(new CustomEvent('navigate', { detail: 'settings' }));
+    setTimeout(() => { $('#bdPick')?.click(); }, 150);
   }
   renderWorld();
 }
@@ -388,7 +676,19 @@ export function initWorlds() {
   const card = $('#worldCard');
   if (!card) return;
   card.addEventListener('click', onClick);
+  card.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      const b = e.target.closest('[data-w]');
+      if (b && b.tagName.toLowerCase() !== 'button' && b.tagName.toLowerCase() !== 'textarea') {
+        e.preventDefault();
+        b.click();
+      }
+    } else if (e.key === 'Escape' && isEditingWish) {
+      isEditingWish = false;
+      renderWorld();
+    }
+  });
   subscribe(renderWorld);
-  window.addEventListener('theme-applied', () => { lastMoved = []; renderWorld(); });
+  window.addEventListener('theme-applied', () => { lastMoved = []; isEditingWish = false; renderWorld(); });
   renderWorld();
 }

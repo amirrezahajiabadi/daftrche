@@ -12,7 +12,7 @@ import { renderList, collapse, clearDoneTasks } from './tasks.js';
    instead of for the whole list. What is left here is the list's own footer. */
 
 function updateProgress() {
-  const tasks = (Array.isArray(state.tasks) ? state.tasks : []).filter(t => t && typeof t === 'object');
+  const tasks = (Array.isArray(state.tasks) ? state.tasks : []).filter(t => t && typeof t === 'object' && !t.deletedAt);
   const total = tasks.length;
   const done = tasks.filter(t => t.done).length;
 
@@ -69,7 +69,7 @@ function buildCatBar() {
 }
 
 function updateCatCounts() {
-  const tasks = (Array.isArray(state.tasks) ? state.tasks : []).filter(t => t && typeof t === 'object');
+  const tasks = (Array.isArray(state.tasks) ? state.tasks : []).filter(t => t && typeof t === 'object' && !t.deletedAt);
   document.querySelectorAll('.cats .cat-chip').forEach(ch => {
     const cntEl = ch.querySelector('.cnt');
     if (!cntEl) return;
@@ -115,7 +115,7 @@ export function frogScore(t) {
 }
 
 export function findFrog() {
-  const tasks = (Array.isArray(state.tasks) ? state.tasks : []).filter(t => t && typeof t === 'object');
+  const tasks = (Array.isArray(state.tasks) ? state.tasks : []).filter(t => t && typeof t === 'object' && !t.deletedAt);
   const pool = tasks.filter(t => !t.done);
   if (!pool.length) return null;
   return pool.slice().sort((a, b) => frogScore(b) - frogScore(a))[0];
@@ -151,11 +151,11 @@ export function initProgress() {
     document.querySelector('.filters .active')?.classList.remove('active');
     btn.classList.add('active');
     state.filter = btn.dataset.filter;
-    movePill();
+    schedulePill();
     renderList();
   });
-  addEventListener('resize', schedulePill);
-  movePill();
+  addEventListener('resize', schedulePill, { passive: true });
+  schedulePill();
 
   $('#clearBtn').onclick = () => {
     clearDoneTasks();

@@ -224,6 +224,9 @@
    numbers two — the numbers being the only long labels of the four. */
 .share-style{display:flex;flex-direction:column;gap:14px}
 .share-style .pick-field{display:block}
+/* The birthday card has no layouts and no numbers to pick, so those rows are
+   taken out of the dialog entirely rather than shown with nothing to choose. */
+.share-style .pick-field[hidden]{display:none}
 .share-style .pick-head{display:flex;align-items:center;gap:8px;margin-bottom:7px}
 .share-style .pick-label{font-size:12px;font-weight:700;color:var(--text)}
 .share-style .pick-row{display:grid;gap:6px;grid-template-columns:repeat(2,1fr)}

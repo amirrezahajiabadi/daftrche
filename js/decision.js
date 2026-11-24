@@ -3,13 +3,22 @@
    tasks, date and energy level, calls getRecommendation() and renders
    the structured result. The engine is fully deterministic. */
 
-import { dayKey } from './utils.js';
+import { dayKey, parseTimeMin } from './utils.js';
 
 const DAY = 864e5;
 const DAY_KEY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 export const ALL_DONE_REASON = 'امروز دیگه کاری نمونده. دمت گرم.';
 export const SINGLE_TASK_REASON = 'فکر کنم همین یکی رو بزنیم.';
+
+/* ── Time window scoring & micro-copy ── */
+export const TIME_WINDOW_ACTIVE_BOOST = 40;
+export const TIME_WINDOW_APPROACHING_BOOST = 30;
+export const TIME_COLLISION_PENALTY = 25;
+
+export const REASON_ACTIVE_WINDOW = 'الان زمان برنامه‌ریزی‌شده برای این کاره.';
+export const REASON_APPROACHING_WINDOW = 'زمان شروع این کار نزدیکه.';
+export const REASON_FITS_GAP = 'توی وقت آزاد قبل از برنامهٔ بعدیت جا می‌شه.';
 
 /* ── Scoring tables ── */
 
@@ -119,14 +128,61 @@ function skipPenalty(id, skipCounts) {
   return -SKIP_PENALTY * (Number(n) || 0);
 }
 
-/* ── Candidate ranking ── */
+/* ── Candidate ranking & time-window modeling ── */
 
 function validDuration(v) {
   const n = Number(v);
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
-function rankTask(task, todayKey, energy, skipCounts) {
+/* Task time window: extracts { from, to } in minutes from midnight (0..1439).
+   If timeTo is absent or invalid, infers end from durationMin (or default 60 min),
+   capped at 1439 (23:59). */
+function taskTimeWindow(task) {
+  if (!task || typeof task !== 'object') return null;
+  const from = parseTimeMin(task.timeFrom);
+  if (from === null) return null;
+  let to = parseTimeMin(task.timeTo);
+  if (to === null) {
+    const dur = validDuration(task.durationMin);
+    to = Math.min(1439, from + (dur || 60));
+  }
+  return to > from ? { from, to } : null;
+}
+
+/* Resolve current time in minutes past midnight (0..1439).
+   Accepts explicit now (number 0..1439, or Date), falls back to today if it is a Date. */
+export function resolveNowMinutes(now, today) {
+  if (typeof now === 'number' && Number.isFinite(now)) {
+    return now >= 0 && now < 24 * 60 ? Math.floor(now) : null;
+  }
+  if (now instanceof Date && !Number.isNaN(now.getTime())) {
+    return now.getHours() * 60 + now.getMinutes();
+  }
+  if (now === null || now === undefined) {
+    if (today instanceof Date && !Number.isNaN(today.getTime())) {
+      return today.getHours() * 60 + today.getMinutes();
+    }
+  }
+  return null;
+}
+
+/* Find the earliest timeFrom of an active task scheduled for today that starts after nowMinutes. */
+function findNextCommitment(tasks, todayKey, nowMinutes) {
+  if (nowMinutes === null || !Array.isArray(tasks)) return null;
+  let earliest = Infinity;
+  for (const t of tasks) {
+    if (!t || typeof t !== 'object' || t.done === true) continue;
+    if (dueDiffDays(t.dueDate, todayKey) !== 0) continue;
+    const from = parseTimeMin(t.timeFrom);
+    if (from !== null && from > nowMinutes && from < earliest) {
+      earliest = from;
+    }
+  }
+  return earliest === Infinity ? null : earliest;
+}
+
+function rankTask(task, todayKey, energy, skipCounts, { nowMinutes = null, nextCommitment = null } = {}) {
   const diff = dueDiffDays(task.dueDate, todayKey);
   const p = PRI_SCORE[task.p] !== undefined ? task.p : PRI_DEFAULT;
   const durationMin = validDuration(task.durationMin);
@@ -136,9 +192,53 @@ function rankTask(task, todayKey, energy, skipCounts) {
   const bonus = criticalBonus(p, diff);
   const penalty = skipPenalty(task.id, skipCounts);
   const created = Number(task.created);
+
+  let timeBoost = 0;
+  let timeWindowStatus = null; // 'active' | 'approaching' | null
+  let timeCollision = false;
+  let fitsGap = false;
+
+  if (nowMinutes !== null) {
+    const isToday = diff === 0;
+    const window = isToday ? taskTimeWindow(task) : null;
+    if (window) {
+      if (nowMinutes >= window.from && nowMinutes <= window.to) {
+        timeBoost = TIME_WINDOW_ACTIVE_BOOST;
+        timeWindowStatus = 'active';
+      } else if (nowMinutes >= window.from - 15 && nowMinutes < window.from) {
+        timeBoost = TIME_WINDOW_APPROACHING_BOOST;
+        timeWindowStatus = 'approaching';
+      }
+    }
+
+    const from = parseTimeMin(task.timeFrom);
+    const isUnscheduled = from === null || !isToday;
+
+    if (!timeWindowStatus && isUnscheduled && nextCommitment !== null) {
+      const gap = nextCommitment - nowMinutes;
+      if (gap > 0) {
+        if (durationMin !== null && durationMin > gap) {
+          timeCollision = true;
+        } else if (durationMin !== null && durationMin <= gap && gap <= 60 && isToday) {
+          fitsGap = true;
+        }
+      }
+    }
+  }
+
+  const collisionPenalty = timeCollision ? -TIME_COLLISION_PENALTY : 0;
+  const score = deadline + priority + fit + bonus + penalty + timeBoost + collisionPenalty;
+
   return {
-    task, score: deadline + priority + fit + bonus + penalty,
-    diff, durationMin, fit,
+    task,
+    score,
+    diff,
+    durationMin,
+    fit,
+    timeBoost,
+    timeWindowStatus,
+    timeCollision,
+    fitsGap,
     created: Number.isFinite(created) ? created : Infinity,
   };
 }
@@ -172,8 +272,11 @@ function compareWithContext(a, b, ctx) {
 /* ── Reason engine (kept separate from scoring; never exposes numbers) ── */
 
 function pickReason(c) {
+  if (c.timeWindowStatus === 'active') return REASON_ACTIVE_WINDOW;
+  if (c.timeWindowStatus === 'approaching') return REASON_APPROACHING_WINDOW;
   if (c.diff !== null && c.diff < 0) return 'این یکی از موعدش گذشته.';
   if (c.task.p === 'high' && c.diff === 0) return 'این یکی امروز مهم‌تره.';
+  if (c.fitsGap) return REASON_FITS_GAP;
   if (c.diff !== null && c.diff >= 1 && c.diff <= 3) return 'این یکی داره نزدیک می‌شه.';
   if (c.fit === 15) return 'با انرژی الانت جور درمیاد.';
   if (c.durationMin !== null && c.durationMin <= 15) return 'برای شروع، جمع‌کردنش راحته.';
@@ -196,31 +299,36 @@ function publicTask(t) {
   return {
     id: t.id, text: t.text, done: t.done, p: t.p, cat: t.cat,
     dueDate: t.dueDate, durationMin: t.durationMin ?? null,
+    timeFrom: t.timeFrom ?? null, timeTo: t.timeTo ?? null,
     created: t.created, doneAt: t.doneAt,
   };
 }
 
 /* Human reason for a single task (used when an alternative is shown) */
-export function reasonForTask(task, { today = new Date(), energy = 'normal' } = {}) {
+export function reasonForTask(task, { today = new Date(), now = null, energy = 'normal' } = {}) {
   const todayKey = dayKey(today instanceof Date ? today : new Date());
-  return pickReason(rankTask(task, todayKey, energy, null));
+  const nowMin = resolveNowMinutes(now, today);
+  return pickReason(rankTask(task, todayKey, energy, null, { nowMinutes: nowMin }));
 }
 
 /* ── Main entry ──
-   Input:  { tasks, today (Date), energy ('low'|'normal'|'high'), skipCounts,
+   Input:  { tasks, today (Date), now (Date|number), energy ('low'|'normal'|'high'), skipCounts,
              context (optional Decision Context object) }
    Output: { state: 'ok'|'all-done'|'empty', primary, alternatives, reason } */
-export function getRecommendation({ tasks, today = new Date(), energy = 'normal', skipCounts = new Map(), context = null } = {}) {
+export function getRecommendation({ tasks, today = new Date(), now = null, energy = 'normal', skipCounts = new Map(), context = null } = {}) {
   const todayKey = dayKey(today instanceof Date ? today : new Date());
   const list = Array.isArray(tasks) ? tasks : [];
   if (!list.length) return { state: 'empty', primary: null, alternatives: [], reason: null };
 
-  const active = list.filter(t => t && typeof t === 'object' && t.done !== true);
+  const active = list.filter(t => t && typeof t === 'object' && t.done !== true && !t.deletedAt);
   if (!active.length) return { state: 'all-done', primary: null, alternatives: [], reason: ALL_DONE_REASON };
+
+  const nowMinutes = resolveNowMinutes(now, today);
+  const nextCommitment = findNextCommitment(active, todayKey, nowMinutes);
 
   const candidates = active
     .filter(t => typeof t.text === 'string' && t.text.trim())
-    .map(t => rankTask(t, todayKey, energy, skipCounts));
+    .map(t => rankTask(t, todayKey, energy, skipCounts, { nowMinutes, nextCommitment }));
 
   if (!candidates.length) return { state: 'empty', primary: null, alternatives: [], reason: null };
 

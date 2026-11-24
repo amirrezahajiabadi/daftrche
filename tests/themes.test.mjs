@@ -24,7 +24,7 @@ import { dirname, join } from 'node:path';
 import './_env.mjs';
 
 import {
-  THEMES, THEME_KEYS, THEME_MODES, DEFAULT_THEME, NIGHT_THEME,
+  THEMES, PICKER_THEMES, THEME_KEYS, THEME_MODES, DEFAULT_THEME, NIGHT_THEME,
   normalizeTheme, modeOf, themesOfMode,
 } from '../js/constants.js';
 
@@ -211,6 +211,12 @@ test('every theme in js/constants.js is a complete palette in css/base.css', () 
     const extra = Object.keys(palette).filter(t => !PALETTE_TOKENS.includes(t));
     assert.deepEqual(extra, [], `--pal-${theme.palette}-* has tokens nothing reads: ${extra.join(', ')}`);
   }
+  const darkPal = palettes['tavaloddark'];
+  assert.ok(darkPal, 'no --pal-tavaloddark-* block in css/base.css');
+  const darkMissing = PALETTE_TOKENS.filter(t => !(t in darkPal));
+  assert.deepEqual(darkMissing, [], `--pal-tavaloddark-* is missing: ${darkMissing.join(', ')}`);
+  const darkExtra = Object.keys(darkPal).filter(t => !PALETTE_TOKENS.includes(t));
+  assert.deepEqual(darkExtra, [], `--pal-tavaloddark-* has tokens nothing reads: ${darkExtra.join(', ')}`);
 });
 
 test('no palette value is empty, and every token the sheet consumes is declared', () => {
@@ -255,6 +261,17 @@ test('every theme block fills all sixteen slots from its own palette', () => {
         `html[data-theme="${theme.key}"] maps ${token} from «${ref[2]}», which is not its palette «${theme.palette}»`);
     }
   }
+  const tavalodDarkBlock = declarations(blockBody('html[data-theme="tavalod"][data-mode="dark"]'));
+  assert.ok(Object.keys(tavalodDarkBlock).length, 'no html[data-theme="tavalod"][data-mode="dark"] block in css/base.css');
+  const missingDark = THEME_TOKENS.filter(t => !(t in tavalodDarkBlock));
+  assert.deepEqual(missingDark, [], `html[data-theme="tavalod"][data-mode="dark"] leaves ${missingDark.join(', ')} unset`);
+  for (const [token, value] of Object.entries(tavalodDarkBlock)) {
+    if (!token.startsWith('--')) continue;
+    const ref = /^var\((--pal-([a-z]+)-[a-z0-9-]+)\)$/.exec(value);
+    assert.ok(ref, `html[data-theme="tavalod"][data-mode="dark"] sets ${token} to "${value}"`);
+    assert.equal(ref[2], 'tavaloddark',
+      `html[data-theme="tavalod"][data-mode="dark"] maps ${token} from «${ref[2]}», which is not «tavaloddark»`);
+  }
 });
 
 test('every palette has a card block wired to that same palette', () => {
@@ -267,6 +284,14 @@ test('every palette has a card block wired to that same palette', () => {
       assert.ok(new RegExp(`^var\\(--pal-${theme.palette}-`).test(value),
         `[data-palette="${theme.palette}"] maps ${token} to "${value}" — it must come from its own palette`);
     }
+  }
+  const tavalodDarkCard = cardBlock('tavaloddark');
+  assert.ok(Object.keys(tavalodDarkCard).length, 'no [data-palette="tavaloddark"] block in css/base.css');
+  const missingDarkCard = CARD_TOKENS.filter(t => !(t in tavalodDarkCard));
+  assert.deepEqual(missingDarkCard, [], `[data-palette="tavaloddark"] leaves ${missingDarkCard.join(', ')} unset`);
+  for (const [token, value] of Object.entries(tavalodDarkCard)) {
+    assert.ok(/^var\(--pal-tavaloddark-/.test(value),
+      `[data-palette="tavaloddark"] maps ${token} to "${value}" — it must come from --pal-tavaloddark-*`);
   }
 });
 
@@ -287,6 +312,8 @@ test('color-scheme follows the mode, in both the theme block and the mode block'
     const scheme = themeBlock(theme.key)['color-scheme'];
     assert.equal(scheme, theme.mode, `html[data-theme="${theme.key}"] declares color-scheme:${scheme}`);
   }
+  const tavalodDarkScheme = declarations(blockBody('html[data-theme="tavalod"][data-mode="dark"]'))['color-scheme'];
+  assert.equal(tavalodDarkScheme, 'dark', 'html[data-theme="tavalod"][data-mode="dark"] declares color-scheme: dark');
   assert.equal(modeBlock('light')['color-scheme'], 'light');
   assert.equal(modeBlock('dark')['color-scheme'], 'dark');
   /* The mode blocks are also where the shared decisions live, so a theme never
@@ -384,6 +411,33 @@ test('contrast floors hold in every theme', () => {
     }
   }
 
+  /* Also verify contrast floors for tavalod under dark mode */
+  const tavalodDarkDecls = { ...declarations(blockBody('html[data-theme="tavalod"][data-mode="dark"]')), ...modeBlock('dark') };
+  const darkVal = token => {
+    const raw = tavalodDarkDecls[token];
+    if (!raw) return null;
+    const ref = /^var\(--pal-([a-z]+)-([a-z0-9-]+)\)$/.exec(raw);
+    return ref ? (palettes[ref[1]]?.[ref[2]] ?? null) : raw;
+  };
+  const darkColour = token => {
+    const raw = darkVal(token);
+    if (raw === null) { missing.push(`«tavalod-dark» ${token}`); return null; }
+    const parsed = parseColor(raw);
+    if (!parsed) missing.push(`«tavalod-dark» ${token} = "${raw}"`);
+    return parsed;
+  };
+  const darkSurface = darkColour('--color-surface');
+  for (const floor of FLOORS) {
+    const fg = darkColour(floor.fg);
+    let bg = darkColour(floor.bg);
+    if (!fg || !bg) continue;
+    if (fg[3] < 1 || bg[3] < 1) bg = over(bg, darkSurface || [0, 0, 0, 1]);
+    const ratio = contrast(fg, bg);
+    if (ratio < floor.min) {
+      failures.push(`«tavalod-dark» ${floor.what}: ${ratio.toFixed(2)}:1 (floor ${floor.min}) [${floor.fg} on ${floor.bg}]`);
+    }
+  }
+
   assert.deepEqual(missing, [], `tokens with no resolvable colour:\n  ${missing.join('\n  ')}`);
   assert.deepEqual(failures, [], `contrast floors missed:\n  ${failures.join('\n  ')}`);
 });
@@ -431,7 +485,7 @@ test('all world themes have complete atmospheric and reduced-motion rules in css
   const GLASS_CSS = read('css/glass.css');
   const worldThemes = THEMES.filter(t => t.family === 'world');
 
-  assert.equal(worldThemes.length, 10, 'expected 10 world themes');
+  assert.equal(worldThemes.length, 11, 'expected 11 world themes');
 
   for (const w of worldThemes) {
     assert.ok(
@@ -441,7 +495,7 @@ test('all world themes have complete atmospheric and reduced-motion rules in css
     );
   }
 
-  const newWorlds = ['negarkhane', 'qollenavard', 'kimiyagar', 'rasadkhane', 'simorgh'];
+  const newWorlds = ['negarkhane', 'qollenavard', 'kimiyagar', 'rasadkhane', 'simorgh', 'tavalod'];
   for (const key of newWorlds) {
     assert.ok(
       WORLDS_CSS.includes(`html[data-theme="${key}"] body`),
@@ -503,11 +557,11 @@ test('settings page dual tabs and themes panel structure', async () => {
 
   const T = await import('../js/theme.js');
   assert.equal(typeof T.unlockedThemesCount, 'function', 'unlockedThemesCount export missing');
-  assert.equal(T.totalThemesCount(), 17, 'totalThemesCount should be 17');
+  assert.equal(T.totalThemesCount(), 17, 'totalThemesCount should be 17: the birthday theme is not in the picker');
   assert.equal(T.unlockedThemesCount(), 7, 'unlockedThemesCount should be 7 by default for a new user');
 });
 
-test('all 10 world themes are locked by default in production and fall back safely', async () => {
+test('all 11 world themes are locked by default in production and fall back safely', async () => {
   const T = await import('../js/theme.js');
   const S = await import('../js/store.js');
   const A = await import('../js/achievements.js');
@@ -517,7 +571,7 @@ test('all 10 world themes are locked by default in production and fall back safe
   const baseThemes = ['daftarche', 'kashi', 'cobalt', 'aurora', 'lajvard', 'graphite', 'nightglass'];
   const worldThemes = [
     'daryanavard', 'shabgard', 'tarnama', 'baghche', 'fazanavard',
-    'qollenavard', 'kimiyagar', 'negarkhane', 'rasadkhane', 'simorgh',
+    'qollenavard', 'kimiyagar', 'negarkhane', 'rasadkhane', 'simorgh', 'tavalod',
   ];
 
   for (const key of baseThemes) {
@@ -531,6 +585,11 @@ test('all 10 world themes are locked by default in production and fall back safe
   assert.equal(T.unlockedThemesCount(), 7);
   assert.equal(T.totalThemesCount(), 17);
 
+  /* The birthday theme is not a world theme the reader can earn or pick: it is
+     hidden from the picker and locked every day that is not the birthday. */
+  assert.ok(!PICKER_THEMES.some(t => t.key === 'tavalod'), 'tavalod must not be offered in the picker');
+  assert.equal(T.isThemeUnlocked('tavalod'), false);
+
   // Applying locked theme with remember:true must fail
   for (const key of worldThemes) {
     assert.equal(T.applyTheme(key, { remember: true }), false, `applyTheme(${key}) should fail when locked`);
@@ -538,7 +597,7 @@ test('all 10 world themes are locked by default in production and fall back safe
 
   // Fallback of dark world themes must be lajvard, light world themes must be kashi
   const darkWorlds = ['shabgard', 'fazanavard', 'kimiyagar', 'rasadkhane', 'simorgh'];
-  const lightWorlds = ['daryanavard', 'tarnama', 'baghche', 'qollenavard', 'negarkhane'];
+  const lightWorlds = ['daryanavard', 'tarnama', 'baghche', 'qollenavard', 'negarkhane', 'tavalod'];
 
   for (const key of darkWorlds) {
     assert.equal(modeOf(key), 'dark');
@@ -576,7 +635,7 @@ test('all 10 world themes are locked by default in production and fall back safe
   }
 });
 
-test('index.html inline boot script safely resolves and falls back across all 10 worlds and modes', () => {
+test('index.html inline boot script safely resolves and falls back across all 11 worlds and modes', () => {
   const inlineScript = /<script>([\s\S]*?)<\/script>/.exec(HTML)[1];
   assert.ok(inlineScript, 'inline boot script missing in index.html');
 
@@ -593,9 +652,13 @@ test('index.html inline boot script safely resolves and falls back across all 10
   }
 
   const darkWorlds = ['shabgard', 'fazanavard', 'kimiyagar', 'rasadkhane', 'simorgh'];
+  /* «تولد» is not in this list any more: it is not a theme the boot script can
+     reason about. It is worn for one day by js/theme.js itself and never stored
+     as a choice, so the first paint has no saved birthday theme to fall back
+     from. */
   const lightWorlds = ['daryanavard', 'tarnama', 'baghche', 'qollenavard', 'negarkhane'];
 
-  // All 10 world themes without achievements must fall back to their mode default
+  // All 11 world themes without achievements must fall back to their mode default
   for (const w of darkWorlds) {
     const res = runBootScript({ storage: { theme: w } });
     assert.deepEqual(res, { theme: 'lajvard', mode: 'dark' }, `locked dark world ${w} should fall back to lajvard`);
@@ -621,6 +684,7 @@ test('index.html inline boot script safely resolves and falls back across all 10
     unlocked: {
       'night-owl': { tier: 1 },
       chain: { tier: 2 },
+      'record-breaker': { tier: 1 },
     },
   });
   const resShabgard = runBootScript({
@@ -633,6 +697,11 @@ test('index.html inline boot script safely resolves and falls back across all 10
   });
   assert.deepEqual(resTarnama, { theme: 'tarnama', mode: 'light' });
 
+  const resTavalod = runBootScript({
+    storage: { theme: 'tavalod', 'daftarche-achievements': achvEarned },
+  });
+  assert.deepEqual(resTavalod, { theme: 'tavalod', mode: 'light' });
+
   // If achievement tier is insufficient, must fall back
   const achvInsufficient = JSON.stringify({
     unlocked: {
@@ -643,6 +712,15 @@ test('index.html inline boot script safely resolves and falls back across all 10
     storage: { theme: 'tarnama', 'daftarche-achievements': achvInsufficient },
   });
   assert.deepEqual(resTarnamaLocked, { theme: 'daftarche', mode: 'light' });
+
+  /* «تولد» has no lock in the boot table any more, because it is not earned and
+     never saved as a choice: the first paint passes a stale value through and
+     js/theme.js decides on the day itself (applyBirthdayTheme), which is the only
+     thing that ever puts this theme on. */
+  const resTavalodStale = runBootScript({
+    storage: { theme: 'tavalod', 'daftarche-achievements': achvInsufficient },
+  });
+  assert.deepEqual(resTavalodStale, { theme: 'tavalod', mode: 'light' });
 
   // Missing theme falls back to matchMedia
   assert.deepEqual(runBootScript({ storage: {}, prefersDark: true }), { theme: 'lajvard', mode: 'dark' });
@@ -668,8 +746,8 @@ test('theme swatches render lock state, lockedText, lock icons, and live counter
   const T = await import('../js/theme.js');
   const { faNum } = await import('../js/utils.js');
 
-  // 1. Build swatches using real theme configuration
-  const items = THEMES.map((theme, idx) => {
+  // 1. Build swatches the way js/theme.js does: from the pickable table only.
+  const items = PICKER_THEMES.map((theme, idx) => {
     const reward = A.rewardFor('theme', theme.key);
     const condition = reward ? A.rewardRequirements(reward.id).map(({ achievement }) =>
       `نشان «${achievement.title}»`).join(' یا ') : '';
@@ -677,7 +755,7 @@ test('theme swatches render lock state, lockedText, lock icons, and live counter
     let groupSub = '';
     if (idx === 0) {
       groupTitle = 'تم‌های پایه';
-    } else if (theme.family === 'world' && THEMES[idx - 1]?.family !== 'world') {
+    } else if (theme.family === 'world' && PICKER_THEMES[idx - 1]?.family !== 'world') {
       groupTitle = 'دنیاهای ویژه (با نشان‌ها باز می‌شوند)';
       groupSub = 'هر دنیا یک کارت تعاملی به صفحهٔ امروز اضافه می‌کند';
     }
@@ -706,8 +784,8 @@ test('theme swatches render lock state, lockedText, lock icons, and live counter
   const html = host.innerHTML;
   assert.ok(html.length > 0, 'swatchRow should generate HTML');
 
-  // Verify all 10 world swatches have lock icons and lockText in their generated template
-  const worldThemes = THEMES.filter(t => t.family === 'world');
+  // Verify the ten earnable world swatches have lock icons and lockText
+  const worldThemes = PICKER_THEMES.filter(t => t.family === 'world');
   for (const wt of worldThemes) {
     const reward = A.rewardFor('theme', wt.key);
     assert.ok(html.includes(`data-key="${wt.key}"`), `missing swatch button for ${wt.key}`);
@@ -715,8 +793,11 @@ test('theme swatches render lock state, lockedText, lock icons, and live counter
     assert.ok(html.includes('swatch-lock-icon'), `swatch for ${wt.key} must carry swatch-lock-icon`);
   }
 
+  /* The birthday theme is worn, not chosen: no swatch, no lock, no count. */
+  assert.ok(!html.includes('data-key="tavalod"'), 'the birthday theme must not be a swatch');
+
   // Base themes must not have lock icons
-  const baseThemes = THEMES.filter(t => t.family !== 'world');
+  const baseThemes = PICKER_THEMES.filter(t => t.family !== 'world');
   for (const bt of baseThemes) {
     assert.ok(html.includes(`data-key="${bt.key}"`), `missing swatch button for ${bt.key}`);
     const btnStart = html.indexOf(`data-key="${bt.key}"`);

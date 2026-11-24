@@ -23,8 +23,15 @@
    Every floating header/bar/sheet reads the same variables instead of re-deriving
    env() inline, so the clearance policy stays uniform across views. */
 :root{
-  --sat:env(safe-area-inset-top,0px);
-  --sab:env(safe-area-inset-bottom,0px);
+  /* Two sources for one question. env() is what a browser and a cutout report;
+     --inset-* is what MainActivity (Android) measures from the real window
+     insets, because Android's env() only knows about cutouts and not about the
+     status or gesture bar. Whichever is larger wins, so the page never slides
+     under a bar and nothing double-pads on a device that fits the window. */
+  --inset-top:0px;
+  --inset-bottom:0px;
+  --sat:max(env(safe-area-inset-top,0px), var(--inset-top,0px));
+  --sab:max(env(safe-area-inset-bottom,0px), var(--inset-bottom,0px));
   --sal:env(safe-area-inset-left,0px);
   --sar:env(safe-area-inset-right,0px);
 }
@@ -132,6 +139,13 @@
   --press-scale:.97;
   --ease-in:cubic-bezier(.4,0,1,1);   /* exits: accelerate away */
   --ease-out:cubic-bezier(.22,1,.36,1);
+  /* Material 3's emphasized set, for the moments that are a change of state
+     rather than a hover: a pane giving way to the next one, a step arriving. */
+  --duration-long1:.4s;                  /* 400ms — emphasized decelerate */
+  --duration-short1:.2s;                 /* 200ms — emphasized accelerate */
+  --ease-emphasized:cubic-bezier(.2,0,0,1);
+  --ease-emphasized-decelerate:cubic-bezier(.05,.7,.1,1);
+  --ease-emphasized-accelerate:cubic-bezier(.3,0,.8,.15);
   --ease-spring:cubic-bezier(.34,1.56,.64,1);
 
   /* ── Layout ── */
@@ -467,9 +481,12 @@
      brighter and more saturated to mark the day, and a deeper rose behind it.
      A cake-and-streamers palette would look like it came from another app.
 
-     The dark half is a lamp-lit version of the same idea, in the half of the
-     table that already owns the night. Both are plain colours, never a
-     color-mix(), because the share card parses whatever this table holds. */
+     One palette, in one half: the day's theme is a light one, so a dark half
+     would be a rule no palette can reach — it used to sit here as «daydark» and
+     was a copy of the birthday theme's own dark palette. A copy of a colour is
+     how the two drift apart later, so it is gone. Every value is a plain colour,
+     never a color-mix(), because the share card parses whatever this table
+     holds. */
   --pal-day-bg:#fff4e6;
   --pal-day-surface:#fffdf8;
   --pal-day-elev:#ffffff;
@@ -486,26 +503,40 @@
   --pal-day-glass:rgba(255,244,230,.74);
   --pal-day-on-accent:#fff8f0;
 
-  /* daydark — the same day after dark. Its own name and not a mode suffix,
-     because the palette table has no notion of a half: the theme blocks choose
-     by name, so this one is chosen by the rule that pairs it with the light
-     day above, and a reader who is in a dark theme at 22:00 on their birthday
-     gets a dark birthday rather than a bright one pasted over their night. */
-  --pal-daydark-bg:#181008;
-  --pal-daydark-surface:#241a10;
-  --pal-daydark-elev:#312415;
-  --pal-daydark-text:#f8ecdd;
-  --pal-daydark-text2:#d8c3ab;
-  --pal-daydark-muted:#a3907a;
-  --pal-daydark-border:rgba(255,200,140,.14);
-  --pal-daydark-border-strong:rgba(255,200,140,.28);
-  --pal-daydark-accent:#fb923c;
-  --pal-daydark-accent-strong:#fdba74;
-  --pal-daydark-accent-soft:rgba(251,146,60,.16);
-  --pal-daydark-accent-text:#fdba74;
-  --pal-daydark-tape:rgba(251,146,60,.22);
-  --pal-daydark-glass:rgba(36,26,16,.74);
-  --pal-daydark-on-accent:#241a10;
+
+  /* «تولد» — celebratory birthday palette: warm celebratory ivory paper, orange celebration accent, rose tape. */
+  --pal-tavalod-bg:#fdf2e0;
+  --pal-tavalod-surface:#fffaf2;
+  --pal-tavalod-elev:#fffefa;
+  --pal-tavalod-text:#3a2a1c;
+  --pal-tavalod-text2:#6b5240;
+  --pal-tavalod-muted:#816b5a;
+  --pal-tavalod-border:rgba(140,90,50,.14);
+  --pal-tavalod-border-strong:rgba(140,90,50,.28);
+  --pal-tavalod-accent:#c2410c;
+  --pal-tavalod-accent-strong:#9a3412;
+  --pal-tavalod-accent-soft:rgba(194,65,12,.14);
+  --pal-tavalod-accent-text:#9a3412;
+  --pal-tavalod-tape:rgba(255,176,92,.60);
+  --pal-tavalod-glass:rgba(253,242,224,.78);
+  --pal-tavalod-on-accent:#fff8f0;
+
+  /* «تولد تاریک» — birthday after dark: warm candlelit dark base, vibrant apricot accent. */
+  --pal-tavaloddark-bg:#181008;
+  --pal-tavaloddark-surface:#241a10;
+  --pal-tavaloddark-elev:#312415;
+  --pal-tavaloddark-text:#f8ecdd;
+  --pal-tavaloddark-text2:#d8c3ab;
+  --pal-tavaloddark-muted:#a3907a;
+  --pal-tavaloddark-border:rgba(255,200,140,.14);
+  --pal-tavaloddark-border-strong:rgba(255,200,140,.28);
+  --pal-tavaloddark-accent:#fb923c;
+  --pal-tavaloddark-accent-strong:#fdba74;
+  --pal-tavaloddark-accent-soft:rgba(251,146,60,.16);
+  --pal-tavaloddark-accent-text:#fdba74;
+  --pal-tavaloddark-tape:rgba(251,146,60,.26);
+  --pal-tavaloddark-glass:rgba(36,26,16,.78);
+  --pal-tavaloddark-on-accent:#241a10;
 }
 
 /* ── From palette to the card's vocabulary ──
@@ -732,6 +763,32 @@
   --card-tape:var(--pal-simorgh-tape);
   --pick-dot-bg:var(--pal-simorgh-bg);
   --pick-dot-ring:var(--pal-simorgh-accent);
+}
+[data-palette="tavalod"]{
+  --card-bg:var(--pal-tavalod-bg);
+  --card-surface:var(--pal-tavalod-surface);
+  --card-text:var(--pal-tavalod-text);
+  --card-muted:var(--pal-tavalod-muted);
+  --card-accent:var(--pal-tavalod-accent);
+  --card-accent-soft:var(--pal-tavalod-accent-soft);
+  --card-border:var(--pal-tavalod-border-strong);
+  --card-grid:var(--pal-tavalod-border);
+  --card-tape:var(--pal-tavalod-tape);
+  --pick-dot-bg:var(--pal-tavalod-bg);
+  --pick-dot-ring:var(--pal-tavalod-accent);
+}
+[data-palette="tavaloddark"]{
+  --card-bg:var(--pal-tavaloddark-bg);
+  --card-surface:var(--pal-tavaloddark-surface);
+  --card-text:var(--pal-tavaloddark-text);
+  --card-muted:var(--pal-tavaloddark-muted);
+  --card-accent:var(--pal-tavaloddark-accent);
+  --card-accent-soft:var(--pal-tavaloddark-accent-soft);
+  --card-border:var(--pal-tavaloddark-border-strong);
+  --card-grid:var(--pal-tavaloddark-border);
+  --card-tape:var(--pal-tavaloddark-tape);
+  --pick-dot-bg:var(--pal-tavaloddark-bg);
+  --pick-dot-ring:var(--pal-tavaloddark-accent);
 }
 
 /* ═══ Themes ═══
@@ -1124,6 +1181,46 @@ html[data-theme="simorgh"]{
   --glass:var(--pal-simorgh-glass);
 }
 
+html[data-theme="tavalod"]{
+  color-scheme:light;
+  --color-bg:var(--pal-tavalod-bg);
+  --color-surface:var(--pal-tavalod-surface);
+  --color-surface-elevated:var(--pal-tavalod-elev);
+  --color-text-primary:var(--pal-tavalod-text);
+  --color-text-secondary:var(--pal-tavalod-text2);
+  --color-text-muted:var(--pal-tavalod-muted);
+  --color-text-on-accent:var(--pal-tavalod-on-accent);
+  --color-border:var(--pal-tavalod-border);
+  --color-border-strong:var(--pal-tavalod-border-strong);
+  --color-accent:var(--pal-tavalod-accent);
+  --color-accent-strong:var(--pal-tavalod-accent-strong);
+  --color-accent-soft:var(--pal-tavalod-accent-soft);
+  --color-accent-text:var(--pal-tavalod-accent-text);
+  --color-focus:var(--pal-tavalod-accent);
+  --tape:var(--pal-tavalod-tape);
+  --glass:var(--pal-tavalod-glass);
+}
+
+html[data-theme="tavalod"][data-mode="dark"]{
+  color-scheme:dark;
+  --color-bg:var(--pal-tavaloddark-bg);
+  --color-surface:var(--pal-tavaloddark-surface);
+  --color-surface-elevated:var(--pal-tavaloddark-elev);
+  --color-text-primary:var(--pal-tavaloddark-text);
+  --color-text-secondary:var(--pal-tavaloddark-text2);
+  --color-text-muted:var(--pal-tavaloddark-muted);
+  --color-text-on-accent:var(--pal-tavaloddark-on-accent);
+  --color-border:var(--pal-tavaloddark-border);
+  --color-border-strong:var(--pal-tavaloddark-border-strong);
+  --color-accent:var(--pal-tavaloddark-accent);
+  --color-accent-strong:var(--pal-tavaloddark-accent-strong);
+  --color-accent-soft:var(--pal-tavaloddark-accent-soft);
+  --color-accent-text:var(--pal-tavaloddark-accent-text);
+  --color-focus:var(--pal-tavaloddark-accent);
+  --tape:var(--pal-tavaloddark-tape);
+  --glass:var(--pal-tavaloddark-glass);
+}
+
 /* ═══ The day ═══
    The third face on the root, after the theme and the mode, and the only one
    the reader did not choose. It is painted from the palette table like anything
@@ -1157,31 +1254,6 @@ html[data-day="birthday"]{
   --glass:var(--pal-day-glass);
 }
 
-/* A birthday at night is a birthday, not a flashbulb. The reader's own theme
-   says which half of the table they are in, and this answers in the same half
-   rather than overriding their choice of darkness with brightness. Two
-   attribute selectors beat the single one above, so this needs no !important
-   and no source-order trick. */
-html[data-day="birthday"][data-mode="dark"]{
-  color-scheme:dark;
-  --color-bg:var(--pal-daydark-bg);
-  --color-surface:var(--pal-daydark-surface);
-  --color-surface-elevated:var(--pal-daydark-elev);
-  --color-text-primary:var(--pal-daydark-text);
-  --color-text-secondary:var(--pal-daydark-text2);
-  --color-text-muted:var(--pal-daydark-muted);
-  --color-text-on-accent:var(--pal-daydark-on-accent);
-  --color-border:var(--pal-daydark-border);
-  --color-border-strong:var(--pal-daydark-border-strong);
-  --color-accent:var(--pal-daydark-accent);
-  --color-accent-strong:var(--pal-daydark-accent-strong);
-  --color-accent-soft:var(--pal-daydark-accent-soft);
-  --color-accent-text:var(--pal-daydark-accent-text);
-  --color-focus:var(--pal-daydark-accent);
-  --tape:var(--pal-daydark-tape);
-  --glass:var(--pal-daydark-glass);
-}
-
 /* Scroll behavior is decided per call, not globally.
    A global `scroll-behavior:smooth` turned every programmatic jump into a
    long animated scroll — switching tabs from far down the task list meant the
@@ -1190,13 +1262,23 @@ html[data-day="birthday"][data-mode="dark"]{
    list jumps now ask for what they want in JS ({behavior:'smooth'} stays for
    the in-list jumps that are meant to be followed by the eye), so the two never
    animate at the same time. */
+/* Font boosting: Android's WebView may inflate text on its own when it decides a
+   block of text is «too small» for the layout width, which reads as the whole
+   app being zoomed in on a phone and never happens in the browser. The app
+   already has a text-size setting of its own, so the platform's guess is turned
+   off and 100% means 100% everywhere. */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+
 body{font-family:var(--font-ui);background:var(--bg);color:var(--text);min-height:100vh;min-height:100dvh;overflow-x:hidden;transition:background var(--duration-slow),color var(--duration-slow);-webkit-tap-highlight-color:transparent;line-height:1.6}
 
-/* The default notebook theme uses barely visible page ruling only in open canvas areas. */
+/* The default notebook theme uses barely visible page ruling only in open canvas areas.
+   The ruling is left to scroll with the page: html paints no background, so this one
+   is propagated to the canvas and already covers the whole document. Its attachment
+   only made the engine re-resolve that canvas layer on every scroll frame, for a
+   one-pixel hairline nobody can see move. */
 html[data-theme="daftarche"] body{
   background-color:var(--color-bg);
   background-image:repeating-linear-gradient(to bottom,transparent 0,transparent 31px,rgba(36,85,72,.025) 32px,transparent 33px);
-  background-attachment:fixed;
 }
 button{touch-action:manipulation;font-family:inherit}
 
@@ -1238,6 +1320,8 @@ input, textarea, select{font-family:inherit}
 
 body::after{content:'';position:fixed;inset:0;z-index:97;pointer-events:none;opacity:.05;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E")}
+html.is-native body::after{display:none!important}
+html.is-native .bottom-nav{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;background:var(--color-surface)}
 
 /* â”€â”€ The dock's scrim â”€â”€
    One full-width fade of the theme's own paper sits below the floating dock and
@@ -1262,7 +1346,13 @@ body.focus-immersive::before{display:none}
 
 /* ═══ Page System ═══ */
 /* Page transition: very subtle opacity + small transform (Priority 8.3) */
-.page{display:none;min-height:100vh;min-height:100dvh;padding:40px 20px calc(var(--nav-height) + 24px);animation:pageIn var(--duration-base) var(--ease-out);touch-action:pan-y}
+/* Edge-to-edge: Android 15+ (API 35) draws the web view under the status and
+   gesture bars, so a page pads itself by whatever the system reports. On a
+   device that still reserves those strips the insets are 0 and nothing moves. */
+.page{display:none;min-height:100vh;min-height:100dvh;
+  padding:calc(40px + var(--sat)) max(20px, var(--sar)) calc(var(--nav-height) + 24px + var(--sab)) max(20px, var(--sal));
+  animation:pageIn var(--duration-base) var(--ease-out);touch-action:pan-y;
+  transform:translateZ(0);backface-visibility:hidden;contain:layout style}
 /* touch-action:pan-y on the pages is what lets a horizontal drag reach
    js/app.js (swipe between tab pages) without ever stealing the vertical
    axis: a thumb moving up or down is answered by the browser's own scroll,
@@ -1316,7 +1406,9 @@ html[data-mode="dark"] .theme-btn .moon{transform:translateY(150%) rotate(90deg)
 .bottom-nav{
   position:fixed;
   bottom:10px;
-  left:50%;transform:translateX(-50%);
+  left:50%;transform:translate3d(-50%,0,0);
+  backface-visibility:hidden;
+  will-change:transform;
   z-index:98;
   display:flex;align-items:stretch;gap:2px;
   padding:6px;border-radius:var(--radius-xl);
@@ -1329,17 +1421,16 @@ html[data-mode="dark"] .theme-btn .moon{transform:translateY(150%) rotate(90deg)
        enough that the blurred paper still reads through. */
     linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,.02) 42%),
     linear-gradient(135deg,var(--glass),color-mix(in srgb,var(--glass) 55%,transparent));
-  /* Glass, at a radius the compositor can afford every frame.
+  /* Glass, at the one filter the compositor can afford every frame.
      This bar floats over the whole scrolling page for the entire session, and
-     the backdrop blur is re-sampled on every scroll frame — the blur radius is
-     the per-frame cost. 16px still reads as frosted glass over the paper (the
-     gradient, border and inner highlights carry most of the look) and costs
-     roughly a third less than the previous 24px. The extra saturate and the
-     touch of brightness sharpen the colours showing through the frost
-     without adding blur cost. The element is also promoted to its own layer
-     so the page scrolling underneath never repaints it. */
-  backdrop-filter:blur(10px) saturate(1.65) brightness(1.04);
-  -webkit-backdrop-filter:blur(10px) saturate(1.65) brightness(1.04);
+     the backdrop is re-sampled on every scroll frame. Each function in the
+     filter list is another pass over that backdrop, so the frosted look comes
+     from a single 8px blur plus the gradient, border and inner highlights —
+     the tint and the sheen above carry the colour, not saturate/brightness.
+     Readers who ask the system for less transparency get the opaque dock in
+     the @media (prefers-reduced-transparency) block further down. */
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
   border:1px solid color-mix(in srgb,var(--color-surface) 58%,transparent);
   box-shadow:
     0 24px 48px -20px rgba(122,80,35,.34),
@@ -1700,12 +1791,12 @@ body.focus-immersive:not(.focus-sound-open) .vibe-card{display:none}
    a fixed one: a column that ever grows past the viewport grows the box with
    it and still starts at its own top, so no part of it is clipped above the
    reach of the scroll. */
-body.focus-immersive .app-focus{min-height:100vh;justify-content:center;padding:max(16px,env(safe-area-inset-top)) 0 16px}
+body.focus-immersive .app-focus{min-height:100vh;justify-content:center;padding:max(16px,var(--sat)) 0 16px}
 body.has-focus-pill .page{padding-bottom:calc(var(--nav-height) + 72px)}
 
 .focus-page-card .focus-task{font-size:14px;color:var(--muted);font-weight:400;line-height:1.7}
 .focus-page-actions{display:flex;flex-wrap:wrap;gap:8px;width:100%}
-.focus-start-hint{width:100%;font-size:12px;color:var(--color-muted);text-align:center;line-height:1.5}
+.focus-start-hint{width:100%;font-size:12px;color:var(--color-text-muted);text-align:center;line-height:1.5}
 .focus-page-actions .go{flex:1;border:none;background:var(--accent);color:var(--color-text-on-accent);font-family:var(--font-ui);font-weight:600;font-size:15px;padding:12px;border-radius:var(--radius-sm);cursor:pointer;transition:transform var(--duration-fast),box-shadow var(--duration-fast)}
 .focus-page-actions .go:active{transform:scale(.97)}
 .focus-page-actions .go:disabled{opacity:.5;box-shadow:none;cursor:not-allowed}
@@ -1842,7 +1933,7 @@ html.tab-hidden .reader-timer.on{animation-play-state:paused!important}
    and border tokens as their opaque form, so the interface keeps its paper
    identity without any per-frame backdrop sampling. */
 @media (prefers-reduced-transparency:reduce){
-  .bottom-nav,.reader-top,.overlay,.book-pct-badge{backdrop-filter:none;-webkit-backdrop-filter:none}
+  .bottom-nav,.reader-top,.overlay,.book-pct-badge{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
   .bottom-nav{background:var(--color-surface);border-color:var(--color-border-strong)}
   html[data-mode="dark"] .bottom-nav{background:var(--color-surface)}
   .overlay{background:rgba(46,41,33,.55)}
@@ -1914,7 +2005,7 @@ html[data-motion="reduced"] .cat-chip:hover{transform:none!important}
      so every page's bottom padding, the toast and the focus pill keep their
      clearance. Desktop is untouched. */
   :root{--nav-height:68px}
-  .page{padding:24px 12px calc(var(--nav-height) + 16px)}
+  .page{padding:calc(24px + var(--sat)) 12px calc(var(--nav-height) + 16px + var(--sab))}
   .subtitle{font-size:12px}
   .bottom-nav{gap:2px;padding:7px;border-radius:var(--radius-xl);bottom:12px}
   .nav-tab{min-width:48px;padding:8px 9px;font-size:11px;border-radius:var(--radius-lg)}
@@ -1931,7 +2022,7 @@ html[data-motion="reduced"] .cat-chip:hover{transform:none!important}
   .settings-value span{font-size:12px}
 }
 @media (max-width:360px){
-  .page{padding:20px 10px calc(var(--nav-height) + 14px)}
+  .page{padding:calc(20px + var(--sat)) 10px calc(var(--nav-height) + 14px + var(--sab))}
   /* Ultra-narrow screens fit all 5 dock tabs inside calc(100vw - 12px) without
      clipping. The bar is given the width outright rather than a ceiling: with a
      max-width alone the dock still shrink-wrapped its tabs, so each tab landed
@@ -1956,14 +2047,14 @@ html[data-motion="reduced"] .cat-chip:hover{transform:none!important}
 /* ═══ Mobile & Touch Devices (Safe Area & Anti-Jitter Navigation) ═══ */
 @media (max-width:768px) and (pointer:coarse){
   body::before{
-    height:calc(var(--nav-height) + env(safe-area-inset-bottom,0px) + 28px);
+    height:calc(var(--nav-height) + var(--sab) + 28px);
   }
   body.has-focus-pill .page{
-    padding-bottom:calc(var(--nav-height) + env(safe-area-inset-bottom,0px) + 72px);
+    padding-bottom:calc(var(--nav-height) + var(--sab) + 72px);
   }
   .page{
-    padding-block-start:calc(28px + env(safe-area-inset-top,0px));
-    padding-block-end:calc(var(--nav-height) + env(safe-area-inset-bottom,0px) + 24px);
+    padding-block-start:calc(28px + var(--sat));
+    padding-block-end:calc(var(--nav-height) + var(--sab) + 24px);
     padding-inline:12px;
   }
   .bottom-nav{
@@ -1974,7 +2065,7 @@ html[data-motion="reduced"] .cat-chip:hover{transform:none!important}
     box-sizing:border-box;
     backface-visibility:hidden;
     -webkit-backface-visibility:hidden;
-    bottom:calc(12px + env(safe-area-inset-bottom,0px));
+    bottom:calc(12px + var(--sab));
     transition:background-color var(--duration-base),border-color var(--duration-base);
   }
   .nav-tab,
@@ -1986,8 +2077,8 @@ html[data-motion="reduced"] .cat-chip:hover{transform:none!important}
 
 @media (max-width:360px) and (pointer:coarse){
   .page{
-    padding-block-start:calc(24px + env(safe-area-inset-top,0px));
-    padding-block-end:calc(var(--nav-height) + env(safe-area-inset-bottom,0px) + 20px);
+    padding-block-start:calc(24px + var(--sat));
+    padding-block-end:calc(var(--nav-height) + var(--sab) + 20px);
     padding-inline:10px;
   }
 }

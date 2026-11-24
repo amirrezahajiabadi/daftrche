@@ -56,6 +56,7 @@ const SHAPES = {
   'daftarche-moods': 'object',
   'daftarche-ledger': 'object',
   'daftarche-achievements': 'object',
+  'daftarche-birthday-wishes': 'object',
 };
 
 const isPlainObject = v => v !== null && typeof v === 'object' && !Array.isArray(v);
@@ -248,6 +249,33 @@ const minDay = (a, b) => {
 
 /* Two copies of one task exist only because a backup traveled between devices. */
 function pickTask(local, incoming) {
+  const localDeleted = Number.isFinite(Number(local?.deletedAt)) && Number(local.deletedAt) > 0;
+  const incomingDeleted = Number.isFinite(Number(incoming?.deletedAt)) && Number(incoming.deletedAt) > 0;
+
+  if (localDeleted || incomingDeleted) {
+    if (localDeleted && incomingDeleted) {
+      const lv = Number(local.version ?? local.rev) || 0;
+      const iv = Number(incoming.version ?? incoming.rev) || 0;
+      if (iv > lv) return incoming;
+      if (lv > iv) return local;
+      const lt = Number(local.deletedAt || local.updatedAt || 0);
+      const it = Number(incoming.deletedAt || incoming.updatedAt || 0);
+      return it > lt ? incoming : local;
+    }
+    // One is deleted, one is active
+    const deletedTask = localDeleted ? local : incoming;
+    const activeTask = localDeleted ? incoming : local;
+
+    const delV = Number(deletedTask.version ?? deletedTask.rev) || 0;
+    const actV = Number(activeTask.version ?? activeTask.rev) || 0;
+    if (delV > actV) return deletedTask;
+    if (actV > delV) return activeTask;
+
+    const delTime = Number(deletedTask.deletedAt || deletedTask.updatedAt || 0);
+    const actTime = Number(activeTask.updatedAt || activeTask.created || 0);
+    return delTime >= actTime ? deletedTask : activeTask;
+  }
+
   const localDone = local.done === true;
   const incomingDone = incoming.done === true;
   if (localDone !== incomingDone) return incomingDone ? incoming : local;
@@ -484,6 +512,18 @@ function mergeAchv(localRaw, incomingRaw) {
   return JSON.stringify({ v: 1, baselineAt: minDay(local.baselineAt, incoming.baselineAt), unlocked, recSeen });
 }
 
+function mergeWishes(localRaw, incomingRaw) {
+  const local = readJSONSafely(localRaw);
+  const incoming = readJSONSafely(incomingRaw);
+  if (!isPlainObject(incoming)) return null;
+  if (!isPlainObject(local)) return JSON.stringify(incoming);
+  const out = { ...local };
+  for (const [k, v] of Object.entries(incoming)) {
+    if (typeof v === 'string' && (!(k in out) || !out[k])) out[k] = v;
+  }
+  return JSON.stringify(out);
+}
+
 const MERGERS = {
   'daftarche-v1': mergeTaskList,
   'daftarche-history': mergeDayList,
@@ -492,6 +532,7 @@ const MERGERS = {
   'daftarche-moods': mergeMoods,
   'daftarche-ledger': mergeLedger,
   'daftarche-achievements': mergeAchv,
+  'daftarche-birthday-wishes': mergeWishes,
 };
 
 export function normalizeBackupData(data) {

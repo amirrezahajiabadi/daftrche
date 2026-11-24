@@ -2,7 +2,7 @@
    Reuses existing task state, task actions, frog selection and mood/week modules. */
 
 import { state, getTask } from './state.js';
-import { $, faNum, dayKey, startOfToday, formatDuration } from './utils.js';
+import { $, faNum, faDigits, dayKey, startOfToday, formatDuration } from './utils.js';
 import { P_LABEL, ICONS } from './constants.js';
 import { subscribe } from './bus.js';
 import { addTask, dueLabel, collapse, setTaskDone, timeRangeLabel } from './tasks.js';
@@ -16,6 +16,10 @@ import { getHistory } from './focushistory.js';
 import { buildDecisionContext } from './decisioncontext.js';
 import { getRecommendation, reasonForTask, energyFromMood, ALL_DONE_REASON } from './decision.js';
 import { parseQuickAdd, renderQuickAddPreview, stripQuickAddToken } from './quickadd.js';
+import { dateToJalali } from './jalali.js';
+import { occasionsOf } from './calendarmodel.js';
+import { loadBirthday, loadName } from './store.js';
+import { birthdayKey, birthdayAge, showBirthdayCard } from './birthday.js';
 
 const DAY = 864e5;
 /* Priority is meaning, not decoration: the three dots read from the palette's
@@ -44,22 +48,78 @@ let shownRecId = null;       // currently displayed recommendation (alternatives
    a deadline that has arrived, is today, or is tomorrow. */
 const TODAY_HORIZON = 1;
 const isTodayPending = t => {
-  if (!t || t.done) return false;
+  if (!t || t.done || t.deletedAt) return false;
   const diff = t.dueDate ? dueDiff(t.dueDate) : null;
   if (t.p === 'high') return diff === null || diff <= TODAY_HORIZON;
   if (t.dueDate) return diff <= 0;
   return !!t.created && dayKey(new Date(t.created)) === dayKey(new Date());
 };
-const isDoneToday = t => !!t && !!t.done && !!t.doneAt && dayKey(new Date(t.doneAt)) === dayKey(new Date());
+const isDoneToday = t => !!t && !t.deletedAt && !!t.done && !!t.doneAt && dayKey(new Date(t.doneAt)) === dayKey(new Date());
 export const todayPending = () => state.tasks.filter(isTodayPending);
 export const todayDone = () => state.tasks.filter(isDoneToday);
 
 /* ── Header: greeting, date, summary ── */
 function renderHeader() {
+  const bday = loadBirthday();
+  const isBday = Boolean(bday && birthdayKey(new Date(), bday));
   const greet = $('#todayGreet');
-  if (greet) greet.textContent = state.userName ? `سلام ${state.userName}` : 'سلام';
+  if (greet) {
+    if (isBday) {
+      const name = (state.userName || loadName() || '').trim();
+      const age = birthdayAge(new Date(), bday);
+      if (age !== null && age >= 1) {
+        greet.textContent = name
+          ? `تولدت مبارک ${name}! (${faDigits(age)} سالگی)`
+          : `تولدت مبارک! (${faDigits(age)} سالگی)`;
+      } else {
+        greet.textContent = name ? `تولدت مبارک ${name}!` : 'تولدت مبارک!';
+      }
+      greet.classList?.add('is-birthday');
+      greet.setAttribute?.('role', 'button');
+      greet.setAttribute?.('tabindex', '0');
+      greet.setAttribute?.('aria-label', 'تبریک روز تولد — برای مشاهده کارت تبریک کلیک کنید');
+    } else {
+      greet.textContent = state.userName ? `سلام ${state.userName}` : 'سلام';
+      greet.classList?.remove('is-birthday');
+      greet.removeAttribute?.('role');
+      greet.removeAttribute?.('tabindex');
+      greet.removeAttribute?.('aria-label');
+    }
+  }
   const date = $('#todayDate');
   if (date) date.textContent = new Intl.DateTimeFormat('fa-IR', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date());
+
+  /* What today holds in the calendar, said in one line under the date. It is
+     the month page's own table — no second list of occasions lives here — and
+     it disappears on a day with nothing recorded rather than printing a
+     placeholder the reader would have to read every morning. */
+  const occasion = $('#todayOccasion');
+  if (occasion) {
+    const j = dateToJalali(new Date());
+    const list = occasionsOf(j.jy, j.jm, j.jd);
+    const first = list[0];
+    if (isBday) {
+      occasion.hidden = false;
+      occasion.textContent = first
+        ? `امروز: تولد شما مبارک! · ${first.title}`
+        : 'امروز: تولد شما مبارک!';
+      occasion.classList?.add('is-birthday');
+      occasion.setAttribute?.('role', 'button');
+      occasion.setAttribute?.('tabindex', '0');
+      occasion.setAttribute?.('aria-label', 'مناسبت روز تولد — برای مشاهده کارت تبریک کلیک کنید');
+    } else {
+      occasion.hidden = !first;
+      occasion.textContent = first
+        ? (list.length > 1
+            ? `امروز: ${first.title} و ${faNum(list.length - 1)} مناسبت دیگه`
+            : `امروز: ${first.title}`)
+        : '';
+      occasion.classList?.remove('is-birthday');
+      occasion.removeAttribute?.('role');
+      occasion.removeAttribute?.('tabindex');
+      occasion.removeAttribute?.('aria-label');
+    }
+  }
 
   const summary = $('#todaySummary');
   if (!summary) return;
@@ -109,10 +169,12 @@ function currentRec() {
   const energy = energyFromMood(state.moods[dayKey(new Date())]);
   /* History → Evidence → Context → Decision: the context is rebuilt from
      the current Focus History on every request, so it can never go stale */
-  const context = buildDecisionContext(getHistory(), new Date());
+  const now = new Date();
+  const context = buildDecisionContext(getHistory(), now);
   const rec = getRecommendation({
-    tasks: state.tasks,
-    today: new Date(),
+    tasks: (Array.isArray(state.tasks) ? state.tasks : []).filter(t => t && !t.deletedAt),
+    today: now,
+    now,
     energy,
     skipCounts: skippedRecs,
     context,
@@ -122,7 +184,7 @@ function currentRec() {
     const alt = [rec.primary, ...rec.alternatives].find(t => t && t.id === shownRecId);
     if (alt) {
       const live = getTask(alt.id);
-      return { ...rec, primary: alt, reason: live ? reasonForTask(live, { energy }) : rec.reason };
+      return { ...rec, primary: alt, reason: live ? reasonForTask(live, { today: now, now, energy }) : rec.reason };
     }
   }
   return rec;
@@ -151,7 +213,8 @@ function hopOnProgress() {
   seenDone = n;
   const el = rose && wrap?.querySelector('.frog-emoji');
   if (!el) return;
-  el.classList.remove('hop'); void el.offsetWidth; el.classList.add('hop');
+  el.classList.remove('hop');
+  requestAnimationFrame(() => el.classList.add('hop'));
 }
 
 function renderFrog(force) {
@@ -330,7 +393,8 @@ function renderTodayList() {
     if (!list.querySelector('.t-empty')) {
       const li = document.createElement('li');
       li.className = 't-empty';
-      li.textContent = state.tasks.length
+      const hasTasks = (Array.isArray(state.tasks) ? state.tasks : []).some(t => t && !t.deletedAt);
+      li.textContent = hasTasks
         ? 'چیزی برای امروز برنامه‌ریزی نشده؛ هر کاری خواستی از بالا اضافه کن.'
         : 'هنوز کاری نساختی — اولین کار امروزت رو از بالا اضافه کن.';
       list.appendChild(li);
@@ -428,14 +492,31 @@ function renderReading() {
   }));
 }
 
-export function renderToday() {
+let lastTodaySig = '';
+
+export function renderToday(force = false) {
+  const pending = todayPending();
+  const done = todayDone();
+  const sig = [
+    state.userName,
+    pending.length,
+    done.length,
+    pending.map(t => `${t.id}:${t.p}:${t.dueDate || ''}`).join(','),
+    done.map(t => t.id).join(',')
+  ].join('|');
+
+  if (!force && sig === lastTodaySig && $('#todayList')?.children?.length > 0) {
+    return;
+  }
+  lastTodaySig = sig;
+
   renderHeader();
   renderFrog();
   renderTodayList();
   renderProgress();
   renderReading();
   const dice = $('#todayDiceBtn');
-  if (dice) dice.hidden = todayPending().length < 2;
+  if (dice) dice.hidden = pending.length < 2;
 }
 
 /* ── Init ── */
@@ -549,7 +630,25 @@ export function initToday() {
 
   renderToday();
   subscribe(renderToday);
-  window.addEventListener('daftarche:books-changed', renderReading);
+  if (typeof window !== 'undefined') window.addEventListener('daftarche:books-changed', renderReading);
   setRollScope(() => todayPending());
   $('#todayDiceBtn')?.addEventListener('click', () => openRoll(todayPending()));
+
+  const onBirthdayClick = () => {
+    const b = loadBirthday();
+    if (b && birthdayKey(new Date(), b)) showBirthdayCard();
+  };
+  const onBirthdayKey = e => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      const b = loadBirthday();
+      if (b && birthdayKey(new Date(), b)) {
+        e.preventDefault();
+        showBirthdayCard();
+      }
+    }
+  };
+  $('#todayGreet')?.addEventListener('click', onBirthdayClick);
+  $('#todayGreet')?.addEventListener('keydown', onBirthdayKey);
+  $('#todayOccasion')?.addEventListener('click', onBirthdayClick);
+  $('#todayOccasion')?.addEventListener('keydown', onBirthdayKey);
 }

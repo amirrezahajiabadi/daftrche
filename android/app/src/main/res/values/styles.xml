@@ -13,8 +13,18 @@
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="android:background">@null</item>
-        <item name="android:fitsSystemWindows">true</item>
+        <!-- Edge-to-edge on purpose: the WebView paints from the top of the
+             screen to the bottom, and the page pads its own content by the
+             window insets MainActivity measures (the sat and sab tokens in
+             css/base.css).
+             «true» here would add a second padding for the same bars, and on
+             Android 15+ it is ignored anyway — the mismatch read as a large
+             empty band above the page. -->
+        <item name="android:fitsSystemWindows">false</item>
         <item name="android:windowFullscreen">false</item>
+        <!-- The page's own background fills the cutout area; the insets carry
+             the cutout's height, so nothing is ever painted under the notch. -->
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
     </style>
 
 

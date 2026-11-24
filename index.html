@@ -13,7 +13,7 @@
      · blob: is for what the person made on this device: PDF files for the
        browser viewer, uploaded music, the share-card image.
      · Not expressible in a <meta>: frame-ancestors / report-uri. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-Pt0bdZftZNQ/cG580gD+I/tWgImLQwOORjHM7XDVeqg=' https://cdn.jsdelivr.net; worker-src 'self' blob: https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' https://cdn.jsdelivr.net; media-src 'self' blob: data:; connect-src 'self' https://cdn.jsdelivr.net; frame-src blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'"/>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-uuLviIUb4Z+V6R8OTnu+USC8c1YWkwfXRr1yJ63pNhA='; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; media-src 'self' blob: data:; connect-src 'self'; frame-src blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content"/>
 <meta name="theme-color" content="#f4f0e6"/>
 <!-- The browser paints its own chrome (page canvas, scrollbars, form controls)
@@ -39,7 +39,7 @@
        half of the table it belongs to. The second is what every dark-only rule
        in the CSS hangs off, so it has to be on the root before the first paint
        too — data-mode is to the dark rules what data-theme is to the colours. */
-    var KEYS = ['daftarche', 'kashi', 'cobalt', 'aurora', 'lajvard', 'graphite', 'nightglass', 'tarnama', 'baghche', 'daryanavard', 'negarkhane', 'qollenavard', 'shabgard', 'fazanavard', 'kimiyagar', 'rasadkhane', 'simorgh'];
+    var KEYS = ['daftarche', 'kashi', 'cobalt', 'aurora', 'lajvard', 'graphite', 'nightglass', 'tarnama', 'baghche', 'daryanavard', 'negarkhane', 'qollenavard', 'shabgard', 'fazanavard', 'kimiyagar', 'rasadkhane', 'simorgh', 'tavalod'];
     var DARK = ['lajvard', 'graphite', 'nightglass', 'shabgard', 'fazanavard', 'kimiyagar', 'rasadkhane', 'simorgh'];
     /* Keys older builds wrote down, mapped to the theme that replaced each.
        «cream» is the most recent of them: «شیری» was a shade away from «کاغذ»
@@ -48,7 +48,7 @@
     var saved = localStorage.getItem('theme');
     saved = ALIAS[saved] || saved;
     if (KEYS.indexOf(saved) < 0) saved = '';
-    /* The ten worlds are earned. Match the reward gate before paint so a locked
+    /* The eleven worlds are earned. Match the reward gate before paint so a locked
        theme (a restored backup, a hand-edited key) never flashes. The full
        catalogue lives in js/achievements.js; this table is its copy of the
        badge/tier pairs, kept in step by tests/themes.test.mjs. */
@@ -63,6 +63,35 @@
     if (!saved) saved = matchMedia('(prefers-color-scheme:dark)').matches ? 'lajvard' : 'daftarche';
     document.documentElement.dataset.theme = saved;
     document.documentElement.dataset.mode = DARK.indexOf(saved) < 0 ? 'light' : 'dark';
+
+    /* Native Android & Capacitor Pre-Paint Detection */
+    var isNat = Boolean(typeof window !== 'undefined' && (window.Capacitor || (typeof navigator !== 'undefined' && navigator.userAgent && navigator.userAgent.indexOf('DaftarcheAndroid') >= 0) || window.AndroidBridge));
+    if (isNat && document.documentElement) {
+      if (document.documentElement.classList) document.documentElement.classList.add('is-native');
+      var insets = (typeof window !== 'undefined' ? window.__ANDROID_INSETS__ : null);
+      if (!insets && typeof window !== 'undefined' && window.AndroidBridge && typeof window.AndroidBridge.getTopInset === 'function') {
+        var t = window.AndroidBridge.getTopInset();
+        var b = window.AndroidBridge.getBottomInset();
+        if (t > 0 || b > 0) insets = { top: t, bottom: b };
+      }
+      if (!insets) {
+        try {
+          var cached = localStorage.getItem('daftarche_cached_insets');
+          if (cached) insets = JSON.parse(cached);
+        } catch (err) {}
+      }
+      if (insets && document.documentElement.style) {
+        if (insets.top != null) {
+          document.documentElement.style.setProperty('--sat', insets.top + 'px');
+          document.documentElement.style.setProperty('--inset-top', insets.top + 'px');
+        }
+        if (insets.bottom != null) {
+          document.documentElement.style.setProperty('--sab', insets.bottom + 'px');
+          document.documentElement.style.setProperty('--inset-bottom', insets.bottom + 'px');
+        }
+        if (typeof window !== 'undefined') window.__ANDROID_INSETS__ = insets;
+      }
+    }
   } catch (e) { /* private mode / storage disabled: the light default stands */ }
 })();
 </script>
@@ -82,6 +111,15 @@
 <link rel="modulepreload" href="js/today.js">
 <link rel="modulepreload" href="js/focus.js">
 <link rel="modulepreload" href="js/library.js">
+<link rel="modulepreload" href="js/state.js">
+<link rel="modulepreload" href="js/constants.js">
+<link rel="modulepreload" href="js/utils.js">
+<link rel="modulepreload" href="js/store.js">
+<link rel="modulepreload" href="js/bus.js">
+<link rel="modulepreload" href="js/theme.js">
+<link rel="modulepreload" href="js/motion.js">
+<link rel="modulepreload" href="js/textsize.js">
+<link rel="modulepreload" href="js/progress.js">
 <!-- Windows: native shell + legacy fallback read the packaged .ico.
      Browsers take the first icon they support, so the crisp SVG stays first -->
 <link rel="icon" type="image/svg+xml" href="assets/icons/favicon.svg?asset=e6af11b8057e08cd">
@@ -104,6 +142,7 @@
 <link rel="stylesheet" href="css/stats.css">
 <link rel="stylesheet" href="css/achievements.css">
 <link rel="stylesheet" href="css/planner.css">
+<link rel="stylesheet" href="css/calendar.css">
 <link rel="stylesheet" href="css/today.css">
 <link rel="stylesheet" href="css/tour.css">
 <link rel="stylesheet" href="css/qorqori.css">
@@ -152,20 +191,30 @@
 </div>
 
 <!-- ═══ Onboarding (steps 2 and 3 of the first visit) ═══
-     Same modal contract as every dialog; js/onboarding.js fills it. -->
+     Same modal contract as every dialog; js/onboarding.js fills it.
+
+     The card is split in two: .ob-body is the part that changes with the step
+     and is the only thing that scrolls, .ob-foot is the exit and never moves.
+     On a short screen — or a phone on Android 15, where the web view is drawn
+     edge-to-edge under the status and gesture bars — the skip and the primary
+     action must stay reachable, so they live outside the scroll on purpose. -->
 <div class="overlay" id="onboardOverlay" hidden>
   <div class="name-card sheet-paper ob-card" id="onboardCard" role="dialog" aria-modal="true" aria-labelledby="obTitle">
-    <p class="ob-steps" id="obSteps" aria-live="polite"></p>
-    <h2 id="obTitle"></h2>
-    <p class="ob-sub" id="obSub"></p>
-    <div class="ob-goals" id="obGoals" role="radiogroup" aria-labelledby="obTitle"></div>
-    <form id="obTaskForm" autocomplete="off" hidden>
-      <input id="obTaskInput" type="text" maxlength="120" placeholder="مثلاً: فردا ساعت ۵ عصر خرید نان #خانه" aria-label="اولین کار"/>
-      <div class="ob-preview quickadd-preview" id="obPreview" hidden></div>
-      <div class="ob-suggest" id="obSuggest" aria-label="مثال‌ها"></div>
-      <button class="go" type="submit">اضافه کن و بریم</button>
-    </form>
-    <button class="skip" id="obSkip" type="button">فعلاً رد کن</button>
+    <div class="ob-body">
+      <p class="ob-steps" id="obSteps" aria-live="polite"></p>
+      <h2 id="obTitle"></h2>
+      <p class="ob-sub" id="obSub"></p>
+      <div class="ob-goals" id="obGoals" role="radiogroup" aria-labelledby="obTitle"></div>
+      <form id="obTaskForm" autocomplete="off" hidden>
+        <input id="obTaskInput" type="text" maxlength="120" placeholder="مثلاً: فردا ساعت ۵ عصر خرید نان #خانه" aria-label="اولین کار"/>
+        <div class="ob-preview quickadd-preview" id="obPreview" hidden></div>
+        <div class="ob-suggest" id="obSuggest" aria-label="مثال‌ها"></div>
+      </form>
+    </div>
+    <div class="ob-foot">
+      <button class="go" type="button" id="obGo"></button>
+      <button class="skip" id="obSkip" type="button"></button>
+    </div>
   </div>
 </div>
 
@@ -177,13 +226,35 @@
      particular goes in with textContent, since it is the reader's own text. -->
 <div class="overlay" id="bdOverlay" hidden>
   <div class="bd-card sheet-paper" role="dialog" aria-modal="true" aria-labelledby="bdTitle">
-    <span class="bd-char" id="bdChar" aria-hidden="true"></span>
+    <!-- A garland pinned across the top of the greeting, drawn with the theme's
+         own tokens so it belongs to whatever paper the card is sitting on. It is
+         decoration only, so it is hidden from the accessibility tree. -->
+    <svg class="bd-garland" viewBox="0 0 320 42" aria-hidden="true" focusable="false">
+      <path class="bd-garland-string" d="M2 7 Q60 32 112 22 T212 22 Q266 32 318 7"/>
+      <g class="bd-garland-flags">
+        <polygon class="bd-flag" points="24,13 39,15 31,30"/>
+        <polygon class="bd-flag is-alt" points="57,21 72,23 64,38"/>
+        <polygon class="bd-flag" points="90,24 105,25 97,40"/>
+        <polygon class="bd-flag is-alt" points="123,23 138,23 130,38"/>
+        <polygon class="bd-flag" points="156,21 171,21 163,36"/>
+        <polygon class="bd-flag is-alt" points="189,21 204,21 196,36"/>
+        <polygon class="bd-flag" points="222,22 237,23 229,38"/>
+        <polygon class="bd-flag is-alt" points="255,24 270,25 262,40"/>
+        <polygon class="bd-flag" points="288,19 303,21 295,36"/>
+      </g>
+    </svg>
+    <div class="bd-visual" aria-hidden="true">
+      <span class="bd-char" id="bdChar"></span>
+      <div class="bd-cake-box" id="bdCakeBox"></div>
+    </div>
     <span class="bd-kicker" id="bdKicker">روز توئه</span>
     <h2 class="bd-title" id="bdTitle">تولدت مبارک</h2>
     <p class="bd-name" id="bdName"></p>
     <p class="bd-age" id="bdAge" hidden></p>
     <p class="bd-line">یه سال دیگه با هم این دفترچه رو پر کردیم. سال بعد هم همین‌جاست.</p>
-    <button class="go" id="bdGo" type="button">بزن بریم</button>
+    <div class="bd-actions">
+      <button class="go" id="bdGo" type="button">بزن بریم</button>
+    </div>
   </div>
 </div>
 
@@ -218,7 +289,15 @@
     <header>
       <div>
         <h1 id="todayGreet">سلام</h1>
-        <p class="subtitle" id="todayDate"></p>
+        <!-- The date reads as the calendar's own door: the reader already looks
+             at this line to know what day it is, so opening the month from here
+             costs no new tab in the bar. js/today.js fills the span; js/app.js
+             turns the press into a page change. -->
+        <button type="button" class="today-date-link" id="todayDateBtn" aria-label="باز کردن تقویم">
+          <span class="subtitle" id="todayDate"></span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>
+        </button>
+        <p class="today-occasion" id="todayOccasion" hidden></p>
         <p class="today-summary" id="todaySummary"></p>
       </div>
       <div class="header-actions">
@@ -1104,6 +1183,7 @@
               </button>
             </div>
           </div>
+          <div class="bd-countdown-badge" id="bdCountdown" hidden></div>
           <p class="settings-hint">دفترچه دوست داره تاریخ تولدتو بدونه!</p>
         </div>
       </div>
@@ -1186,6 +1266,20 @@
             <button class="settings-btn" id="openShortcutsBtn" type="button">راهنما (؟)</button>
           </div>
           <p class="settings-hint">میانبرهای سریع برای ایجاد کار (N)، جستجو (/) و حرکت بین ردیف‌ها (J/K) با کیبورد.</p>
+        </div>
+      </div>
+
+      <div class="vibe-card" id="diagnosticsCard">
+        <div class="vibe-head"><strong>عیب‌یابی و گزارش خطا</strong></div>
+        <div class="set-item">
+          <div class="settings-row">
+            <span class="settings-label">گزارش خطاهای محلی</span>
+            <div style="display:flex;gap:6px">
+              <button class="settings-btn" id="copyDiagnosticsBtn" type="button">کپی گزارش</button>
+              <button class="settings-btn" id="clearDiagnosticsBtn" type="button">پاک کردن</button>
+            </div>
+          </div>
+          <p class="settings-hint" id="diagnosticsHint">گزارش خطاهای اخیر بدون هیچ‌گونه اطلاعات شخصی یا ارتباط با سرور، فقط روی دستگاه شما نگه‌داری می‌شود.</p>
         </div>
       </div>
 
@@ -1316,20 +1410,20 @@
   </div>
 </div>
 
-<!-- ═══ Weekly planner ═══
-     The week as a calendar: seven days across, the day you pick under them. The
-     three hosts are filled by js/planner.js — the bar (week name and stepping),
-     the strip of days, and the day itself. Only the panel's frame is rebuilt
-     once; everything inside it is redrawn in place so a half-written task is
-     never wiped out from under the reader. -->
-<div class="page" id="page-week">
+<!-- ═══ تقویم — one page: the month, and the day under it ═══
+     The week of a day and the month it sits in were two zooms of one calendar
+     with a switch between them; a week and a month of the same days is one page
+     read at one size. The grid picks the day and shows how much of it is
+     planned; the panel beside it is where that day is worked on. js/calendar.js
+     owns the shell and the month; js/planner.js owns the panel. -->
+<div class="page" id="page-calendar">
   <main class="app">
     <header>
       <div>
-        <h1>هفتهٔ من
+        <h1>تقویم
           <svg class="underline" viewBox="0 0 120 12" fill="none"><path d="M2 8 Q 20 2 40 7 T 80 7 T 118 5" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg>
         </h1>
-        <p class="subtitle">یه نگاه به کل هفته — چی برنامه‌ریزی شده و چی انجام شد.</p>
+        <p class="subtitle">هفته و ماه، روزها و مناسبت‌هایشان — یه نگاه، بی‌شلوغی.</p>
       </div>
       <div class="header-actions">
         <button class="header-avatar" aria-label="پروفایل"></button>
@@ -1340,9 +1434,33 @@
       </div>
     </header>
 
-    <div class="wk-bar" id="wkBar"></div>
-    <div class="wk-strip" id="wkStrip" role="radiogroup" aria-label="روزهای هفته"></div>
-    <div id="wkDay"></div>
+    <div class="cal-body">
+      <!-- The month's whole card: its head, its seven columns, and the way back
+           to today. One card means the months's top and the day panel's top sit
+           on the same line — the two columns are a spread, not two leftovers. -->
+      <div class="cal-main">
+        <div class="pcal-wrap">
+          <div class="pcal-bar" id="calBar"></div>
+          <div class="pcal-dow" id="calDow" aria-hidden="true"></div>
+          <div class="pcal-grid" id="calGrid" role="grid" aria-label="روزهای ماه"></div>
+          <button class="pcal-today-btn" type="button" id="calTodayBtn">برو به امروز</button>
+        </div>
+      </div>
+
+      <!-- The month's occasions follow the calendar, the way a diary prints them
+           on the page under its grid: read after the dates, not beside them. -->
+      <section class="pcal-month" id="calMonthList">
+        <h2 class="pcal-month-title" id="calMonthTitle"></h2>
+        <ul class="pcal-list" id="calList"></ul>
+        <p class="pcal-note" id="calNote"></p>
+      </section>
+
+      <!-- The day the grid points at. js/planner.js builds this panel once and
+           redraws its contents in place — a half-written task is never wiped
+           from under the reader — and it paints the day's occasions too, so the
+           grid and the panel cannot disagree about what a day holds. -->
+      <div class="pcal-day" id="calDay"></div>
+    </div>
   </main>
 </div>
 
@@ -1380,9 +1498,9 @@
     </button>
     <div class="side-rail-more-collapse" id="sideRailMoreContent">
       <div class="side-rail-more-inner side-rail-group">
-        <button class="nav-tab" data-page="week">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M3 9.5h18M8 2.5v3.6M16 2.5v3.6M7.5 13.5h2M14.5 13.5h2M7.5 17h2M14.5 17h2"/></svg>
-          <span>هفته</span>
+        <button class="nav-tab" data-page="calendar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4M7.5 13.5h2M14.5 13.5h2M7.5 16.5h2M14.5 16.5h2"/></svg>
+          <span>تقویم</span>
         </button>
         <button class="nav-tab" data-page="stats">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V11M10 20V4M16 20v-6M22 20H2"/></svg>
@@ -1434,10 +1552,10 @@
     <button class="r-icon" id="moreClose" aria-label="بستن"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
   </div>
   <div class="more-list" id="moreList">
-    <button class="more-item" type="button" data-page="week">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M3 9.5h18M8 2.5v3.6M16 2.5v3.6M7.5 13.5h2M14.5 13.5h2M7.5 17h2M14.5 17h2"/></svg>
-      <span class="more-item-name">هفته</span>
-      <span class="more-item-hint">تقویم هفتگی و برنامه‌ریزی روزها</span>
+    <button class="more-item" type="button" data-page="calendar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4M7.5 13.5h2M14.5 13.5h2M7.5 16.5h2M14.5 16.5h2"/></svg>
+      <span class="more-item-name">تقویم</span>
+      <span class="more-item-hint">هفته و ماه شمسی، برنامه و مناسبت‌ها</span>
     </button>
     <button class="more-item" type="button" data-page="stats">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V11M10 20V4M16 20v-6M22 20H2"/></svg>
@@ -1498,6 +1616,18 @@
         <button type="button" class="te-chip te-clear" id="teDueClear" hidden>برداشتن مهلت</button>
       </div>
     </div>
+    <div class="te-field">
+      <span class="te-label" id="teTimeLbl">ساعت و بازهٔ زمانی</span>
+      <div class="te-group" role="radiogroup" aria-labelledby="teTimeLbl" id="teTime"></div>
+      <div class="te-time-custom" id="teTimeCustom" hidden>
+        <div class="te-time-row">
+          <select id="teTimeFrom" class="te-select" aria-label="از ساعت"></select>
+          <span class="te-time-sep">تا</span>
+          <select id="teTimeTo" class="te-select" aria-label="تا ساعت"></select>
+        </div>
+        <p class="te-error" id="teTimeError" role="alert" hidden>پایان باید بعد از شروع باشد.</p>
+      </div>
+    </div>
     <div class="te-group" role="radiogroup" aria-label="زمان تقریبی" id="teDur"></div>
     <div class="te-custom">
       <label class="te-label" for="teDurCustom">زمان دلخواه (دقیقه)</label>
@@ -1519,6 +1649,12 @@
 <div class="toast" id="eraseToast" role="status" aria-live="polite" hidden>
   <span class="toast-text">پاک شد</span>
   <button class="toast-btn" id="eraseUndoBtn">برگردون</button>
+  <span class="toast-bar"></span>
+</div>
+
+<div class="toast" id="moveToast" role="status" aria-live="polite" hidden>
+  <span class="toast-text" id="moveToastText">جابه‌جا شد</span>
+  <button class="toast-btn" id="moveUndoBtn">برگردون</button>
   <span class="toast-bar"></span>
 </div>
 

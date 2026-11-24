@@ -22,8 +22,10 @@
 
 /* contain:layout style: a row's internals (wrapped chips, long titles) can
    never reflow the list around it, so adding, completing or removing one task
-   only costs the row. Long lists stay smooth to scroll and to edit. */
-.task{position:relative;contain:layout style;display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 18px;margin-bottom:10px;box-shadow:var(--shadow-1);transition:transform var(--duration-fast) var(--ease-out),box-shadow var(--duration-base),opacity var(--duration-base),background var(--duration-slow);animation:taskIn var(--duration-slow) var(--ease-out) backwards}
+   only costs the row. Long lists stay smooth to scroll and to edit.
+   content-visibility: auto skips layout & paint for off-screen rows. */
+.task{position:relative;contain:layout style;content-visibility:auto;contain-intrinsic-size:0 68px;display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 18px;margin-bottom:10px;box-shadow:var(--shadow-1);transition:transform var(--duration-fast) var(--ease-out),box-shadow var(--duration-base),opacity var(--duration-base),background var(--duration-slow);animation:taskIn var(--duration-slow) var(--ease-out) backwards}
+.task.dragging,.task.touch-drag{content-visibility:visible}
 .task:last-child{margin-bottom:0}
 .task:hover{transform:translateY(-1px);box-shadow:var(--shadow-lg)}
 .task::after{display:none}
@@ -40,7 +42,7 @@
 .grip{color:var(--muted);opacity:.5;cursor:grab;display:grid;place-items:center;flex-shrink:0;transition:opacity var(--duration-fast),transform var(--duration-fast),color var(--duration-fast)}
 .grip:hover{opacity:1;transform:scale(1.18);color:var(--color-accent)}
 .task:hover .grip{opacity:.85}
-.task.dragging{opacity:1!important;box-shadow:var(--shadow-md);z-index:50;cursor:grabbing;background:var(--surface)}
+.task.dragging{opacity:1!important;box-shadow:var(--shadow-2);z-index:50;cursor:grabbing;background:var(--surface)}
 .task.removing{transition:opacity var(--duration-move) cubic-bezier(.2,0,0,1),transform var(--duration-move) cubic-bezier(.2,0,0,1),height var(--duration-move) cubic-bezier(.2,0,0,1),padding var(--duration-move) cubic-bezier(.2,0,0,1),margin var(--duration-move) cubic-bezier(.2,0,0,1),border-color var(--duration-fast)!important;opacity:0!important;transform:scale(.94) translateY(-4px)!important;height:0!important;min-height:0!important;padding-block:0!important;margin-block:0!important;border-color:transparent!important;pointer-events:none!important;overflow:hidden!important}
 
 .pri-dot{width:16px;height:16px;padding:0;border-radius:50%;background:transparent;color:var(--pr);border:none;cursor:pointer;flex-shrink:0;position:relative;display:grid;place-items:center;transition:transform var(--duration-fast),color var(--duration-base)}
@@ -90,7 +92,7 @@
 
 .due-chip{position:relative;min-height:26px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;font-family:var(--font-ui);font-size:11px;font-weight:500;line-height:1.4;padding:3px 10px;border-radius:var(--radius-pill);border:1px solid transparent;cursor:pointer;transition:transform var(--duration-fast);background:transparent;color:var(--muted)}
 .due-chip:hover{transform:scale(1.04)}
-.due-chip.none{border:1px dashed var(--border-strong,var(--border))}
+.due-chip.none{border:1px dashed var(--color-border-strong,var(--border))}
 .due-chip.today{color:var(--color-accent-text);background:var(--accent-soft);border-color:color-mix(in srgb,var(--color-accent) 30%,transparent);font-weight:600}
 .due-chip.soon,.due-chip.far{color:var(--color-text-secondary);background:var(--bg);border-color:var(--border)}
 .due-chip.late{color:var(--color-danger);background:color-mix(in srgb,var(--color-danger) 10%,transparent);border-color:color-mix(in srgb,var(--color-danger) 32%,transparent);font-weight:600}
@@ -99,7 +101,7 @@
 .dur-chip{position:relative;min-height:26px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;font-family:var(--font-ui);font-size:11px;font-weight:600;line-height:1.4;padding:3px 10px;border-radius:var(--radius-pill);border:1px solid transparent;cursor:pointer;transition:transform var(--duration-fast);color:var(--color-accent-text);background:var(--accent-soft);border-color:color-mix(in srgb,var(--accent) 28%,transparent)}
 .dur-chip:hover{transform:scale(1.04)}
 .dur-chip.flipped{animation:chipFlip var(--duration-base) ease}
-.dur-chip.none{border:1px dashed var(--border-strong,var(--border));background:transparent;color:var(--muted)}
+.dur-chip.none{border:1px dashed var(--color-border-strong,var(--border));background:transparent;color:var(--muted)}
 .dur-input{width:82px;font-family:var(--font-ui);font-size:13px;font-weight:600;text-align:center;border:none;outline:none;background:var(--accent-soft);border-radius:var(--radius-xs);padding:4px 10px;color:var(--text)}
 
 @keyframes chipFlip{
@@ -276,7 +278,7 @@
 
 /* ── Touch handle, tick reward, priority shapes ── */
 .grip{touch-action:none}
-.task.touch-drag{box-shadow:var(--shadow-md);transform:scale(1.015);z-index:50}
+.task.touch-drag{box-shadow:var(--shadow-2);transform:scale(1.015);z-index:50}
 .task.just-done .check{animation:pop var(--duration-base) var(--ease-out)}
 #counter.bump{animation:counterBump 520ms var(--ease-out)}
 @keyframes counterBump{0%{transform:scale(1)}35%{transform:scale(1.12);color:var(--color-accent-strong)}100%{transform:scale(1)}}
@@ -308,6 +310,16 @@
 .te-error{color:var(--danger);font-size:12.5px}
 .te-group,.te-due{display:flex;flex-wrap:wrap;gap:7px}
 .te-field,.te-custom{display:flex;flex-direction:column;gap:6px}
+.te-time-custom{display:flex;flex-direction:column;gap:6px;margin-block-start:2px}
+.te-time-custom[hidden]{display:none}
+.te-time-row{display:flex;align-items:center;gap:8px}
+/* Each end of the range is the app's select pill (.sm-btn, css/components.css),
+   shaped like the field it replaced: the row's own radius rather than a pill, so
+   two of them and «تا» between them still read as one field. */
+.te-time-row .sm{flex:1;min-width:0}
+.te-time-row .sm-btn{width:100%;justify-content:space-between;min-height:38px;padding:7px 10px;border-radius:var(--radius-sm);background:var(--surface);font-size:13.5px;font-weight:600}
+.te-time-row .sm-val{max-width:none}
+.te-time-sep{font-size:12.5px;color:var(--muted);font-weight:600;flex-shrink:0}
 .te-chip{display:inline-flex;align-items:center;gap:6px;min-height:36px;font-family:var(--font-ui);font-size:12.5px;font-weight:500;color:var(--color-text-primary);background:transparent;border:1.5px solid var(--border);border-radius:var(--radius-pill);padding:5px 13px;cursor:pointer}
 .te-chip[hidden]{display:none}
 .te-chip:hover{border-color:var(--muted)}

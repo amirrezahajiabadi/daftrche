@@ -393,3 +393,34 @@ html[data-mode="dark"] .pri-row button.sel.high{color:#ff8f8f}
 .cat-chip.is-flag.on{background:var(--accent-soft);border-style:solid;border-color:var(--accent);color:var(--color-accent-strong);font-weight:600}
 .cat-chip .flag-ico{font-size:12px;line-height:1}
 .dice[hidden]{display:none}
+
+/* ═══ Select pill (.sm) — the app's list, not the system's ═══
+   Built by js/pickmenu.js around a real <select>. The native control keeps its
+   value and its `change`, so it is still the source of truth; it is only moved
+   off-screen, where it cannot paint a white system menu over the page's paper.
+   The pair is used by the calendar's year and the shelf's sort order, which is
+   why the shape lives here rather than in either page's sheet. */
+.sm{position:relative;display:inline-flex;min-width:0}
+.sm > select.sm-native{position:absolute;inset-block-start:0;inset-inline-start:0;width:1px;height:1px;min-height:0;max-width:none;opacity:0;padding:0;margin:0;border:0;pointer-events:none;appearance:none;-webkit-appearance:none}
+
+.sm-btn{display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:4px 10px;border:1.5px solid var(--border);border-radius:var(--radius-pill);background:var(--surface);color:var(--text);font-family:var(--font-ui);font-size:12.5px;font-weight:700;line-height:1.5;cursor:pointer;white-space:nowrap;font-variant-numeric:tabular-nums;transition:border-color var(--duration-fast),background var(--duration-fast),color var(--duration-fast)}
+@media (hover:hover){.sm-btn:hover{border-color:var(--accent);color:var(--color-accent-strong)}}
+.sm-btn:focus-visible{outline:2px solid var(--color-focus);outline-offset:2px}
+.sm-btn[aria-expanded="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--color-accent-strong)}
+.sm-val{overflow:hidden;text-overflow:ellipsis;max-width:150px}
+.sm-ico{width:14px;height:14px;flex:0 0 auto;color:var(--accent);opacity:.9}
+.sm-caret{width:12px;height:12px;flex:0 0 auto;color:var(--muted);transition:transform var(--duration-fast),color var(--duration-fast)}
+.sm-btn[aria-expanded="true"] .sm-caret{transform:rotate(180deg);color:var(--color-accent-strong)}
+
+/* The choices: a card of the page's own paper, its current row filled with the
+   accent the app already uses for «this one is chosen». */
+.sm-list{position:fixed;z-index:150;display:flex;flex-direction:column;gap:2px;min-width:148px;max-width:min(74vw,264px);max-height:min(48vh,320px);overflow-y:auto;overscroll-behavior:contain;background:var(--surface-elevated,var(--surface));border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow-2);padding:6px;animation:smIn var(--duration-fast) var(--ease-out);scrollbar-width:thin}
+@keyframes smIn{from{opacity:0;transform:translateY(-5px)}}
+.sm-opt{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:38px;padding:8px 10px;border:0;border-radius:var(--radius-xs);background:transparent;color:var(--text);font-family:var(--font-ui);font-size:13px;font-weight:600;text-align:start;cursor:pointer;font-variant-numeric:tabular-nums;transition:background var(--duration-fast),color var(--duration-fast)}
+.sm-opt:hover,.sm-opt.act{background:var(--accent-soft);color:var(--color-accent-strong)}
+.sm-opt[aria-selected="true"]{background:var(--accent);color:var(--color-text-on-accent);font-weight:700}
+.sm-opt:focus-visible{outline:2px solid var(--color-focus);outline-offset:-2px}
+.sm-opt-t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sm-check{width:14px;height:14px;flex:0 0 auto;opacity:0;transition:opacity var(--duration-fast)}
+.sm-opt[aria-selected="true"] .sm-check{opacity:1}
+@media (prefers-reduced-motion:reduce){.sm-list{animation:none}.sm-caret{transition:none}}

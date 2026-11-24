@@ -49,6 +49,9 @@ export function initPWA() {
   let waiting = null;
   let applying = null;
   let reloading = false;
+  let controllerReady = false;
+  let animFinished = false;
+  let completed = false;
   let poll = 0;
   let activationTimer = 0;
   let safetyTimer = 0;
@@ -72,6 +75,9 @@ export function initPWA() {
 
   const resetUI = () => {
     applyStart = 0;
+    controllerReady = false;
+    animFinished = false;
+    completed = false;
     setState('idle');
     if (button) {
       button.disabled = false;
@@ -149,27 +155,43 @@ export function initPWA() {
     location.reload();
   }
 
+  function completeUpdate() {
+    if (completed || reloading) return;
+    completed = true;
+    clearTimeout(activationTimer);
+    clearTimeout(safetyTimer);
+    setState('done');
+    if (fillEl?.style) fillEl.style.transform = 'scaleX(1)';
+    if (barEl?.style) barEl.style.transform = 'scaleX(1)';
+    if (percentEl) {
+      percentEl.textContent = '۱۰۰٪';
+      percentEl.setAttribute?.('aria-valuenow', '100');
+    }
+    if (message) message.textContent = 'همه‌چیز آماده است ✨';
+    setTimeout(() => {
+      triggerReload();
+    }, CELEBRATION_BEAT);
+  }
+
   // Reload only when an existing controller is replaced.
   sw.addEventListener('controllerchange', () => {
     const previous = controller;
     controller = sw.controller;
     if (!previous || !controller || previous === controller || reloading) return;
+    controllerReady = true;
     clearTimeout(activationTimer);
-    clearTimeout(safetyTimer);
 
-    const elapsed = applyStart ? clock() - applyStart : 0;
-    const remaining = Math.max(0, ANIM_DURATION - elapsed);
-    setTimeout(() => {
-      if (message) message.textContent = 'همه‌چیز آماده است ✨';
-      setState('done');
-      if (percentEl) {
-        percentEl.textContent = '۱۰۰٪';
-        percentEl.setAttribute?.('aria-valuenow', '100');
-      }
+    if (animFinished) {
+      completeUpdate();
+    } else {
+      const elapsed = applyStart ? clock() - applyStart : 0;
+      const duration = prefersReduced() ? REDUCED_DURATION : ANIM_DURATION;
+      const remaining = Math.max(0, duration - elapsed);
       setTimeout(() => {
-        triggerReload();
-      }, CELEBRATION_BEAT);
-    }, remaining);
+        animFinished = true;
+        if (controllerReady) completeUpdate();
+      }, remaining);
+    }
   });
 
   function getProgress(t) {
@@ -191,18 +213,16 @@ export function initPWA() {
   function startProgressFlow() {
     if (prefersReduced()) {
       if (message) message.textContent = 'در حال به‌روزرسانی...';
-      if (sub) sub.textContent = 'کارها و یادداشتهات کاملاً امنه';
+      if (sub) sub.textContent = 'کارها و یادداشت‌هات کاملاً امنه';
       if (percentEl) {
         percentEl.textContent = '۰٪';
         percentEl.setAttribute?.('aria-valuenow', '0');
       }
       setTimeout(() => {
-        if (message) message.textContent = 'همه‌چیز آماده است ✨';
-        if (percentEl) {
-          percentEl.textContent = '۱۰۰٪';
-          percentEl.setAttribute?.('aria-valuenow', '100');
+        animFinished = true;
+        if (controllerReady) {
+          completeUpdate();
         }
-        setState('done');
       }, REDUCED_DURATION);
       return;
     }
@@ -212,7 +232,7 @@ export function initPWA() {
     let lastTick = -1;
     let tickCount = 0;
     if (message) message.textContent = 'در حال صحافی برگهٔ تازه...';
-    if (sub) sub.textContent = 'کارها و یادداشتهات کاملاً امنه';
+    if (sub) sub.textContent = 'کارها و یادداشت‌هات کاملاً امنه';
 
     function step(ts) {
       const now = typeof ts === 'number' ? ts : clock();
@@ -242,6 +262,17 @@ export function initPWA() {
 
       if (t < 1) {
         if (typeof requestAnimationFrame === 'function') requestAnimationFrame(step);
+      } else {
+        animFinished = true;
+        if (fillEl?.style) fillEl.style.transform = 'scaleX(1)';
+        if (barEl?.style) barEl.style.transform = 'scaleX(1)';
+        if (percentEl) {
+          percentEl.textContent = '۱۰۰٪';
+          percentEl.setAttribute?.('aria-valuenow', '100');
+        }
+        if (controllerReady) {
+          completeUpdate();
+        }
       }
     }
 
@@ -254,6 +285,9 @@ export function initPWA() {
     if (!waiting) return;
     applying = waiting;
     applyStart = clock();
+    controllerReady = false;
+    animFinished = false;
+    completed = false;
     button.disabled = true;
     setState('updating');
     if (dismissBtn?.style) dismissBtn.style.display = 'none';

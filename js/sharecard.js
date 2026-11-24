@@ -56,7 +56,8 @@ import { $, faNum, faDigits, dayKey } from './utils.js';
 import { computeStats, currentRangeKey } from './stats.js';
 import { currentChar, getPhoto } from './profile.js';
 import { dateToJalali, JALALI_MONTHS } from './jalali.js';
-import { loadCardStyle, saveCardStyle } from './store.js';
+import { loadCardStyle, saveCardStyle, loadName, loadBirthday } from './store.js';
+import { currentAge, daysLived, nextBirthdayCountdown } from './worlds-data.js';
 import { THEMES as APP_THEMES, themesOfMode } from './constants.js';
 import { isNative, saveAndShareBlob } from './native.js';
 import { currentMode } from './theme.js';
@@ -1099,12 +1100,273 @@ async function paintCard(model, style = styleState) {
   return canvas;
 }
 
+/* ═══ The birthday card ═══
+   The same paper and palette as the stats card, for the one day the app dresses
+   the whole page: the name, the age and the count of days, under a garland and
+   over a cake. It is square like «کلاسیک» and it follows the same template, so a
+   reader who picked a rose card for their stats gets a rose birthday card too.
+   The only thing of theirs on it is the name they typed. */
+
+let sheetMode = 'stats';
+
+function birthdayModel() {
+  const stored = loadBirthday();
+  const now = new Date();
+  return {
+    name: String(loadName() || '').trim(),
+    age: currentAge(now, stored),
+    days: daysLived(now, stored),
+    countdown: nextBirthdayCountdown(now, stored),
+    date: dateToJalali(now),
+  };
+}
+
+/* A garland across the card: one slack line and the flags that hang from it,
+   alternating between the accent and its soft fill so the row never reads as a
+   single stripe. */
+function drawBunting(ctx, d, c, y) {
+  const w = d.right - d.left;
+  ctx.save();
+  ctx.strokeStyle = c.border;
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(d.left, y);
+  ctx.quadraticCurveTo(d.cx, y + 54, d.right, y);
+  ctx.stroke();
+  const n = 11;
+  const flagW = 58;
+  const flagH = 62;
+  for (let i = 0; i < n; i++) {
+    const t = (i + 0.5) / n;
+    const x = d.left + w * t;
+    /* The point on the curve at t, so a flag hangs from the string it is tied
+       to rather than from a straight line under it. */
+    const py = y + 108 * t * (1 - t);
+    ctx.beginPath();
+    ctx.moveTo(x - flagW / 2, py);
+    ctx.lineTo(x + flagW / 2, py);
+    ctx.lineTo(x, py + flagH);
+    ctx.closePath();
+    ctx.fillStyle = i % 2 ? c.accent : c.softFill;
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+/* Confetti is thrown on a ring around the cake instead of across the card: the
+   name and the numbers need quiet paper, and a ring is what a camera sees when
+   the table is shaken. Positions come from a fixed seed, so the same card is
+   painted twice the same way. */
+function drawBirthdayConfetti(ctx, d, c, cy) {
+  let seed = 20250822;
+  const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+  const colors = [c.accent, c.accent, c.softFill];
+  for (let i = 0; i < 26; i++) {
+    const a = (i / 26) * Math.PI * 2 + 0.35;
+    const x = d.cx + Math.cos(a) * 400 + (rnd() - 0.5) * 44;
+    const y = cy + Math.sin(a) * 246 + (rnd() - 0.5) * 44;
+    if (x < d.left - 10 || x > d.right + 10) continue;
+    if (y < d.cardTop + 120 || y > d.cardBottom - 90) continue;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(rnd() * Math.PI);
+    ctx.globalAlpha = 0.45 + rnd() * 0.35;
+    ctx.fillStyle = colors[i % colors.length];
+    const kind = i % 3;
+    if (kind === 0) ctx.fillRect(-4, -9, 8, 18);
+    else if (kind === 1) { ctx.beginPath(); ctx.arc(0, 0, 5, 0, Math.PI * 2); ctx.fill(); }
+    else {
+      ctx.beginPath();
+      ctx.moveTo(0, -7);
+      ctx.lineTo(6, 6);
+      ctx.lineTo(-6, 6);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+}
+
+/* Three tiers, icing that drips a little, sprinkles and five candles. Drawn,
+   not fetched: the card has to survive a share sheet with no network. */
+function drawBirthdayCake(ctx, cx, baseY, w, c) {
+  ctx.save();
+  ctx.beginPath();
+  ctx.ellipse(cx, baseY, w * 0.62, 16, 0, 0, Math.PI * 2);
+  ctx.fillStyle = c.softFill;
+  ctx.fill();
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = c.border;
+  ctx.stroke();
+
+  const tiers = [
+    { w, h: w * 0.30 },
+    { w: w * 0.74, h: w * 0.24 },
+    { w: w * 0.50, h: w * 0.20 },
+  ];
+  let top = baseY - 4;
+  tiers.forEach((t, i) => {
+    top -= t.h;
+    const x = cx - t.w / 2;
+    fillRound(ctx, x, top, t.w, t.h, 20, c.surface);
+    strokeRound(ctx, x, top, t.w, t.h, 20, c.border, 3);
+    ctx.save();
+    rounded(ctx, x, top, t.w, t.h, 20);
+    ctx.clip();
+    const bandH = t.h * 0.34;
+    ctx.fillStyle = i % 2 ? c.softFill : c.accentSoft;
+    ctx.fillRect(x, top, t.w, bandH);
+    const scallop = t.w / 6;
+    for (let k = 0; k < 6; k++) {
+      ctx.beginPath();
+      ctx.arc(x + scallop * (k + 0.5), top + bandH, scallop * 0.5, 0, Math.PI);
+      ctx.fill();
+    }
+    for (let k = 0; k < Math.floor(t.w / 42); k++) {
+      ctx.save();
+      ctx.translate(x + 26 + k * 38, top + bandH * 0.46);
+      ctx.rotate(-0.6);
+      ctx.fillStyle = k % 2 ? c.accent : c.soft;
+      ctx.fillRect(-3, -8, 6, 16);
+      ctx.restore();
+    }
+    ctx.restore();
+  });
+
+  /* Five candles, evenly spread over the top tier. The glow is the flame's own
+     colour blurred, so a dark palette gets a candlelit card rather than five
+     stickers. */
+  const topW = tiers[2].w;
+  const gap = topW / 5;
+  const onAccent = readable(c.text, c.accent, 4.5, '#fff');
+  for (let i = 0; i < 5; i++) {
+    const x = cx - topW / 2 + gap * (i + 0.5);
+    fillRound(ctx, x - 5, top - 54, 10, 56, 4, c.accent);
+    ctx.save();
+    ctx.strokeStyle = onAccent;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(x, top - 54);
+    ctx.lineTo(x, top - 62);
+    ctx.stroke();
+    ctx.shadowColor = c.accent;
+    ctx.shadowBlur = 32;
+    ctx.beginPath();
+    ctx.ellipse(x, top - 76, 9, 15, 0, 0, Math.PI * 2);
+    ctx.fillStyle = c.accent;
+    ctx.fill();
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+function drawStatChip(ctx, x, y, w, h, c, value, label) {
+  fillRound(ctx, x, y, w, h, 28, c.softFill);
+  strokeRound(ctx, x, y, w, h, 28, c.border, 2);
+  ctx.textAlign = 'center';
+  ctx.fillStyle = c.onSoft;
+  ctx.font = `700 46px ${FONT_MAD}`;
+  ctx.fillText(value, x + w / 2, y + 60);
+  ctx.fillStyle = c.soft;
+  ctx.font = `600 23px ${FONT_UI}`;
+  ctx.fillText(label, x + w / 2, y + h - 20);
+}
+
+function paintBirthdayCard(style = styleState) {
+  const d = dimsFor('classic');
+  const m = birthdayModel();
+  const canvas = document.createElement('canvas');
+  canvas.width = d.W;
+  canvas.height = d.H;
+  const ctx = canvas.getContext('2d');
+  const c = accentFor(palette(), style.accent);
+
+  ctx.direction = 'rtl';
+  ctx.textBaseline = 'alphabetic';
+
+  ctx.fillStyle = c.bg;
+  ctx.fillRect(0, 0, d.W, d.H);
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,.20)';
+  ctx.shadowBlur = 46;
+  ctx.shadowOffsetY = 20;
+  rounded(ctx, d.pad, d.pad, d.W - 2 * d.pad, d.H - 2 * d.pad, R);
+  ctx.fillStyle = c.surface;
+  ctx.fill();
+  ctx.restore();
+
+  ctx.save();
+  rounded(ctx, d.pad, d.pad, d.W - 2 * d.pad, d.H - 2 * d.pad, R);
+  ctx.clip();
+  ctx.fillStyle = c.accent;
+  ctx.fillRect(d.pad, d.pad, d.W - 2 * d.pad, HAIRLINE);
+  drawBirthdayConfetti(ctx, d, c, 640);
+  drawBunting(ctx, d, c, d.cardTop + 72);
+  ctx.restore();
+
+  /* The name is the headline; without one the day itself takes it, because a
+     card addressed to nobody is worse than a card that just says it. */
+  ctx.textAlign = 'center';
+  ctx.fillStyle = c.text;
+  ctx.font = `700 82px ${FONT_MAD}`;
+  const title = fitText(ctx, m.name || 'تولدت مبارک', d.cw - 60);
+  ctx.fillText(title, d.cx, 352);
+
+  if (m.name) {
+    ctx.font = `700 34px ${FONT_MAD}`;
+    ctx.fillStyle = c.accent;
+    ctx.fillText('تولدت مبارک', d.cx, 300);
+  }
+
+  const j = m.date;
+  if (j) {
+    ctx.font = `600 30px ${FONT_UI}`;
+    ctx.fillStyle = c.soft;
+    ctx.fillText(`${faNum(j.jd)} ${JALALI_MONTHS[j.jm - 1]}`, d.cx, 408);
+  }
+
+  drawBirthdayCake(ctx, d.cx, 760, 340, c);
+
+  /* The numbers, as the same little cards the world card uses: the count of
+     days is the one nobody can recite, so it comes first. */
+  const chips = [];
+  if (m.days !== null) chips.push([faNum(m.days), 'روز زندگی']);
+  if (m.age !== null) chips.push([faNum(m.age), 'سالگی']);
+  /* Zero would print «۰ روز تا تولد» on the one day the card is for, so the
+     countdown only earns its chip when there is something to count. */
+  if (m.days !== null && m.countdown) chips.push([faNum(m.countdown), 'روز تا تولد']);
+  if (chips.length) {
+    const gap = chips.length > 2 ? 26 : 34;
+    const w = (d.cw - gap * (chips.length - 1)) / chips.length;
+    const x0 = d.left;
+    chips.forEach(([value, label], i) => {
+      drawStatChip(ctx, x0 + i * (w + gap), 796, w, 114, c, value, label);
+    });
+  }
+
+  ctx.textAlign = 'center';
+  ctx.fillStyle = c.accent;
+  ctx.font = `700 30px ${FONT_MAD}`;
+  ctx.fillText('دفتَرچه', d.cx, 946);
+  ctx.fillStyle = c.soft;
+  ctx.font = `400 21px ${FONT_UI}`;
+  ctx.fillText('هر روزت یه صفحهٔ تازه', d.cx, 974);
+
+  return canvas;
+}
+
 /* ═══ Preview and delivery ═══ */
 
 let previewUrl = '';
 let cardBlob = null;
 
-const fileName = () => `daftarche-${dayKey(new Date())}.png`;
+const fileName = () => sheetMode === 'birthday'
+  ? `daftarche-birthday-${dayKey(new Date())}.png`
+  : `daftarche-${dayKey(new Date())}.png`;
+
+const shareTitle = () => sheetMode === 'birthday'
+  ? 'کارت تولد من در دفتَرچه'
+  : 'آمار من در دفتَرچه';
 const fileFor = blob => new File([blob], fileName(), { type: 'image/png' });
 
 function releasePreview() {
@@ -1122,17 +1384,17 @@ function canShareFiles(blob) {
 
 function downloadCard() {
   if (!cardBlob) return;
-  saveAndShareBlob(cardBlob, fileName(), { title: 'آمار من در دفتَرچه' });
+  saveAndShareBlob(cardBlob, fileName(), { title: shareTitle() });
 }
 
 async function shareCard() {
   if (!cardBlob) return;
   if (isNative()) {
-    saveAndShareBlob(cardBlob, fileName(), { title: 'آمار من در دفتَرچه' });
+    saveAndShareBlob(cardBlob, fileName(), { title: shareTitle() });
     return;
   }
   try {
-    await navigator.share({ files: [fileFor(cardBlob)], title: 'آمار من در دفتَرچه' });
+    await navigator.share({ files: [fileFor(cardBlob)], title: shareTitle() });
   } catch (e) {
     /* A cancelled share is not a failure; anything else falls back to the file
        the reader can still keep. */
@@ -1263,7 +1525,9 @@ async function renderCard() {
 
   try {
     await fontsReady();
-    const canvas = await paintCard(computeStats(currentRangeKey()));
+    const canvas = sheetMode === 'birthday'
+      ? paintBirthdayCard()
+      : await paintCard(computeStats(currentRangeKey()));
     const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
     if (!blob) throw new Error('card not painted');
     if (token !== renderToken) return;   // a newer choice is already being painted
@@ -1302,14 +1566,53 @@ async function renderCard() {
   }
 }
 
+/* The dialog serves two cards. Only the birthday one has no layouts and no
+   choice of numbers — its blocks are the day's, not a window's — so those rows
+   are taken out rather than shown dead. */
+function setSheetMode(mode) {
+  sheetMode = mode;
+  const sheet = $('#shareSheet');
+  if (!sheet) return;
+  sheet.dataset.kind = mode;
+  const title = $('#shareTitle');
+  if (title) title.textContent = mode === 'birthday' ? 'کارت تولد' : 'کارت آمار';
+  const img = $('#shareImg');
+  if (img) img.alt = mode === 'birthday' ? 'کارت تولد دفتَرچه' : 'کارت آمار دفتَرچه';
+  ['#shareLayoutChips', '#shareMetricsChips'].forEach(sel => {
+    const field = $(sel)?.closest('.pick-field');
+    if (field) field.hidden = mode === 'birthday';
+  });
+}
+
 export async function openShareCard() {
   const sheet = $('#shareSheet');
   if (!sheet) return;
   const note = $('#shareNote');
   const go = $('#shareGo');
+  setSheetMode('stats');
 
   /* The stored template is read on every open, and the chips are marked before
      the first paint: the palette is read off the panel. */
+  styleState = readStyle();
+  markPicker();
+  releasePreview();
+  cardBlob = null;
+  if (note) note.textContent = '';
+  if (go) go.hidden = true;
+  sheet.hidden = false;
+  await renderCard();
+}
+
+/* Opened from the birthday world card, which only exists on the day itself. The
+   template is the one the stats card already uses, so the card a reader shares
+   looks like the card they made. */
+export async function openBirthdayShare() {
+  const sheet = $('#shareSheet');
+  if (!sheet) return;
+  const note = $('#shareNote');
+  const go = $('#shareGo');
+  setSheetMode('birthday');
+
   styleState = readStyle();
   markPicker();
   releasePreview();
@@ -1334,6 +1637,7 @@ export function initShareCard() {
 
   const close = () => {
     sheet.hidden = true;
+    setSheetMode('stats');
     releasePreview();
     cardBlob = null;
     /* A paint that lands after the dialog closed must not touch the preview. */

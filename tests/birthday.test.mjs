@@ -11,7 +11,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { normalizeBirthday, birthdayKey, birthdayAge, isBirthday, MIN_BIRTH_YEAR } from '../js/birthday.js';
+import { normalizeBirthday, birthdayKey, birthdayStamp, birthdayAge, isBirthday, MIN_BIRTH_YEAR } from '../js/birthday.js';
 import { moveDays } from '../js/jalalical.js';
 import { jalaliToDate, jalaliDaysInMonth, dateToJalali } from '../js/jalali.js';
 import { readFileSync } from 'node:fs';
@@ -78,10 +78,24 @@ test('the greeting is keyed by month and day, never by year', () => {
   assert.equal(birthdayKey(TODAY, BDAY).length, 5);
 });
 
-test('the day greets once, and a different year greets again', () => {
+test('the day greets once a year, not once in a lifetime', () => {
+  /* REGRESSION: the record used to be a bare «07-12», so next year's key was
+     equal to last year's key and the card never came again — one greeting per
+     device, for good. The record now carries the Jalali year. */
   assert.equal(isBirthday(TODAY, BDAY, ''), true);
-  assert.equal(isBirthday(TODAY, BDAY, '07-12'), false);
-  assert.equal(isBirthday(TODAY, BDAY, '07-11'), true);   // last year
+  assert.equal(isBirthday(TODAY, BDAY, '1405-07-12'), false);   // greeted today
+  assert.equal(isBirthday(TODAY, BDAY, '1404-07-12'), true);    // last year
+  assert.equal(isBirthday(TODAY, BDAY, '07-12'), true);         // a record from an older build
+});
+
+test('the stamp is the day actually celebrated, in the year it is celebrated', () => {
+  assert.equal(birthdayStamp(TODAY, BDAY), '1405-07-12');
+  assert.equal(birthdayStamp(TODAY, NOYEAR), '1405-07-12');
+  assert.equal(birthdayStamp(new Date(2026, 9, 5), BDAY), null);
+  assert.equal(birthdayStamp(TODAY, null), null);
+  /* 30 Esfand of a common year is celebrated on the 29th, and the record has to
+     say the 29th rather than a day the calendar skipped. */
+  assert.equal(birthdayStamp(jalaliToDate(1404, 12, 29), { y: 1374, m: 12, d: 30 }), '1404-12-29');
 });
 
 test('the 24 hours are a calendar day, not 24 hours from opening', () => {
@@ -705,18 +719,20 @@ test('a year is taken, and a year nobody was born in is refused', () => {
   assert.match(BIRTH, /back.disabled = shown <= MIN_BIRTH_YEAR/);
 });
 
-test('the greeting turns on the month and day, and never on the year', () => {
-  /* The year was added so the card could count with it. If it leaked into the
-     key, next year would find this year'+'s record, decide it had already
-     greeted, and say nothing — once, and then never again. */
+test('the day is the month and day; the record of it is the year too', () => {
+  /* Which day it is never depends on a year — but the record of having greeted
+     does. With no year in the record, next year's key matched this year's and the
+     card said nothing, once and then never again. */
   assert.equal(birthdayKey(TODAY, BDAY), '07-12');
   assert.equal(birthdayKey(TODAY, NOYEAR), '07-12');
   assert.equal(birthdayKey(TODAY, BDAY), birthdayKey(TODAY, NOYEAR),
     'the year must make no difference to which day this is');
   assert.equal(birthdayKey(TODAY, BDAY).length, 5, 'still a bare MM-DD');
-  /* A record written before the year was ever asked for keeps greeting. */
+  /* A record written before the year was ever asked for cannot vouch for this
+     year, so the first birthday after the change is greeted again. */
   assert.equal(isBirthday(TODAY, NOYEAR, ''), true);
-  assert.equal(isBirthday(TODAY, BDAY, '07-12'), false, 'today was already greeted');
+  assert.equal(isBirthday(TODAY, BDAY, '07-12'), true, 'a year-less record is not this year');
+  assert.equal(isBirthday(TODAY, BDAY, '1405-07-12'), false, 'the stamped record is today');
 });
 
 test('the year is chosen from a decade grid, and declining it is still allowed', () => {

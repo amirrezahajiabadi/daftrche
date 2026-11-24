@@ -470,7 +470,7 @@ function relDay(ts) {
    top. Everything else keeps the order the list already has — the picker never
    ranks, it only remembers. */
 function openTasksForPick() {
-  const open = (Array.isArray(state.tasks) ? state.tasks : []).filter(t => t && !t.done);
+  const open = (Array.isArray(state.tasks) ? state.tasks : []).filter(t => t && !t.deletedAt && !t.done);
   const rec = getHistory().find(r => r.taskId && open.some(t => t.id === r.taskId));
   if (!rec) return { open, rec: null };
   return { open: [open.find(t => t.id === rec.taskId), ...open.filter(t => t.id !== rec.taskId)], rec };
@@ -511,7 +511,7 @@ function pickRowHtml(task, rec) {
 
 /* Nothing to focus on yet: a warm note, never an error */
 function renderPickEmpty(card) {
-  const hasTasks = state.tasks.length > 0;
+  const hasTasks = (Array.isArray(state.tasks) ? state.tasks : []).some(t => t && !t.deletedAt);
   card.dataset.pick = '1';
   card.innerHTML = `
     <span class="focus-char" aria-hidden="true">${qorqoriMarkup(hasTasks ? 'celebrating' : 'default')}</span>

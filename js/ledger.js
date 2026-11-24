@@ -115,7 +115,7 @@ export function rememberDone(now = new Date()) {
   const key = dayKey(now);
   let n = 0;
   for (const t of Array.isArray(state.tasks) ? state.tasks : []) {
-    if (!t || !t.done) continue;
+    if (!t || !t.done || t.deletedAt) continue;
     const ts = Number(t.doneAt);
     if (Number.isFinite(ts) && ts > 0 && dayKey(new Date(ts)) === key) n++;
   }
@@ -171,7 +171,7 @@ export function collectTotals(now = new Date()) {
     });
   }
 
-  const tasks = (Array.isArray(state.tasks) ? state.tasks : []).filter(t => t && typeof t === 'object');
+  const tasks = (Array.isArray(state.tasks) ? state.tasks : []).filter(t => t && typeof t === 'object' && !t.deletedAt);
   const catsDone = new Map();
   for (const b of buckets.values()) {
     for (const [cat, cnt] of Object.entries(b.cats || {})) {

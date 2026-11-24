@@ -152,6 +152,10 @@ export const TRANSLATIONS = {
       timeAndSpan: 'ساعت و بازهٔ زمانی',
       to: 'تا',
     },
+    calendar: {
+      title: 'تقویم',
+      subtitle: 'هفته و ماه، روزها و مناسبت‌هایشان — یه نگاه، بی‌شلوغی.',
+    },
     focus: {
       title: 'تمرکز',
       subtitle: 'روی یه کار تمرکز کن',
@@ -362,6 +366,8 @@ export const TRANSLATIONS = {
       toastUndoBtn: 'پشیمون شدم!',
       toastErase: 'پاک شد',
       toastEraseBtn: 'برگردون',
+      toastMove: 'جابه‌جا شد',
+      toastMoveBtn: 'برگردون',
       toastStorage: 'ذخیره نشد؛ حافظهٔ مرورگر پر یا در دسترس نیست. از تنظیمات یه پشتیبان بگیر.',
       toastStorageBtn: 'باشه',
       toastUpdate: 'نسخهٔ جدید اومده!',
@@ -591,6 +597,10 @@ export const TRANSLATIONS = {
       timeAndSpan: 'Time & Span',
       to: 'to',
     },
+    calendar: {
+      title: 'Calendar',
+      subtitle: 'Your week and month, days and occasions — one quiet look.',
+    },
     focus: {
       title: 'Focus',
       subtitle: 'Immerse yourself in one task',
@@ -801,6 +811,8 @@ export const TRANSLATIONS = {
       toastUndoBtn: 'Undo',
       toastErase: 'Erased',
       toastEraseBtn: 'Undo',
+      toastMove: 'Moved',
+      toastMoveBtn: 'Undo',
       toastStorage: 'Storage full or unavailable; please export a backup from Settings.',
       toastStorageBtn: 'OK',
       toastUpdate: 'A new update is ready!',
@@ -1153,7 +1165,7 @@ export function applyI18nToDOM(root = (typeof document !== 'undefined' ? documen
     if (svg) h1.appendChild(svg);
   };
   updateH1Text('#page-tasks header h1', isEn ? 'Tasks' : 'دفتَرچه');
-  updateH1Text('#page-week header h1', t('planner.title'));
+  updateH1Text('#page-calendar header h1', t('calendar.title'));
   updateH1Text('#page-focus header h1', t('focus.title'));
   updateH1Text('#page-library header h1', t('library.title'));
   updateH1Text('#page-stats header h1', t('stats.title'));
@@ -1165,7 +1177,7 @@ export function applyI18nToDOM(root = (typeof document !== 'undefined' ? documen
     const p = root.querySelector(sel);
     if (p) p.textContent = text;
   };
-  setSub('#page-week header .subtitle', t('planner.subtitle'));
+  setSub('#page-calendar header .subtitle', t('calendar.subtitle'));
   setSub('#page-focus header .subtitle', t('focus.subtitle'));
   setSub('#page-library header .subtitle', t('library.subtitle'));
   setSub('#page-stats header .subtitle', t('stats.subtitle'));
@@ -1173,14 +1185,6 @@ export function applyI18nToDOM(root = (typeof document !== 'undefined' ? documen
   setSub('#page-achv header .subtitle', isEn ? 'Milestones and rewards you unlocked' : 'دستاوردهایی که جمع کردی');
   setSub('#page-profile header .subtitle', t('profile.subtitle'));
   setSub('#page-settings header .subtitle', t('settings.subtitle'));
-
-  // Week / Planner page controls
-  const wkToday = root.querySelector('#wkToday');
-  if (wkToday) wkToday.textContent = t('planner.today');
-  const wkPrev = root.querySelector('#wkPrev');
-  if (wkPrev) wkPrev.title = t('planner.prevWeek');
-  const wkNext = root.querySelector('#wkNext');
-  if (wkNext) wkNext.title = t('planner.nextWeek');
 
   // Settings page texts
   const setText = (id, key) => {
@@ -1483,6 +1487,10 @@ export function applyI18nToDOM(root = (typeof document !== 'undefined' ? documen
   if (eraseToastText) eraseToastText.textContent = isEn ? 'Erased' : 'پاک شد';
   const eraseUndoBtn = root.querySelector('#eraseUndoBtn');
   if (eraseUndoBtn) eraseUndoBtn.textContent = isEn ? 'Undo' : 'برگردون';
+  const moveToastText = root.querySelector('#moveToast .toast-text');
+  if (moveToastText) moveToastText.textContent = isEn ? 'Moved' : 'جابه‌جا شد';
+  const moveUndoBtn = root.querySelector('#moveUndoBtn');
+  if (moveUndoBtn) moveUndoBtn.textContent = isEn ? 'Undo' : 'برگردون';
   const storageToastText = root.querySelector('#storageToast .toast-text');
   if (storageToastText) storageToastText.textContent = isEn ? 'Storage full or unavailable; please export a backup from Settings.' : 'ذخیره نشد؛ حافظهٔ مرورگر پر یا در دسترس نیست. از تنظیمات یه پشتیبان بگیر.';
   const storageToastClose = root.querySelector('#storageToastClose');

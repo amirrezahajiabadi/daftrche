@@ -16,7 +16,7 @@
       "iconColor": "#2ec4b6"
     },
     "StatusBar": {
-      "overlaysWebView": false
+      "overlaysWebView": true
     }
   }
 }

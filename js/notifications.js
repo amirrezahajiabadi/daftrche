@@ -8,6 +8,7 @@
    survives reloads and is reset when the deadline changes. */
 
 import { ICONS } from './constants.js';
+import { confirmDialog } from './dialog.js';
 import { enablePush, disablePush } from './push-service.js';
 import { isBusy } from './calm.js';
 import { isNative, scheduleNativeTaskNotification } from './native.js';
@@ -38,6 +39,42 @@ export const notificationsSupported = () =>
 export function notificationPermission() {
   if (isNative()) return 'granted';
   return notificationsSupported() ? Notification.permission : 'unsupported';
+}
+
+/* ── Permission priming ──
+   The system dialog is a one-shot: once it is refused, only the phone's own
+   settings can give it back. So the ask is explained first, in the app's words
+   and the app's own card, and only at the moment it makes sense — the reader
+   turning a reminder on — never on launch and never as part of a batch of asks.
+   A reader who already allowed reminders is not asked to justify it again.
+
+   The native side requests the same permission deeper in (js/native.js, when a
+   notification is first scheduled), which is why the explanation lives here,
+   above both paths. */
+let primed = false;
+export async function explainReminders() {
+  if (primed) return true;
+  if (!isNative() && notificationsSupported() && Notification.permission === 'granted') {
+    primed = true;
+    return true;
+  }
+  if (isNative()) {
+    try {
+      const { LocalNotifications } = await import('@capacitor/local-notifications');
+      const perm = await LocalNotifications.checkPermissions();
+      if (perm.display === 'granted') { primed = true; return true; }
+    } catch { /* the reminder path reports its own failure */ }
+  }
+  const ok = await confirmDialog({
+    title: 'یادآوری سرِ وقت',
+    body: 'برای اینکه سرِ موعدِ کارها بهت خبر بدم، دفترچه به اجازهٔ اعلان نیاز داره — فقط برای همین. هر وقت خواستی از تنظیمات گوشی برداشته می‌شه.',
+    confirmLabel: 'اجازه بده',
+    cancelLabel: 'فعلاً نه',
+  });
+  /* Answered once per session either way: a «فعلاً نه» is an answer, and asking
+     again on the next bell would be the batch prompt this is meant to replace. */
+  primed = true;
+  return ok;
 }
 
 /* Must be called from inside a user gesture (click handler). Resolves with
@@ -100,7 +137,7 @@ const stopRetrying = () => { clearInterval(retry); retry = 0; };
 
 /* What a task has to say right now, phase by phase. null = silence. */
 function dueFor(t, todayStr) {
-  if (!t || t.done || !t.notify || !t.dueDate) return null;
+  if (!t || t.done || t.deletedAt || !t.notify || !t.dueDate) return null;
   if (t.notifiedStatus === 'overdue') return null;   // terminal phase already delivered
   if (t.dueDate < todayStr) return 'overdue';
   if (t.dueDate === todayStr && t.notifiedStatus !== 'soon') return 'soon';
@@ -144,6 +181,9 @@ export function checkDueTasksAndNotify(tasks) {
    scheduler alone keeps working — the bell never fails visually. */
 export async function setTaskNotify(task, on) {
   if (on) {
+    /* Explained before the OS asks: the reader is told what the permission is
+       for, and a «not now» never reaches the system dialog at all. */
+    if (!(await explainReminders())) return false;
     const perm = await requestNotificationPermission();
     if (perm !== 'granted') return false; // UI stays off; the switch reflects reality
     // Turning it on re-arms the reminder for the current phase
@@ -153,10 +193,14 @@ export async function setTaskNotify(task, on) {
   } else {
     // The very last bell going off tears the push subscription down so the
     // server stops holding a dead endpoint for this device.
-    const anyRemaining = _getTasks ? _getTasks().some(t => t !== task && t.notify) : false;
+    const anyRemaining = _getTasks ? _getTasks().some(t => t !== task && !t.deletedAt && t.notify) : false;
     if (!anyRemaining) disablePush().catch(() => {});
   }
   task.notify = on;
+  task.updatedAt = Date.now();
+  const currentVersion = Number.isInteger(Number(task.version ?? task.rev)) ? Number(task.version ?? task.rev) : 1;
+  task.version = currentVersion + 1;
+  task.rev = task.version;
   persist();
   if (on) checkDueTasksAndNotify([task]); // immediate feedback if it's already due
   return on;

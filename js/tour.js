@@ -530,7 +530,7 @@ function finish(markDone, award = false) {
     repositionFrame = 0;
   }
   window.removeEventListener('resize', scheduleReposition);
-  document.removeEventListener('scroll', scheduleReposition, true);
+  document.removeEventListener('scroll', scheduleReposition, { capture: true, passive: true });
   document.removeEventListener('keydown', onKey);
   window.visualViewport?.removeEventListener('resize', scheduleReposition);
   window.visualViewport?.removeEventListener('scroll', scheduleReposition);
@@ -593,11 +593,11 @@ export function startTour() {
   cardObserver?.observe(card);
   document.fonts?.ready.then(() => { if (active && mobileViewport()) scheduleReposition(); });
   document.addEventListener('keydown', onKey);
-  window.addEventListener('resize', scheduleReposition);
-  window.visualViewport?.addEventListener('resize', scheduleReposition);
-  window.visualViewport?.addEventListener('scroll', scheduleReposition);
+  window.addEventListener('resize', scheduleReposition, { passive: true });
+  window.visualViewport?.addEventListener('resize', scheduleReposition, { passive: true });
+  window.visualViewport?.addEventListener('scroll', scheduleReposition, { passive: true });
   /* Capture: the page itself scrolls on window — a bubble listener on document
      never hears it. */
-  document.addEventListener('scroll', scheduleReposition, true);
+  document.addEventListener('scroll', scheduleReposition, { capture: true, passive: true });
   show(0);
 }

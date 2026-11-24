@@ -58,7 +58,7 @@ function fingerprint() {
   const tasks = Array.isArray(state.tasks) ? state.tasks : [];
   let done = 0, lastDone = 0;
   for (const t of tasks) {
-    if (!t.done) continue;
+    if (!t || !t.done || t.deletedAt) continue;
     done++;
     if (Number(t.doneAt) > lastDone) lastDone = Number(t.doneAt) || 0;
   }

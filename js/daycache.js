@@ -70,7 +70,7 @@ function checkDirectStateChanges(now) {
   const tasks = Array.isArray(state.tasks) ? state.tasks : [];
   let doneCount = 0;
   for (let i = 0; i < tasks.length; i++) {
-    if (tasks[i]?.done) doneCount++;
+    if (tasks[i]?.done && !tasks[i]?.deletedAt) doneCount++;
   }
   const historyLen = getHistory().length;
   const moodsLen = state.moods && typeof state.moods === 'object' ? Object.keys(state.moods).length : 0;
@@ -124,7 +124,7 @@ function populateBucketFromTask(b, t, isDoneRecord) {
 
 function buildHistoricalIndex(todayKeyStr) {
   historicalBuckets.clear();
-  const tasks = (Array.isArray(state.tasks) ? state.tasks : []).filter(t => t && typeof t === 'object');
+  const tasks = (Array.isArray(state.tasks) ? state.tasks : []).filter(t => t && typeof t === 'object' && !t.deletedAt);
 
   const getOrMake = key => {
     if (!isKey(key)) return null;
@@ -224,7 +224,7 @@ function buildHistoricalIndex(todayKeyStr) {
 
 function recomputeTodayBucket(todayKeyStr) {
   const b = createEmptyBucket(todayKeyStr);
-  const tasks = (Array.isArray(state.tasks) ? state.tasks : []).filter(t => t && typeof t === 'object');
+  const tasks = (Array.isArray(state.tasks) ? state.tasks : []).filter(t => t && typeof t === 'object' && !t.deletedAt);
 
   // Tasks today
   for (const t of tasks) {

@@ -2,6 +2,9 @@
 
 /* ── Header summary ── */
 #todayGreet{word-break:break-word;overflow-wrap:anywhere}
+#todayGreet.is-birthday{cursor:pointer;transition:transform var(--duration-fast)}
+#todayGreet.is-birthday:active{transform:scale(.98)}
+#todayOccasion.is-birthday{cursor:pointer}
 .today-summary{font-size:13px;color:var(--muted);font-weight:500;margin-top:6px;line-height:1.7}
 
 /* ── Quick Add ── */

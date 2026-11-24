@@ -55,17 +55,15 @@ test('CSS rules of the Morphing Ink Pill update toast enforce design tokens and 
 
   // Positioning and geometry
   assert.match(block, /position:\s*fixed/);
-  assert.match(block, /inset-inline:\s*1rem/);
+  assert.match(block, /inset-inline:\s*16px/);
   assert.match(block, /max-width:\s*420px/);
-  assert.match(block, /border-radius:\s*16px/);
-  assert.match(block, /overflow:\s*hidden/);
+  assert.match(block, /border-radius:\s*var\(--radius-md,\s*16px\)/);
+  assert.match(block, /overflow:\s*visible/);
 
-  // Paper tape pseudo-element
-  assert.match(block, /\.update-toast::before/);
-  assert.match(block, /width:\s*44px/);
-  assert.match(block, /height:\s*6px/);
-  assert.match(block, /background:\s*var\(--color-tape,\s*var\(--color-accent-soft\)\)/);
-  assert.match(block, /border-radius:\s*0 0 4px 4px/);
+  // Ink fill and progress bar geometry with self-contained border radius
+  assert.match(block, /\.update-toast__fill/);
+  assert.match(block, /\.update-toast__bar/);
+  assert.match(block, /border-radius:\s*calc\(var\(--radius-md,\s*16px\)\s*-\s*1px\)/);
 
   // Semantic tokens only - no raw hex / rgb colors in update-toast block
   // Ignore SVG fills or comments, check CSS property values
@@ -125,7 +123,7 @@ test('pwa.js includes the staged progressive easing curve and safety fallbacks',
 
   // Check reassurance Persian copy is present in pwa.js
   assert.ok(pwaSrc.includes('در حال صحافی برگهٔ تازه...'), 'Reassurance title during binding must be present');
-  assert.ok(pwaSrc.includes('کارها و یادداشتهات کاملاً امنه'), 'Data security reassurance subtitle must be present');
+  assert.ok(pwaSrc.includes('کارها و یادداشت\u200cهات کاملاً امنه'), 'Data security reassurance subtitle must be present');
   assert.ok(pwaSrc.includes('همه‌چیز آماده است ✨'), 'Celebration title must be present');
 
   // Check safety timeout constant

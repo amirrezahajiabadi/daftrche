@@ -1,12 +1,13 @@
-/* ═══ Worlds — the five earned themes ═══
+/* ═══ Worlds — the eleven earned themes ═══
    Each world is a small place the notebook sits in, drawn only from CSS and a
    few data-URI shapes — no images to download, nothing that outlives the theme.
    Art goes on html::before and html::after (z-index -1, fixed, pointer-events
    none); body::before / ::after belong to the dock fade and the paper grain, so
-   they are never touched. Anything that moves is a transform on a fixed layer,
-   which the compositor animates without repainting the page, and every loop is
-   switched off for «reduce motion» (system or in-app) and while the tab is
-   hidden. Contrast is measured on the solid palette in css/base.css; the art
+   they are never touched. At most one layer per world is allowed to move, and
+   it is a transform or an opacity on a fixed layer, which the compositor
+   animates without repainting the page. Nothing on the moving path carries a
+   mask or a will-change hint, and every loop is switched off for «reduce
+   motion» (system or in-app) and while the tab is hidden. Contrast is measured on the solid palette in css/base.css; the art
    never sits under text that is not on a surface. */
 
 html[data-theme="shabgard"]::before,html[data-theme="shabgard"]::after,
@@ -18,7 +19,8 @@ html[data-theme="negarkhane"]::before,html[data-theme="negarkhane"]::after,
 html[data-theme="qollenavard"]::before,html[data-theme="qollenavard"]::after,
 html[data-theme="kimiyagar"]::before,html[data-theme="kimiyagar"]::after,
 html[data-theme="rasadkhane"]::before,html[data-theme="rasadkhane"]::after,
-html[data-theme="simorgh"]::before,html[data-theme="simorgh"]::after{
+html[data-theme="simorgh"]::before,html[data-theme="simorgh"]::after,
+html[data-theme="tavalod"]::before,html[data-theme="tavalod"]::after{
   content:'';position:fixed;pointer-events:none;z-index:-1}
 
 /* ── شب‌گرد: a rainy skyline, a projector in the corner ── */
@@ -26,11 +28,11 @@ html[data-theme="shabgard"]::before{
   inset:auto 0 0 0;height:200px;
   background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='480' height='200' viewBox='0 0 480 200'%3E%3Cg fill='%252311131b'%3E%3Crect x='0' y='110' width='44' height='90'/%3E%3Crect x='46' y='140' width='28' height='60'/%3E%3Crect x='78' y='80' width='28' height='120'/%3E%3Crect x='110' y='20' width='28' height='180'/%3E%3Crect x='138' y='140' width='28' height='60'/%3E%3Crect x='168' y='140' width='52' height='60'/%3E%3Crect x='220' y='20' width='28' height='180'/%3E%3Crect x='250' y='130' width='28' height='70'/%3E%3Crect x='282' y='110' width='28' height='90'/%3E%3Crect x='314' y='140' width='60' height='60'/%3E%3Crect x='378' y='50' width='60' height='150'/%3E%3Crect x='438' y='140' width='36' height='60'/%3E%3Crect x='478' y='80' width='36' height='120'/%3E%3C/g%3E%3Crect x='77' y='139' width='3' height='4' fill='%2523f2c230' fill-opacity='.55'/%3E%3Crect x='64' y='143' width='3' height='4' fill='%2523f2c230' fill-opacity='.55'/%3E%3Crect x='161' y='141' width='3' height='4' fill='%2523f2c230' fill-opacity='.55'/%3E%3Crect x='421' y='157' width='3' height='4' fill='%2523f2c230' fill-opacity='.55'/%3E%3Crect x='96' y='83' width='3' height='4' fill='%2523f2c230' fill-opacity='.55'/%3E%3Crect x='301' y='143' width='3' height='4' fill='%2523f2c230' fill-opacity='.55'/%3E%3Crect x='331' y='94' width='3' height='4' fill='%2523f2c230' fill-opacity='.55'/%3E%3Crect x='194' y='82' width='3' height='4' fill='%2523f2c230' fill-opacity='.55'/%3E%3Crect x='284' y='161' width='3' height='4' fill='%2523f2c230' fill-opacity='.55'/%3E%3Crect x='36' y='142' width='3' height='4' fill='%2523f2c230' fill-opacity='.55'/%3E%3Crect x='34' y='149' width='3' height='4' fill='%2523f2c230' fill-opacity='.55'/%3E%3Crect x='109' y='133' width='3' height='4' fill='%2523f2c230' fill-opacity='.55'/%3E%3Crect x='352' y='138' width='3' height='4' fill='%2523f2c230' fill-opacity='.55'/%3E%3Crect x='222' y='169' width='3' height='4' fill='%2523f2c230' fill-opacity='.55'/%3E%3Crect x='164' y='129' width='3' height='4' fill='%2523f2c230' fill-opacity='.55'/%3E%3Crect x='303' y='188' width='3' height='4' fill='%2523f2c230' fill-opacity='.55'/%3E%3Crect x='236' y='116' width='3' height='4' fill='%2523f2c230' fill-opacity='.55'/%3E%3Crect x='157' y='101' width='3' height='4' fill='%2523f2c230' fill-opacity='.55'/%3E%3Crect x='410' y='93' width='3' height='4' fill='%2523f2c230' fill-opacity='.55'/%3E%3Crect x='361' y='169' width='3' height='4' fill='%2523f2c230' fill-opacity='.55'/%3E%3Crect x='128' y='80' width='3' height='4' fill='%2523f2c230' fill-opacity='.55'/%3E%3Crect x='298' y='108' width='3' height='4' fill='%2523f2c230' fill-opacity='.55'/%3E%3Crect x='272' y='133' width='3' height='4' fill='%2523f2c230' fill-opacity='.55'/%3E%3Crect x='452' y='113' width='3' height='4' fill='%2523f2c230' fill-opacity='.55'/%3E%3Crect x='377' y='127' width='3' height='4' fill='%2523f2c230' fill-opacity='.55'/%3E%3Crect x='151' y='147' width='3' height='4' fill='%2523f2c230' fill-opacity='.55'/%3E%3Crect x='41' y='85' width='3' height='4' fill='%2523f2c230' fill-opacity='.55'/%3E%3Crect x='266' y='123' width='3' height='4' fill='%2523f2c230' fill-opacity='.55'/%3E%3Crect x='88' y='166' width='3' height='4' fill='%2523f2c230' fill-opacity='.55'/%3E%3Crect x='179' y='89' width='3' height='4' fill='%2523f2c230' fill-opacity='.55'/%3E%3Crect x='254' y='123' width='3' height='4' fill='%2523f2c230' fill-opacity='.55'/%3E%3Crect x='24' y='155' width='3' height='4' fill='%2523f2c230' fill-opacity='.55'/%3E%3Crect x='43' y='167' width='3' height='4' fill='%2523f2c230' fill-opacity='.55'/%3E%3Crect x='289' y='143' width='3' height='4' fill='%2523f2c230' fill-opacity='.55'/%3E%3Crect x='408' y='182' width='3' height='4' fill='%2523f2c230' fill-opacity='.55'/%3E%3Crect x='422' y='110' width='3' height='4' fill='%2523f2c230' fill-opacity='.55'/%3E%3Crect x='178' y='158' width='3' height='4' fill='%2523f2c230' fill-opacity='.55'/%3E%3Crect x='183' y='146' width='3' height='4' fill='%2523f2c230' fill-opacity='.55'/%3E%3Crect x='258' y='144' width='3' height='4' fill='%2523f2c230' fill-opacity='.55'/%3E%3Crect x='412' y='128' width='3' height='4' fill='%2523f2c230' fill-opacity='.55'/%3E%3Crect x='39' y='177' width='3' height='4' fill='%2523f2c230' fill-opacity='.55'/%3E%3Crect x='51' y='190' width='3' height='4' fill='%2523f2c230' fill-opacity='.55'/%3E%3Crect x='142' y='130' width='3' height='4' fill='%2523f2c230' fill-opacity='.55'/%3E%3Crect x='360' y='155' width='3' height='4' fill='%2523f2c230' fill-opacity='.55'/%3E%3Crect x='37' y='77' width='3' height='4' fill='%2523f2c230' fill-opacity='.55'/%3E%3Crect x='378' y='159' width='3' height='4' fill='%2523f2c230' fill-opacity='.55'/%3E%3C/svg%3E") repeat-x bottom/480px 200px;
   -webkit-mask-image:linear-gradient(to top,#000 40%,transparent);mask-image:linear-gradient(to top,#000 40%,transparent)}
-html[data-theme="shabgard"] body{background-image:radial-gradient(70% 38% at 88% -4%,rgba(242,194,48,.14) 0,transparent 70%);background-attachment:fixed}
+html[data-theme="shabgard"] body{background-image:radial-gradient(70% 38% at 88% -4%,rgba(242,194,48,.14) 0,transparent 70%)}
 html[data-theme="shabgard"]::after{
   inset:-120px 0 0 0;
   background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Cg stroke='%2523b9c4e6' stroke-opacity='.35' stroke-width='1' stroke-linecap='round'%3E%3Cline x1='14' y1='6' x2='8' y2='28'/%3E%3Cline x1='52' y1='40' x2='46' y2='62'/%3E%3Cline x1='96' y1='12' x2='90' y2='34'/%3E%3Cline x1='30' y1='70' x2='24' y2='92'/%3E%3Cline x1='78' y1='86' x2='72' y2='108'/%3E%3Cline x1='110' y1='58' x2='104' y2='80'/%3E%3Cline x1='8' y1='104' x2='2' y2='126'/%3E%3Cline x1='64' y1='112' x2='58' y2='134'/%3E%3C/g%3E%3C/svg%3E") repeat 0 0/120px 120px;opacity:.55;
-  animation:worldRain .8s linear infinite;will-change:transform}
+  animation:worldRain .8s linear infinite}
 @keyframes worldRain{to{transform:translate3d(-14px,120px,0)}}
 
 /* ── تارنما: a web in the corner, comic dots fading in from the edge ── */
@@ -44,7 +46,7 @@ html[data-theme="tarnama"]::after{
   mask-image:radial-gradient(circle at 100% 100%,#000 0,transparent 70%)}
 
 /* ── فضانورد: two star fields, one of them breathing; a violet planet-glow ── */
-html[data-theme="fazanavard"] body{background-image:radial-gradient(60% 34% at 10% 2%,rgba(139,92,246,.30) 0,transparent 70%),radial-gradient(50% 30% at 96% 40%,rgba(98,224,208,.10) 0,transparent 70%);background-attachment:fixed}
+html[data-theme="fazanavard"] body{background-image:radial-gradient(60% 34% at 10% 2%,rgba(139,92,246,.30) 0,transparent 70%),radial-gradient(50% 30% at 96% 40%,rgba(98,224,208,.10) 0,transparent 70%)}
 html[data-theme="fazanavard"]::before{
   inset:0;
   background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Ccircle cx='64' cy='155' r='2' fill='%2523eef0ff' fill-opacity='0.75'/%3E%3Ccircle cx='37' cy='98' r='2' fill='%2523eef0ff' fill-opacity='0.75'/%3E%3Ccircle cx='125' cy='164' r='2' fill='%2523eef0ff' fill-opacity='0.75'/%3E%3Ccircle cx='20' cy='159' r='1.1' fill='%2523eef0ff' fill-opacity='0.75'/%3E%3Ccircle cx='124' cy='70' r='2' fill='%2523eef0ff' fill-opacity='0.75'/%3E%3Ccircle cx='63' cy='53' r='2' fill='%2523eef0ff' fill-opacity='0.75'/%3E%3Ccircle cx='124' cy='142' r='2' fill='%2523eef0ff' fill-opacity='0.75'/%3E%3Ccircle cx='125' cy='105' r='2' fill='%2523eef0ff' fill-opacity='0.75'/%3E%3Ccircle cx='42' cy='63' r='2' fill='%2523eef0ff' fill-opacity='0.75'/%3E%3Ccircle cx='42' cy='137' r='1' fill='%2523eef0ff' fill-opacity='0.75'/%3E%3Ccircle cx='193' cy='7' r='2' fill='%2523eef0ff' fill-opacity='0.75'/%3E%3Ccircle cx='202' cy='20' r='1.1' fill='%2523eef0ff' fill-opacity='0.75'/%3E%3Ccircle cx='198' cy='155' r='1.1' fill='%2523eef0ff' fill-opacity='0.75'/%3E%3Ccircle cx='81' cy='203' r='1.1' fill='%2523eef0ff' fill-opacity='0.75'/%3E%3Ccircle cx='214' cy='72' r='1' fill='%2523eef0ff' fill-opacity='0.75'/%3E%3Ccircle cx='156' cy='188' r='1' fill='%2523eef0ff' fill-opacity='0.75'/%3E%3Ccircle cx='186' cy='205' r='1' fill='%2523eef0ff' fill-opacity='0.75'/%3E%3Ccircle cx='105' cy='190' r='2' fill='%2523eef0ff' fill-opacity='0.75'/%3E%3Ccircle cx='117' cy='38' r='1' fill='%2523eef0ff' fill-opacity='0.75'/%3E%3Ccircle cx='28' cy='13' r='1.1' fill='%2523eef0ff' fill-opacity='0.75'/%3E%3Ccircle cx='130' cy='59' r='1' fill='%2523eef0ff' fill-opacity='0.75'/%3E%3Ccircle cx='176' cy='115' r='2' fill='%2523eef0ff' fill-opacity='0.75'/%3E%3Ccircle cx='81' cy='111' r='2' fill='%2523eef0ff' fill-opacity='0.75'/%3E%3Ccircle cx='102' cy='150' r='1' fill='%2523eef0ff' fill-opacity='0.75'/%3E%3Ccircle cx='140' cy='153' r='1' fill='%2523eef0ff' fill-opacity='0.75'/%3E%3Ccircle cx='153' cy='63' r='1' fill='%2523eef0ff' fill-opacity='0.75'/%3E%3C/svg%3E") 0 0/220px 220px,url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='340' height='340'%3E%3Ccircle cx='241' cy='317' r='1' fill='%2523eef0ff' fill-opacity='0.45'/%3E%3Ccircle cx='140' cy='74' r='1.1' fill='%2523eef0ff' fill-opacity='0.45'/%3E%3Ccircle cx='7' cy='177' r='2' fill='%2523eef0ff' fill-opacity='0.45'/%3E%3Ccircle cx='241' cy='313' r='1.1' fill='%2523eef0ff' fill-opacity='0.45'/%3E%3Ccircle cx='175' cy='287' r='2' fill='%2523eef0ff' fill-opacity='0.45'/%3E%3Ccircle cx='24' cy='198' r='1.1' fill='%2523eef0ff' fill-opacity='0.45'/%3E%3Ccircle cx='235' cy='220' r='1.1' fill='%2523eef0ff' fill-opacity='0.45'/%3E%3Ccircle cx='90' cy='125' r='1.1' fill='%2523eef0ff' fill-opacity='0.45'/%3E%3Ccircle cx='60' cy='71' r='2' fill='%2523eef0ff' fill-opacity='0.45'/%3E%3Ccircle cx='306' cy='36' r='2' fill='%2523eef0ff' fill-opacity='0.45'/%3E%3Ccircle cx='200' cy='56' r='1' fill='%2523eef0ff' fill-opacity='0.45'/%3E%3Ccircle cx='108' cy='118' r='2' fill='%2523eef0ff' fill-opacity='0.45'/%3E%3Ccircle cx='219' cy='48' r='1' fill='%2523eef0ff' fill-opacity='0.45'/%3E%3Ccircle cx='111' cy='207' r='1' fill='%2523eef0ff' fill-opacity='0.45'/%3E%3Ccircle cx='178' cy='26' r='1.1' fill='%2523eef0ff' fill-opacity='0.45'/%3E%3Ccircle cx='6' cy='214' r='1.1' fill='%2523eef0ff' fill-opacity='0.45'/%3E%3Ccircle cx='197' cy='255' r='1.1' fill='%2523eef0ff' fill-opacity='0.45'/%3E%3Ccircle cx='16' cy='125' r='1' fill='%2523eef0ff' fill-opacity='0.45'/%3E%3C/svg%3E") 60px 40px/340px 340px}
@@ -55,18 +57,18 @@ html[data-theme="fazanavard"]::after{
 @keyframes worldTwinkle{from{opacity:.15}to{opacity:.85}}
 
 /* ── باغچه: leaves on the top of the page, morning sun from a corner ── */
-html[data-theme="baghche"] body{background-image:radial-gradient(60% 30% at 8% -6%,rgba(255,214,102,.30) 0,transparent 70%);background-attachment:fixed}
+html[data-theme="baghche"] body{background-image:radial-gradient(60% 30% at 8% -6%,rgba(255,214,102,.30) 0,transparent 70%)}
 html[data-theme="baghche"]::before{
   inset:0 0 auto 0;height:60vh;
   background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 72 72'%3E%3Cg fill='%25233a7d44' fill-opacity='.10'%3E%3Cpath d='M18 30c0-10 8-16 18-16 0 10-8 18-18 16z'/%3E%3Cpath d='M50 62c0-8 6-13 14-13 0 8-6 14-14 13z'/%3E%3Ccircle cx='56' cy='18' r='2'/%3E%3Ccircle cx='10' cy='58' r='2'/%3E%3C/g%3E%3Cg stroke='%25233a7d44' stroke-opacity='.10' fill='none'%3E%3Cpath d='M18 30l12-10M50 62l10-9'/%3E%3C/g%3E%3C/svg%3E") repeat 0 0/72px 72px;
   -webkit-mask-image:linear-gradient(to bottom,#000,transparent);mask-image:linear-gradient(to bottom,#000,transparent)}
 
 /* ── دریانورد: two slow waves along the bottom, sun glare in the corner ── */
-html[data-theme="daryanavard"] body{background-image:radial-gradient(50% 28% at 92% -4%,rgba(255,196,84,.28) 0,transparent 70%);background-attachment:fixed}
+html[data-theme="daryanavard"] body{background-image:radial-gradient(50% 28% at 92% -4%,rgba(255,196,84,.28) 0,transparent 70%)}
 html[data-theme="daryanavard"]::before{
   inset:auto -200px 0 -200px;height:96px;
   background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='48' viewBox='0 0 200 48'%3E%3Cpath d='M0 24 C 33 4, 67 4, 100 24 S 167 44, 200 24 V48 H0 Z' fill='%25230b6e99' fill-opacity='.12'/%3E%3C/svg%3E") repeat-x 0 bottom/200px 48px,url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='48' viewBox='0 0 200 48'%3E%3Cpath d='M0 30 C 33 12, 67 12, 100 30 S 167 48, 200 30 V48 H0 Z' fill='%25230b6e99' fill-opacity='.09'/%3E%3C/svg%3E") repeat-x 60px bottom/200px 48px;
-  animation:worldWave 18s linear infinite;will-change:transform}
+  animation:worldWave 18s linear infinite}
 @keyframes worldWave{to{transform:translate3d(200px,0,0)}}
 
 /* ── نگارخانه: Iranian tazhib and shamseh illumination, gold flakes in corners ── */
@@ -74,7 +76,7 @@ html[data-theme="negarkhane"] body{
   background-image:
     radial-gradient(75% 42% at 15% -6%,rgba(200,138,43,.18) 0,transparent 70%),
     radial-gradient(60% 36% at 88% 104%,rgba(29,78,137,.10) 0,transparent 70%);
-  background-attachment:fixed}
+}
 html[data-theme="negarkhane"]::before{
   inset:0 0 auto 0;height:55vh;
   background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Ccircle cx='80' cy='80' r='6' fill='%2523c88a2b' fill-opacity='.24'/%3E%3Ccircle cx='80' cy='80' r='14' stroke='%25231d4e89' stroke-opacity='.12' stroke-width='1' fill='none'/%3E%3Ccircle cx='80' cy='80' r='24' stroke='%25231d4e89' stroke-opacity='.10' stroke-width='1' stroke-dasharray='2 3' fill='none'/%3E%3Cpath d='M80 44 L87.7 61.5 L105.5 54.5 L98.5 72.3 L116 80 L98.5 87.7 L105.5 105.5 L87.7 98.5 L80 116 L72.3 98.5 L54.5 105.5 L61.5 87.7 L44 80 L61.5 72.3 L54.5 54.5 L72.3 61.5 Z' stroke='%25231d4e89' stroke-opacity='.14' stroke-width='1.1' fill='%2523c88a2b' fill-opacity='.06'/%3E%3Cg fill='%2523c88a2b' fill-opacity='.20'%3E%3Ccircle cx='80' cy='38' r='2.2'/%3E%3Ccircle cx='110' cy='50' r='2.2'/%3E%3Ccircle cx='122' cy='80' r='2.2'/%3E%3Ccircle cx='110' cy='110' r='2.2'/%3E%3Ccircle cx='80' cy='122' r='2.2'/%3E%3Ccircle cx='50' cy='110' r='2.2'/%3E%3Ccircle cx='38' cy='80' r='2.2'/%3E%3Ccircle cx='50' cy='50' r='2.2'/%3E%3C/g%3E%3Cpath d='M0 0 L54.5 54.5 M160 0 L105.5 54.5 M0 160 L54.5 105.5 M160 160 L105.5 105.5' stroke='%25231d4e89' stroke-opacity='.09' stroke-width='1'/%3E%3Cpath d='M0 24 Q18 18 24 0 M160 24 Q142 18 136 0 M0 136 Q18 142 24 160 M160 136 Q142 142 136 160' stroke='%25231d4e89' stroke-opacity='.11' stroke-width='1' fill='none'/%3E%3Ccircle cx='0' cy='0' r='10' fill='%2523c88a2b' fill-opacity='.12'/%3E%3Ccircle cx='160' cy='0' r='10' fill='%2523c88a2b' fill-opacity='.12'/%3E%3Ccircle cx='0' cy='160' r='10' fill='%2523c88a2b' fill-opacity='.12'/%3E%3Ccircle cx='160' cy='160' r='10' fill='%2523c88a2b' fill-opacity='.12'/%3E%3C/svg%3E") repeat 0 0/160px 160px;
@@ -82,7 +84,7 @@ html[data-theme="negarkhane"]::before{
 html[data-theme="negarkhane"]::after{
   inset:0;
   background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220' viewBox='0 0 220 220'%3E%3Cpath d='M50 32 Q50 40 58 40 Q50 40 50 48 Q50 40 42 40 Z' fill='%2523c88a2b' fill-opacity='.65'/%3E%3Cpath d='M175 64 Q175 70 181 70 Q175 70 175 76 Q175 70 169 70 Z' fill='%2523e5a93c' fill-opacity='.70'/%3E%3Cpath d='M130 154 Q130 160 136 160 Q130 160 130 166 Q130 160 124 160 Z' fill='%2523c88a2b' fill-opacity='.60'/%3E%3Cpath d='M35 174 Q35 180 41 180 Q35 180 35 186 Q35 180 29 180 Z' fill='%2523e5a93c' fill-opacity='.75'/%3E%3Cpolygon points='95,25 98,22 101,25 98,28' fill='%2523c88a2b' fill-opacity='.55'/%3E%3Cpolygon points='145,110 148,106 151,110 148,114' fill='%2523e5a93c' fill-opacity='.60'/%3E%3Cpolygon points='20,95 23,91 26,95 23,99' fill='%2523c88a2b' fill-opacity='.50'/%3E%3Cpolygon points='80,140 84,138 86,142 82,144' fill='%2523e5a93c' fill-opacity='.65'/%3E%3Cpolygon points='195,190 198,187 202,191 199,194' fill='%2523c88a2b' fill-opacity='.55'/%3E%3Ccircle cx='110' cy='60' r='1.2' fill='%2523c88a2b' fill-opacity='.50'/%3E%3Ccircle cx='65' cy='115' r='1.5' fill='%2523e5a93c' fill-opacity='.55'/%3E%3Ccircle cx='165' cy='135' r='1.3' fill='%2523c88a2b' fill-opacity='.45'/%3E%3C/svg%3E") repeat 0 0/220px 220px;
-  animation:worldGoldGlow 5s ease-in-out infinite alternate;will-change:opacity}
+  animation:worldGoldGlow 5s ease-in-out infinite alternate}
 @keyframes worldGoldGlow{from{opacity:.25}to{opacity:.85}}
 html[data-theme="negarkhane"] :is(.frog-hero,.progress-card,.world-card){
   box-shadow:inset 0 0 0 3px var(--color-surface),inset 0 0 0 4px color-mix(in srgb,var(--color-accent) 28%,transparent),var(--shadow-1)}
@@ -92,7 +94,7 @@ html[data-theme="qollenavard"] body{
   background-image:
     radial-gradient(70% 38% at 50% -6%,rgba(234,88,12,.18) 0,transparent 70%),
     radial-gradient(65% 42% at 50% 104%,rgba(3,105,161,.12) 0,transparent 70%);
-  background-attachment:fixed}
+}
 html[data-theme="qollenavard"]::before{
   inset:auto 0 0 0;height:240px;
   background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='640' height='240' viewBox='0 0 640 240'%3E%3Ccircle cx='320' cy='95' r='55' fill='%2523f97316' fill-opacity='.12'/%3E%3Ccircle cx='320' cy='95' r='34' fill='%2523ea580c' fill-opacity='.28'/%3E%3Cpath d='M0 165 L45 142 L110 162 L180 135 L255 152 L320 115 L385 152 L460 135 L530 162 L595 142 L640 165 V240 H0 Z' fill='%25230369a1' fill-opacity='.10'/%3E%3Cpath d='M0 185 L65 158 L135 176 L210 148 L280 168 L360 156 L430 174 L505 148 L575 174 L640 185 V240 H0 Z' fill='%2523075985' fill-opacity='.16'/%3E%3Cpath d='M0 240 L160 240 L210 200 L275 125 L320 68 L365 125 L430 200 L480 240 L640 240 Z' fill='%25230f1d2e' fill-opacity='.25'/%3E%3Cpath d='M320 68 L304 98 L310 105 L298 120 L314 115 L320 124 L326 115 L342 120 L330 105 L336 98 Z' fill='%2523ffffff' fill-opacity='.65'/%3E%3Cpath d='M320 72 L318 108 L315 122 M320 72 L322 108 L325 122' stroke='%2523075985' stroke-opacity='.30' stroke-width='1'/%3E%3Cpath d='M0 220 Q160 200 320 225 T640 220 V240 H0 Z' fill='%25230369a1' fill-opacity='.12'/%3E%3C/svg%3E") repeat-x bottom/640px 240px;
@@ -100,7 +102,7 @@ html[data-theme="qollenavard"]::before{
 html[data-theme="qollenavard"]::after{
   inset:auto -300px 40px -300px;height:140px;
   background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='140' viewBox='0 0 600 140'%3E%3Cpath d='M0 80 Q75 50 150 75 T300 70 T450 80 T600 70 V140 H0 Z' fill='%2523edf4f9' fill-opacity='.20'/%3E%3Cpath d='M0 100 Q100 80 200 105 T400 95 T600 100 V140 H0 Z' fill='%2523edf4f9' fill-opacity='.26'/%3E%3Cpath d='M0 115 Q80 105 180 120 T380 112 T600 118 V140 H0 Z' fill='%2523edf4f9' fill-opacity='.32'/%3E%3C/svg%3E") repeat-x 0 bottom/600px 140px;
-  animation:worldMist 26s linear infinite;will-change:transform}
+  animation:worldMist 26s linear infinite}
 @keyframes worldMist{to{transform:translate3d(300px,0,0)}}
 html[data-theme="qollenavard"] :is(.frog-hero,.progress-card){
   border-top:2px solid color-mix(in srgb,#ea580c 55%,var(--color-accent))}
@@ -110,7 +112,7 @@ html[data-theme="kimiyagar"] body{
   background-image:
     radial-gradient(65% 38% at 92% -6%,rgba(245,158,11,.14) 0,transparent 70%),
     radial-gradient(70% 46% at 50% 106%,rgba(45,212,191,.18) 0,transparent 70%);
-  background-attachment:fixed}
+}
 html[data-theme="kimiyagar"]::before{
   inset:auto 0 0 0;height:220px;
   background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='520' height='220' viewBox='0 0 520 220'%3E%3Ccircle cx='85' cy='115' r='60' stroke='%25232dd4bf' stroke-opacity='.20' stroke-width='1.2' fill='none'/%3E%3Ccircle cx='85' cy='115' r='48' stroke='%25232dd4bf' stroke-opacity='.18' stroke-width='1' stroke-dasharray='3 3' fill='none'/%3E%3Ccircle cx='85' cy='115' r='32' stroke='%2523f59e0b' stroke-opacity='.22' stroke-width='1' fill='none'/%3E%3Cpolygon points='85,55 137,145 33,145' stroke='%2523f59e0b' stroke-opacity='.18' stroke-width='1' fill='none'/%3E%3Cpolygon points='85,175 33,85 137,85' stroke='%25232dd4bf' stroke-opacity='.16' stroke-width='1' fill='none'/%3E%3Ccircle cx='85' cy='115' r='4' fill='%2523f59e0b' fill-opacity='.30'/%3E%3Cpath d='M230 190 H270 M250 190 V90' stroke='%25238aa297' stroke-opacity='.20' stroke-width='1.5'/%3E%3Ccircle cx='215' cy='160' r='24' stroke='%25232dd4bf' stroke-opacity='.30' stroke-width='1.4' fill='none'/%3E%3Cpath d='M195 165 C200 155 230 155 235 165 A24 24 0 0 1 195 165' fill='%25232dd4bf' fill-opacity='.15'/%3E%3Cpath d='M225 142 L245 105 Q255 90 270 115 L285 155' stroke='%25232dd4bf' stroke-opacity='.28' stroke-width='1.4' fill='none'/%3E%3Cpath d='M285 155 C295 160 295 170 285 175 S275 190 285 195' stroke='%25232dd4bf' stroke-opacity='.26' stroke-width='1.2' fill='none'/%3E%3Crect x='280' y='198' width='12' height='16' rx='2' stroke='%2523f59e0b' stroke-opacity='.28' stroke-width='1' fill='%2523f59e0b' fill-opacity='.12'/%3E%3Cline x1='410' y1='80' x2='410' y2='190' stroke='%2523f59e0b' stroke-opacity='.24' stroke-width='1.5'/%3E%3Cpath d='M395 190 H425' stroke='%2523f59e0b' stroke-opacity='.24' stroke-width='2'/%3E%3Cline x1='370' y1='95' x2='450' y2='95' stroke='%2523f59e0b' stroke-opacity='.24' stroke-width='1.5'/%3E%3Cline x1='370' y1='95' x2='360' y2='130' stroke='%2523f59e0b' stroke-opacity='.18' stroke-width='1'/%3E%3Cline x1='370' y1='95' x2='380' y2='130' stroke='%2523f59e0b' stroke-opacity='.18' stroke-width='1'/%3E%3Cpath d='M355 130 Q370 140 385 130' stroke='%2523f59e0b' stroke-opacity='.28' stroke-width='1.2' fill='%2523f59e0b' fill-opacity='.10'/%3E%3Cline x1='450' y1='95' x2='440' y2='130' stroke='%2523f59e0b' stroke-opacity='.18' stroke-width='1'/%3E%3Cline x1='450' y1='95' x2='460' y2='130' stroke='%2523f59e0b' stroke-opacity='.18' stroke-width='1'/%3E%3Cpath d='M435 130 Q450 140 465 130' stroke='%2523f59e0b' stroke-opacity='.28' stroke-width='1.2' fill='%2523f59e0b' fill-opacity='.10'/%3E%3Cline x1='0' y1='190' x2='520' y2='190' stroke='%25238aa297' stroke-opacity='.15' stroke-width='1'/%3E%3C/svg%3E") repeat-x bottom/520px 220px;
@@ -118,7 +120,7 @@ html[data-theme="kimiyagar"]::before{
 html[data-theme="kimiyagar"]::after{
   inset:0 0 -160px 0;
   background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='160' viewBox='0 0 240 160'%3E%3Ccircle cx='30' cy='30' r='2' fill='%25232dd4bf' fill-opacity='.65'/%3E%3Ccircle cx='65' cy='110' r='3' stroke='%25232dd4bf' stroke-opacity='.45' stroke-width='1' fill='%25232dd4bf' fill-opacity='.20'/%3E%3Ccircle cx='105' cy='60' r='1.5' fill='%2523f59e0b' fill-opacity='.60'/%3E%3Ccircle cx='140' cy='135' r='2.5' stroke='%2523f59e0b' stroke-opacity='.40' stroke-width='1' fill='%2523f59e0b' fill-opacity='.18'/%3E%3Ccircle cx='180' cy='45' r='3.2' stroke='%25232dd4bf' stroke-opacity='.50' stroke-width='1' fill='%25232dd4bf' fill-opacity='.25'/%3E%3Ccircle cx='215' cy='95' r='1.8' fill='%25232dd4bf' fill-opacity='.70'/%3E%3Ccircle cx='85' cy='15' r='1.2' fill='%2523f59e0b' fill-opacity='.50'/%3E%3Ccircle cx='160' cy='85' r='2' fill='%25232dd4bf' fill-opacity='.60'/%3E%3Ccircle cx='230' cy='140' r='2.2' stroke='%25232dd4bf' stroke-opacity='.40' stroke-width='1' fill='none'/%3E%3C/svg%3E") repeat 0 0/240px 160px;
-  animation:worldAlchemy 9s linear infinite;will-change:transform}
+  animation:worldAlchemy 9s linear infinite}
 @keyframes worldAlchemy{to{transform:translate3d(8px,-160px,0)}}
 html[data-theme="kimiyagar"] :is(.frog-hero,.world-card){
   border-color:color-mix(in srgb,var(--color-accent) 36%,var(--color-border));
@@ -129,16 +131,15 @@ html[data-theme="rasadkhane"] body{
   background-image:
     radial-gradient(65% 42% at 94% -6%,rgba(234,179,8,.22) 0,transparent 70%),
     radial-gradient(60% 44% at 10% 104%,rgba(56,189,248,.15) 0,transparent 70%);
-  background-attachment:fixed}
+}
 html[data-theme="rasadkhane"]::before{
   inset:-110px auto auto -110px;width:440px;height:440px;
   background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='440' height='440' viewBox='0 0 440 440'%3E%3Cpath d='M200 15 L220 2 L240 15 Z' fill='%2523eab308' fill-opacity='.30'/%3E%3Ccircle cx='220' cy='220' r='212' stroke='%2523eab308' stroke-opacity='.35' stroke-width='2' fill='none'/%3E%3Ccircle cx='220' cy='220' r='204' stroke='%2523eab308' stroke-opacity='.25' stroke-width='6' stroke-dasharray='2 3' fill='none'/%3E%3Ccircle cx='220' cy='220' r='198' stroke='%2523eab308' stroke-opacity='.28' stroke-width='1' fill='none'/%3E%3Ccircle cx='220' cy='220' r='160' stroke='%2523eab308' stroke-opacity='.18' stroke-width='1' fill='none'/%3E%3Ccircle cx='220' cy='220' r='115' stroke='%2523eab308' stroke-opacity='.18' stroke-width='1' fill='none'/%3E%3Ccircle cx='220' cy='220' r='65' stroke='%2523eab308' stroke-opacity='.20' stroke-width='1' fill='none'/%3E%3Ccircle cx='220' cy='182' r='110' stroke='%2523facc15' stroke-opacity='.28' stroke-width='1.4' stroke-dasharray='5 3' fill='none'/%3E%3Cline x1='10' y1='220' x2='430' y2='220' stroke='%2523eab308' stroke-opacity='.20' stroke-width='1' stroke-dasharray='8 4'/%3E%3Cline x1='220' y1='10' x2='220' y2='430' stroke='%2523eab308' stroke-opacity='.20' stroke-width='1' stroke-dasharray='8 4'/%3E%3Cline x1='72' y1='72' x2='368' y2='368' stroke='%2523eab308' stroke-opacity='.15' stroke-width='1'/%3E%3Cline x1='72' y1='368' x2='368' y2='72' stroke='%2523eab308' stroke-opacity='.15' stroke-width='1'/%3E%3Cpath d='M20 220 L212 216 V224 Z M420 220 L228 216 V224 Z' fill='%2523facc15' fill-opacity='.35'/%3E%3Ccircle cx='220' cy='220' r='16' fill='%2523111827' stroke='%2523facc15' stroke-opacity='.45' stroke-width='2'/%3E%3Ccircle cx='220' cy='220' r='5' fill='%2523eab308' fill-opacity='.80'/%3E%3Cpath d='M220 72 Q230 85 240 75' stroke='%2523facc15' stroke-opacity='.35' stroke-width='1.2' fill='none'/%3E%3Cpath d='M140 140 Q130 150 135 160' stroke='%2523facc15' stroke-opacity='.35' stroke-width='1.2' fill='none'/%3E%3Cpath d='M300 140 Q310 150 305 160' stroke='%2523facc15' stroke-opacity='.35' stroke-width='1.2' fill='none'/%3E%3C/svg%3E") no-repeat center/contain;
-  animation:worldAstrolabe 120s linear infinite;will-change:transform;transform-origin:220px 220px}
-@keyframes worldAstrolabe{to{transform:rotate(360deg)}}
+  transform-origin:220px 220px}
 html[data-theme="rasadkhane"]::after{
   inset:0;
   background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='360' height='360' viewBox='0 0 360 360'%3E%3Cpolyline points='40,50 75,45 110,60 140,80 145,115 195,110 190,80 140,80' stroke='%252338bdf8' stroke-opacity='.18' stroke-width='0.8' stroke-dasharray='3 3' fill='none'/%3E%3Ccircle cx='40' cy='50' r='2.2' fill='%2523fde047' fill-opacity='.85'/%3E%3Ccircle cx='75' cy='45' r='1.8' fill='%252338bdf8' fill-opacity='.80'/%3E%3Ccircle cx='110' cy='60' r='2' fill='%2523fde047' fill-opacity='.85'/%3E%3Ccircle cx='140' cy='80' r='2.5' fill='%2523fde047' fill-opacity='.90'/%3E%3Ccircle cx='145' cy='115' r='2' fill='%252338bdf8' fill-opacity='.80'/%3E%3Ccircle cx='195' cy='110' r='2.2' fill='%2523fde047' fill-opacity='.85'/%3E%3Ccircle cx='190' cy='80' r='2' fill='%252338bdf8' fill-opacity='.80'/%3E%3Cpolyline points='240,40 270,65 295,45 325,75 350,55' stroke='%252338bdf8' stroke-opacity='.18' stroke-width='0.8' stroke-dasharray='3 3' fill='none'/%3E%3Ccircle cx='240' cy='40' r='2' fill='%2523fde047' fill-opacity='.85'/%3E%3Ccircle cx='270' cy='65' r='2.2' fill='%252338bdf8' fill-opacity='.85'/%3E%3Ccircle cx='295' cy='45' r='1.8' fill='%2523fde047' fill-opacity='.80'/%3E%3Ccircle cx='325' cy='75' r='2.4' fill='%2523fde047' fill-opacity='.90'/%3E%3Ccircle cx='350' cy='55' r='2' fill='%252338bdf8' fill-opacity='.80'/%3E%3Cpolyline points='260,220 280,250 300,280 250,260 310,240' stroke='%252338bdf8' stroke-opacity='.16' stroke-width='0.8' stroke-dasharray='3 3' fill='none'/%3E%3Ccircle cx='260' cy='220' r='2.5' fill='%2523fde047' fill-opacity='.90'/%3E%3Ccircle cx='280' cy='250' r='1.8' fill='%252338bdf8' fill-opacity='.75'/%3E%3Ccircle cx='300' cy='280' r='2.2' fill='%2523fde047' fill-opacity='.85'/%3E%3Ccircle cx='250' cy='260' r='1.8' fill='%252338bdf8' fill-opacity='.75'/%3E%3Ccircle cx='310' cy='240' r='2' fill='%2523fde047' fill-opacity='.80'/%3E%3Ccircle cx='50' cy='230' r='1.2' fill='%2523fde047' fill-opacity='.60'/%3E%3Ccircle cx='130' cy='290' r='1.4' fill='%252338bdf8' fill-opacity='.65'/%3E%3Ccircle cx='85' cy='320' r='1.2' fill='%2523fde047' fill-opacity='.60'/%3E%3C/svg%3E") repeat 0 0/360px 360px;
-  animation:worldConstellation 6s ease-in-out infinite alternate;will-change:opacity}
+  animation:worldConstellation 6s ease-in-out infinite alternate}
 @keyframes worldConstellation{from{opacity:.35}to{opacity:.9}}
 html[data-theme="rasadkhane"] :is(.frog-hero,.progress-card,.world-card){
   border-color:color-mix(in srgb,var(--color-accent) 42%,var(--color-border));
@@ -150,18 +151,53 @@ html[data-theme="simorgh"] body{
     radial-gradient(65% 40% at 50% -8%,rgba(251,146,60,.25) 0,transparent 70%),
     radial-gradient(55% 42% at 92% 42%,rgba(168,85,247,.22) 0,transparent 70%),
     radial-gradient(60% 46% at 12% 104%,rgba(20,184,166,.18) 0,transparent 70%);
-  background-attachment:fixed}
+}
 html[data-theme="simorgh"]::before{
   inset:0;
   background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='600' viewBox='0 0 600 600'%3E%3Cpath d='M0 0 Q120 40 220 140 T320 320 Q240 250 160 200 T0 120 Z' fill='%2523fb923c' fill-opacity='.08' stroke='%2523fb923c' stroke-opacity='.24' stroke-width='1.3'/%3E%3Cpath d='M600 0 Q480 50 380 160 T280 340 Q360 260 440 200 T600 130 Z' fill='%2523a855f7' fill-opacity='.07' stroke='%2523a855f7' stroke-opacity='.22' stroke-width='1.3'/%3E%3Cpath d='M300 0 Q300 100 320 180 Q300 150 280 180 Q300 100 300 0 Z' fill='%2523fdba74' fill-opacity='.12' stroke='%2523fdba74' stroke-opacity='.25' stroke-width='1'/%3E%3Cpath d='M100 60 Q160 120 190 200 M140 90 Q190 140 220 220 M460 70 Q410 130 380 210 M500 100 Q450 150 420 230' stroke='%2523fb923c' stroke-opacity='.18' stroke-width='1' fill='none'/%3E%3Cpath d='M0 600 L80 520 L140 550 L220 480 L290 530 L380 460 L450 515 L530 475 L600 540 V600 H0 Z' fill='%2523120d1d' fill-opacity='.40'/%3E%3Cpath d='M220 480 L228 505 M380 460 L388 495 M530 475 L538 500' stroke='%252314b8a6' stroke-opacity='.30' stroke-width='1.5' fill='none'/%3E%3C/svg%3E") no-repeat top center/cover}
 html[data-theme="simorgh"]::after{
   inset:0;
   background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='280' height='280' viewBox='0 0 280 280'%3E%3Ccircle cx='40' cy='60' r='2' fill='%2523fb923c' fill-opacity='.80'/%3E%3Ccircle cx='110' cy='30' r='1.4' fill='%2523fdba74' fill-opacity='.90'/%3E%3Ccircle cx='180' cy='90' r='2.5' fill='%2523fb923c' fill-opacity='.75'/%3E%3Ccircle cx='240' cy='45' r='1.6' fill='%2523a855f7' fill-opacity='.70'/%3E%3Ccircle cx='80' cy='150' r='2.2' fill='%2523fdba74' fill-opacity='.85'/%3E%3Ccircle cx='150' cy='200' r='1.5' fill='%2523fb923c' fill-opacity='.75'/%3E%3Ccircle cx='215' cy='170' r='2.8' fill='%2523fb923c' fill-opacity='.70'/%3E%3Ccircle cx='60' cy='240' r='1.6' fill='%2523fdba74' fill-opacity='.80'/%3E%3Ccircle cx='255' cy='245' r='2' fill='%2523a855f7' fill-opacity='.65'/%3E%3Cpath d='M130 110 Q140 100 148 108 Q142 114 130 110 Z' fill='%2523fdba74' fill-opacity='.45'/%3E%3Cpath d='M200 220 Q212 210 220 218 Q214 226 200 220 Z' fill='%2523fb923c' fill-opacity='.40'/%3E%3Cpath d='M90 85 Q90 90 95 90 Q90 90 90 95 Q90 90 85 90 Z' fill='%2523fdba74' fill-opacity='.80'/%3E%3C/svg%3E") repeat 0 0/280px 280px;
-  animation:worldSimorghEmbers 7s ease-in-out infinite alternate;will-change:transform,opacity}
+  animation:worldSimorghEmbers 7s ease-in-out infinite alternate}
 @keyframes worldSimorghEmbers{from{opacity:.3;transform:translate3d(0,0,0)}to{opacity:.85;transform:translate3d(-10px,-18px,0)}}
 html[data-theme="simorgh"] :is(.frog-hero,.progress-card,.world-card){
   border-color:color-mix(in srgb,var(--color-accent) 45%,var(--glass-edge));
   box-shadow:0 12px 36px -10px rgba(18,13,29,.7),0 0 20px -4px rgba(251,146,60,.22)}
+
+/* ── تولد: celebratory birthday atmosphere, festive confetti and ribbons ── */
+html[data-theme="tavalod"] body{
+  background-image:
+    radial-gradient(58% 32% at 12% -6%,rgba(194,65,12,.14) 0,transparent 70%),
+    radial-gradient(52% 30% at 90% -10%,rgba(251,146,60,.20) 0,transparent 72%),
+    radial-gradient(70% 40% at 50% 106%,rgba(244,114,182,.10) 0,transparent 70%);
+}
+/* A garland across the top of the page, repeated edge to edge: the one piece of
+   birthday decoration that is allowed to be seen before any card is. It fades
+   out rather than stopping at a line, so the header never looks like it has a
+   roof. */
+html[data-theme="tavalod"]::before{
+  inset-block-start:0;inset-inline:0;height:104px;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='88' viewBox='0 0 320 88'%3E%3Cpath d='M0 6 Q80 42 160 18 T320 6' stroke='%2523c2410c' stroke-opacity='.30' stroke-width='1.5' fill='none'/%3E%3Cpolygon points='34,21 50,24 42,43' fill='%2523c2410c' fill-opacity='.16' stroke='%2523c2410c' stroke-opacity='.34' stroke-width='1'/%3E%3Cpolygon points='74,27 90,29 82,48' fill='%2523fb923c' fill-opacity='.20' stroke='%2523fb923c' stroke-opacity='.40' stroke-width='1'/%3E%3Cpolygon points='114,29 130,30 122,49' fill='%2523c2410c' fill-opacity='.14' stroke='%2523c2410c' stroke-opacity='.32' stroke-width='1'/%3E%3Cpolygon points='154,28 170,28 162,47' fill='%2523fb923c' fill-opacity='.20' stroke='%2523fb923c' stroke-opacity='.40' stroke-width='1'/%3E%3Cpolygon points='194,25 210,26 202,45' fill='%2523c2410c' fill-opacity='.16' stroke='%2523c2410c' stroke-opacity='.34' stroke-width='1'/%3E%3Cpolygon points='234,23 250,25 242,44' fill='%2523fb923c' fill-opacity='.18' stroke='%2523fb923c' stroke-opacity='.38' stroke-width='1'/%3E%3Cpolygon points='274,19 290,22 282,41' fill='%2523c2410c' fill-opacity='.16' stroke='%2523c2410c' stroke-opacity='.34' stroke-width='1'/%3E%3Ccircle cx='66' cy='10' r='1.7' fill='%2523fb923c' fill-opacity='.45'/%3E%3Ccircle cx='146' cy='12' r='1.5' fill='%2523c2410c' fill-opacity='.40'/%3E%3Ccircle cx='226' cy='10' r='1.8' fill='%2523fb923c' fill-opacity='.45'/%3E%3Ccircle cx='306' cy='12' r='1.4' fill='%2523c2410c' fill-opacity='.40'/%3E%3C/svg%3E") repeat-x 0 0/320px 88px;
+  -webkit-mask-image:linear-gradient(to bottom,#000 34%,transparent 100%);
+  mask-image:linear-gradient(to bottom,#000 34%,transparent 100%)}
+/* Confetti, thrown rather than sprinkled: rectangles at odd angles, stars and
+   dots, at three depths of opacity so the field has some grain instead of
+   reading as one wallpaper. */
+html[data-theme="tavalod"]::after{
+  inset:0;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240' viewBox='0 0 240 240'%3E%3Cg fill='%2523c2410c'%3E%3Crect x='26' y='34' width='7' height='3' rx='1' transform='rotate(-18 26 34)' fill-opacity='.55'/%3E%3Crect x='150' y='26' width='8' height='3' rx='1' transform='rotate(24 150 26)' fill-opacity='.45'/%3E%3Crect x='86' y='122' width='7' height='3' rx='1' transform='rotate(42 86 122)' fill-opacity='.50'/%3E%3Crect x='196' y='158' width='8' height='3' rx='1' transform='rotate(-34 196 158)' fill-opacity='.40'/%3E%3Crect x='44' y='206' width='7' height='3' rx='1' transform='rotate(12 44 206)' fill-opacity='.35'/%3E%3C/g%3E%3Cg fill='%2523fb923c'%3E%3Crect x='122' y='62' width='8' height='3' rx='1' transform='rotate(28 122 62)' fill-opacity='.60'/%3E%3Crect x='18' y='146' width='7' height='3' rx='1' transform='rotate(-26 18 146)' fill-opacity='.50'/%3E%3Crect x='172' y='196' width='8' height='3' rx='1' transform='rotate(8 172 196)' fill-opacity='.45'/%3E%3Crect x='206' y='88' width='7' height='3' rx='1' transform='rotate(-14 206 88)' fill-opacity='.55'/%3E%3C/g%3E%3Cg fill='%2523ea580c'%3E%3Ccircle cx='62' cy='78' r='2' fill-opacity='.55'/%3E%3Ccircle cx='184' cy='50' r='1.6' fill-opacity='.50'/%3E%3Ccircle cx='120' cy='180' r='2.2' fill-opacity='.45'/%3E%3Ccircle cx='30' cy='112' r='1.4' fill-opacity='.40'/%3E%3Ccircle cx='214' cy='132' r='1.8' fill-opacity='.45'/%3E%3C/g%3E%3Cg fill='%2523c2410c'%3E%3Cpolygon points='104,24 107,19 110,24 107,29' fill-opacity='.40'/%3E%3Cpolygon points='158,118 161,113 164,118 161,123' fill-opacity='.34'/%3E%3Cpolygon points='72,172 75,167 78,172 75,177' fill-opacity='.32'/%3E%3C/g%3E%3C/svg%3E") repeat 0 0/240px 240px;
+  animation:worldConfettiGlow 7.5s ease-in-out infinite alternate}
+@keyframes worldConfettiGlow{from{opacity:.22;transform:translate3d(0,0,0)}to{opacity:.72;transform:translate3d(0,-14px,0)}}
+html[data-theme="tavalod"] :is(.frog-hero,.progress-card,.world-card){
+  border-color:color-mix(in srgb,var(--color-accent) 35%,var(--color-border));
+  box-shadow:0 0 16px -4px rgba(194,65,12,.15),var(--shadow-1)}
+html[data-theme="tavalod"][data-mode="dark"] body{
+  background-image:
+    radial-gradient(58% 32% at 12% -6%,rgba(251,146,60,.20) 0,transparent 70%),
+    radial-gradient(52% 30% at 90% -10%,rgba(253,186,116,.14) 0,transparent 72%),
+    radial-gradient(70% 40% at 50% 106%,rgba(244,114,182,.08) 0,transparent 70%)}
+html[data-theme="tavalod"][data-mode="dark"] :is(.frog-hero,.progress-card,.world-card){
+  box-shadow:0 0 18px -4px rgba(251,146,60,.22),var(--shadow-1)}
 
 /* ── Calm ── */
 @media (prefers-reduced-motion:reduce){
@@ -169,7 +205,8 @@ html[data-theme="simorgh"] :is(.frog-hero,.progress-card,.world-card){
   html[data-theme="fazanavard"]::after,html[data-theme="daryanavard"]::before,
   html[data-theme="negarkhane"]::after,html[data-theme="qollenavard"]::after,
   html[data-theme="kimiyagar"]::after,html[data-theme="rasadkhane"]::before,
-  html[data-theme="rasadkhane"]::after,html[data-theme="simorgh"]::after{animation:none}
+  html[data-theme="rasadkhane"]::after,html[data-theme="simorgh"]::after,
+  html[data-theme="tavalod"]::after{animation:none}
 }
 html[data-motion="reduced"][data-theme="shabgard"]::after{display:none}
 html[data-motion="reduced"][data-theme="fazanavard"]::after,
@@ -179,7 +216,8 @@ html[data-motion="reduced"][data-theme="qollenavard"]::after,
 html[data-motion="reduced"][data-theme="kimiyagar"]::after,
 html[data-motion="reduced"][data-theme="rasadkhane"]::before,
 html[data-motion="reduced"][data-theme="rasadkhane"]::after,
-html[data-motion="reduced"][data-theme="simorgh"]::after{animation:none}
+html[data-motion="reduced"][data-theme="simorgh"]::after,
+html[data-motion="reduced"][data-theme="tavalod"]::after{animation:none}
 html.tab-hidden::before,html.tab-hidden::after{animation-play-state:paused!important}
 
 /* ═══ The world card on Today ═══
@@ -302,12 +340,123 @@ html.tab-hidden::before,html.tab-hidden::after{animation-play-state:paused!impor
 .wc-simorgh-count{font-family:var(--font-personality);font-size:18px;font-weight:700;fill:var(--color-accent-text)}
 .wc-simorgh-label{font-size:9.5px;fill:var(--color-text-secondary);font-family:var(--font-ui)}
 
+/* تولد */
+/* The scene: a garland above, balloons behind, the cake in front. It is
+   arrangement rather than more colour — every mark is drawn from the theme's own
+   tokens at low weight, so the cake stays the thing the eye lands on. Each piece
+   is a small SVG inside the card instead of a full-screen layer, which keeps the
+   decorations with the birthday world and lets them leave with it. */
+.wc-bday-scene{display:grid;justify-items:center;gap:8px;margin-block-start:2px}
+.wc-bday-garland{inline-size:100%;max-inline-size:320px;overflow:visible;margin-block-start:-6px}
+.wc-garland-string{fill:none;stroke:var(--color-border-strong);stroke-width:1.2;stroke-linecap:round}
+.wc-flag{fill:var(--color-accent-soft);stroke:var(--color-accent);stroke-width:.9;stroke-linejoin:round;
+  transform-box:fill-box;transform-origin:50% 0;animation:wcFlagSway 4.2s ease-in-out infinite alternate}
+.wc-flag.is-alt{fill:var(--tape);stroke:var(--color-accent-strong)}
+.wc-garland-flags polygon:nth-child(2n){animation-delay:-1.4s}
+.wc-garland-flags polygon:nth-child(3n){animation-delay:-2.6s}
+@keyframes wcFlagSway{from{transform:rotate(-2.5deg)}to{transform:rotate(2.5deg)}}
+
+.wc-bday-stage{position:relative;display:grid;place-items:center;inline-size:100%;padding-block-start:38px}
+.wc-balloons{position:absolute;inset-block-start:-4px;inset-inline:0;margin-inline:auto;
+  inline-size:min(118%,360px);z-index:0;opacity:.92;pointer-events:none}
+.wc-balloon{transform-box:fill-box;transform-origin:50% 90%;animation:wcBalloonFloat 5.4s ease-in-out infinite alternate}
+.wc-balloon.b2{animation-delay:-1.1s}
+.wc-balloon.b3{animation-delay:-2.2s}
+.wc-balloon.b4{animation-delay:-3.3s}
+.wc-balloon.b5{animation-delay:-4.4s}
+@keyframes wcBalloonFloat{from{transform:translateY(0) rotate(-1.6deg)}to{transform:translateY(-7px) rotate(1.6deg)}}
+.wc-balloon-body{fill:var(--color-accent-soft);stroke:var(--color-accent);stroke-width:1.1}
+.wc-balloon.is-alt .wc-balloon-body{fill:var(--tape)}
+.wc-balloon-shine{fill:var(--color-surface);opacity:.55}
+.wc-balloon-knot{fill:var(--color-accent)}
+.wc-balloon-string{fill:none;stroke:var(--color-border-strong);stroke-width:.9;stroke-linecap:round}
+
+.wc-cake{width:100%;max-width:194px;justify-self:center;overflow:visible;cursor:pointer;position:relative;z-index:1;margin-block-start:-6px}
+.wc-cake-halo{fill:var(--color-accent-soft);opacity:.45}
+.wc-sprinkles rect{fill:var(--color-accent-strong);opacity:.5}
+.wc-cake:focus-visible{outline:2px solid var(--color-focus);outline-offset:4px;border-radius:var(--radius-md)}
+.wc-cake-plate{fill:var(--color-surface-elevated);stroke:var(--color-border-strong);stroke-width:1.5}
+.wc-cake-stand{fill:var(--color-border-strong)}
+.wc-cake-tier{fill:var(--color-surface-elevated);stroke:var(--color-accent);stroke-width:1.8}
+.wc-cake-icing{fill:var(--tape);stroke:var(--color-accent);stroke-width:1.2}
+.wc-cake-pearl{fill:var(--color-accent)}
+.wc-candle-stick{fill:var(--color-accent-soft);stroke:var(--color-accent);stroke-width:1}
+.wc-candle-wick{stroke:var(--color-text-primary);stroke-width:1.2;stroke-linecap:round}
+.wc-flame-outer{fill:var(--color-accent)}
+.wc-flame-inner{fill:var(--tape)}
+.wc-flame{transform-box:fill-box;transform-origin:50% 100%;animation:wcFlameFlicker .6s ease-in-out infinite alternate}
+@keyframes wcFlameFlicker{
+  0%,100%{transform:scale(1) rotate(-2deg)}
+  50%{transform:scale(1.12,.92) rotate(2deg)}
+}
+.wc-cake.is-blown .wc-flame-group{display:none}
+.wc-cake.is-lit .wc-smoke-group{display:none}
+.wc-smoke{fill:none;stroke:var(--color-text-secondary);stroke-width:1.4;stroke-linecap:round;stroke-dasharray:3 2;animation:wcSmokeRise 1.6s ease-out forwards}
+@keyframes wcSmokeRise{
+  0%{opacity:.85;transform:translateY(0) scale(.8)}
+  100%{opacity:0;transform:translateY(-12px) scale(1.4)}
+}
+.wc-sparkle{fill:var(--color-accent);animation:wcSparkle 2.2s ease-in-out infinite alternate;transform-origin:center}
+.wc-sparkle-dot{fill:var(--tape);animation:wcSparkle 1.8s ease-in-out infinite alternate}
+@keyframes wcSparkle{
+  0%{opacity:.35;transform:scale(.85)}
+  100%{opacity:.95;transform:scale(1.15)}
+}
+.wc-bday-blow-btn{background:linear-gradient(135deg,var(--color-accent),var(--color-accent-strong));
+  box-shadow:0 8px 20px -10px var(--color-accent);animation:wcPulse 2s ease-in-out infinite alternate}
+@keyframes wcPulse{
+  from{transform:scale(1)}
+  to{transform:scale(1.025)}
+}
+.wc-bday-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(84px,1fr));gap:8px;inline-size:100%;margin-block-start:2px}
+.wc-bday-pill{display:grid;justify-items:center;gap:1px;padding:8px 8px 7px;border-radius:var(--radius-md);
+  background:color-mix(in srgb,var(--color-accent-soft) 62%,var(--color-surface));
+  border:1px solid var(--color-border);text-align:center}
+.wc-bday-pill b{font-family:var(--font-personality);font-size:16px;font-weight:700;line-height:1.4;color:var(--color-accent-text)}
+.wc-bday-pill small{font-size:10.5px;line-height:1.6;color:var(--color-text-secondary)}
+.wc-bday-today{display:flex;align-items:center;justify-content:center;gap:6px;margin:0;padding:7px 14px;border-radius:var(--radius-pill);
+  background:linear-gradient(120deg,var(--color-accent-soft),var(--tape));color:var(--color-accent-strong);
+  font-family:var(--font-ui);font-size:12.5px;font-weight:700}
+.wc-bday-today .ico{inline-size:18px;block-size:18px}
+.wc-wish-box{margin-block-start:6px;padding:10px 12px;border-radius:var(--radius-md);background:var(--color-surface-elevated);border:1px dashed var(--color-border-strong);display:grid;gap:6px}
+.wc-wish-box.is-empty{border-style:dotted;padding:6px 10px}
+.wc-wish-header{display:flex;align-items:center;justify-content:space-between}
+.wc-wish-title{font-size:12px;font-weight:700;color:var(--color-accent-text);font-family:var(--font-personality)}
+.wc-wish-edit-btn{background:transparent;border:none;font-size:11.5px;color:var(--color-text-secondary);cursor:pointer;padding:2px 6px;text-decoration:underline;text-underline-offset:3px}
+.wc-wish-edit-btn:hover{color:var(--color-accent-text)}
+.wc-wish-text{margin:0;font-size:13px;line-height:1.6;color:var(--color-text-primary);font-family:var(--font-ui);font-style:italic}
+.wc-wish-prompt{width:100%;padding:8px;border:none;background:transparent;color:var(--color-text-secondary);font-size:12.5px;cursor:pointer;text-align:center;font-family:var(--font-ui)}
+.wc-wish-prompt:hover{color:var(--color-accent-text)}
+.wc-wish-prompt:hover{color:var(--color-accent-text)}
+.wc-wish-form{display:grid;gap:6px}
+.wc-wish-label{font-size:12px;font-weight:700;color:var(--color-text-primary)}
+.wc-wish-input{width:100%;box-sizing:border-box;padding:8px 10px;border-radius:var(--radius-sm);border:1px solid var(--color-border-strong);background:var(--color-surface);color:var(--color-text-primary);font-family:var(--font-ui);font-size:13px;resize:vertical;min-height:54px}
+.wc-wish-input:focus{outline:2px solid var(--color-focus);outline-offset:1px}
+.wc-wish-btns{display:flex;gap:8px;justify-content:flex-end}
+
+/* On a wide sheet the same scene has room to breathe: the cake and the balloons
+   keep their proportions to each other, and the three numbers line up as one
+   row of cards instead of stretching across the whole page. */
+@media (min-width:720px){
+  .wc-bday-garland{max-inline-size:420px}
+  .wc-cake{max-inline-size:230px}
+  .wc-balloons{inline-size:min(58%,430px)}
+  .wc-bday-stats{max-inline-size:480px;margin-inline:auto;grid-template-columns:none;
+    grid-auto-flow:column;grid-auto-columns:1fr}
+  .wc-bday-pill b{font-size:18px}
+  .wc-bday-pill small{font-size:11.5px}
+}
+
 @media (prefers-reduced-motion:reduce){
   .wc-shape,.wc-plant>*,.wc-plant.stage-4 .wc-bloom,
   .wc-mini-mountains,.wc-mini-tree,.wc-mini-cloud,.wc-mini-bird,.wc-mini-sun,
-  .wc-climber,.wc-bubble,.wc-vapor,.wc-const-today{animation:none}
+  .wc-climber,.wc-bubble,.wc-vapor,.wc-const-today,
+  .wc-flame,.wc-smoke,.wc-sparkle,.wc-sparkle-dot,.wc-bday-blow-btn,
+  .wc-flag,.wc-balloon{animation:none}
   .wc-ship,.wc-orbit-fg,.wc-btn,.wc-step,.wc-summit-done,.wc-flask-liquid{transition:none}
 }
 html[data-motion="reduced"] :is(.wc-shape,.wc-plant>*,.wc-plant.stage-4 .wc-bloom,
   .wc-mini-mountains,.wc-mini-tree,.wc-mini-cloud,.wc-mini-bird,.wc-mini-sun,
-  .wc-climber,.wc-bubble,.wc-vapor,.wc-const-today){animation:none}
+  .wc-climber,.wc-bubble,.wc-vapor,.wc-const-today,
+  .wc-flame,.wc-smoke,.wc-sparkle,.wc-sparkle-dot,.wc-bday-blow-btn,
+  .wc-flag,.wc-balloon){animation:none}

@@ -2,6 +2,8 @@
    Inputs are the ledger's days (collectTotals().days: { key, done, focusMin, … }
    sorted by date) and today's key; nothing here reads the clock or the page. */
 import { shiftKey } from './utils.js';
+import { dateToJalali, jalaliToDate } from './jalali.js';
+import { effectiveBirthdayDay, birthdayKey, birthdayAge, normalizeBirthday, nextBirthdayCountdown } from './birthday.js';
 
 /* Persian weekday initials, indexed by Date#getDay() (0 = Sunday). */
 export const WEEKDAY_LETTER = ['ی', 'د', 'س', 'چ', 'پ', 'ج', 'ش'];
@@ -117,3 +119,148 @@ export function simorghActiveDays(days, today) {
   const recent = lastDays(days, today, 30);
   return recent.filter(d => (d.done > 0 || d.focusMin > 0)).length;
 }
+
+/* «جشن تولد»: birthday calculations and state */
+export function birthdayMatch(date, stored) {
+  const d = date instanceof Date ? date : new Date(date);
+  if (isNaN(d.getTime())) return false;
+  return Boolean(birthdayKey(d, stored));
+}
+
+export function daysLived(date, stored) {
+  const b = normalizeBirthday(stored);
+  if (!b || b.y === null || b.y === undefined) return null;
+  const d = date instanceof Date ? date : new Date(date);
+  if (isNaN(d.getTime())) return null;
+  /* The day the birth year actually had. 30 Esfand of a common year is the
+     29th, and jalaliToDate would silently roll the missing 30th into 1
+     Farvardin of the next year, ageing the count by a day for exactly the
+     readers whose birthday the calendar does not always have. */
+  const birthDate = jalaliToDate(b.y, b.m, effectiveBirthdayDay(b, b.y));
+  if (!birthDate) return null;
+  const bMid = new Date(birthDate.getFullYear(), birthDate.getMonth(), birthDate.getDate()).getTime();
+  const dMid = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  if (dMid < bMid) return 0;
+  return Math.round((dMid - bMid) / 86400000);
+}
+
+export function currentAge(date, stored) {
+  const b = normalizeBirthday(stored);
+  if (!b || b.y === null || b.y === undefined) return null;
+  const d = date instanceof Date ? date : new Date(date);
+  if (isNaN(d.getTime())) return null;
+  const j = dateToJalali(d);
+  if (!j) return null;
+
+  const effD = effectiveBirthdayDay(b, j.jy);
+  const hasHadBirthdayThisYear = (j.jm > b.m) || (j.jm === b.m && j.jd >= effD);
+  const age = (j.jy - b.y) - (hasHadBirthdayThisYear ? 0 : 1);
+  return age >= 0 ? age : 0;
+}
+
+export { nextBirthdayCountdown };
+
+export function birthdayWorldState({
+  date = new Date(),
+  stored = null,
+  candleDate = '',
+  todayKey = '',
+  wishes = {},
+} = {}) {
+  const d = date instanceof Date ? date : new Date(date);
+  const b = normalizeBirthday(stored);
+  const hasBirthday = Boolean(b);
+  const isMatch = hasBirthday ? birthdayMatch(d, b) : false;
+  const age = hasBirthday ? currentAge(d, b) : null;
+  const lived = hasBirthday ? daysLived(d, b) : null;
+  const countdown = hasBirthday ? nextBirthdayCountdown(d, b) : null;
+
+  const resolvedTodayKey = todayKey || `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const candleBlown = Boolean(candleDate && candleDate === resolvedTodayKey);
+
+  const j = dateToJalali(d);
+  const currentJY = j ? j.jy : 1404;
+  const currentWish = wishes && typeof wishes === 'object' ? (wishes[currentJY] || wishes[String(currentJY)] || '') : '';
+
+  return {
+    hasBirthday,
+    isBirthdayToday: isMatch,
+    age,
+    daysLived: lived,
+    daysUntil: countdown,
+    candleBlown,
+    currentYear: currentJY,
+    wish: currentWish,
+    wishes: wishes || {},
+  };
+}
+
+export const WORLDS_DATA = {
+  shabgard: {
+    id: 'shabgard',
+    title: 'گشت شبانه',
+    subtitle: 'کارهای نیمه‌کارهٔ روز برای فردا',
+    icon: 'moon',
+  },
+  tarnama: {
+    id: 'tarnama',
+    title: 'تار هفته',
+    subtitle: 'نمودار کارهای هفت روز اخیر',
+    icon: 'web',
+  },
+  fazanavard: {
+    id: 'fazanavard',
+    title: 'دفتر پرواز',
+    subtitle: 'ساعت‌های تمرکز و مدار روز',
+    icon: 'rocket',
+  },
+  baghche: {
+    id: 'baghche',
+    title: 'گلدان امروز',
+    subtitle: 'رشد گیاه با انجام کارهای روز',
+    icon: 'plant',
+  },
+  daryanavard: {
+    id: 'daryanavard',
+    title: 'کشتیِ هفته',
+    subtitle: 'پیشروی به سوی هدف هفتگی',
+    icon: 'ship',
+  },
+  negarkhane: {
+    id: 'negarkhane',
+    title: 'مرقعِ نگارگری',
+    subtitle: 'نقش‌های نگارگری با کار و مطالعه',
+    icon: 'brush',
+  },
+  qollenavard: {
+    id: 'qollenavard',
+    title: 'مسیر صعود دماوند',
+    subtitle: 'ارتفاع صعود بر اساس روزهای فعال هفته',
+    icon: 'mountain',
+  },
+  kimiyagar: {
+    id: 'kimiyagar',
+    title: 'اکسیرِ روزانه',
+    subtitle: 'ترکیب کار، تمرکز و جان',
+    icon: 'flask',
+  },
+  rasadkhane: {
+    id: 'rasadkhane',
+    title: 'صورت فلکیِ هفته',
+    subtitle: 'هفت‌اورنگ روزهای فعال هفته',
+    icon: 'telescope',
+  },
+  simorgh: {
+    id: 'simorgh',
+    title: 'سی مرغِ قاف',
+    subtitle: 'سی روز فعال در مسیر کوه قاف',
+    icon: 'feather',
+  },
+  tavalod: {
+    id: 'tavalod',
+    title: 'جشن تولد',
+    subtitle: 'کیک تولد و آرزوی سال نوِ زندگی',
+    icon: 'cake',
+    computeState: birthdayWorldState,
+  },
+};

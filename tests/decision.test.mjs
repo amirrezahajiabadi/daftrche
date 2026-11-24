@@ -6,6 +6,8 @@ import assert from 'node:assert/strict';
 import {
   deadlineScore, priorityScore, energyFitScore, criticalBonus, energyFromMood,
   getRecommendation, reasonForTask, ALL_DONE_REASON, SINGLE_TASK_REASON,
+  TIME_WINDOW_ACTIVE_BOOST, TIME_WINDOW_APPROACHING_BOOST, TIME_COLLISION_PENALTY,
+  REASON_ACTIVE_WINDOW, REASON_APPROACHING_WINDOW, REASON_FITS_GAP, resolveNowMinutes,
 } from '../js/decision.js';
 
 const TODAY = new Date(2026, 8, 30);            // 2026-09-30
@@ -162,4 +164,120 @@ test('reasonForTask gives a human sentence, never a number', () => {
   const s = reasonForTask(t('x', { dueDate: '2026-09-20' }), { today: TODAY });
   assert.equal(typeof s, 'string');
   assert.equal(/\d/.test(s), false);
+});
+
+/* ── Time-window scheduling & commitment integration ── */
+
+test('task inside active timeFrom/timeTo window gets boosted and natural reason', () => {
+  // At 14:15 (855 min), 'scheduled' is inside 14:00–15:00 (840–900).
+  // 'unscheduled' is high priority due today: 45 + 30 + 10 = 85.
+  // 'scheduled' is mid priority due today: 45 + 20 + 40 (boost) = 105.
+  const tasks = [
+    t('unscheduled', { p: 'high', dueDate: K }),
+    t('scheduled', { p: 'mid', dueDate: K, timeFrom: 14 * 60, timeTo: 15 * 60 }),
+  ];
+  const r = getRecommendation({ tasks, today: TODAY, now: 14 * 60 + 15 });
+  assert.equal(r.primary.id, 'scheduled');
+  assert.equal(r.reason, REASON_ACTIVE_WINDOW);
+  assert.equal(/\d/.test(r.reason), false);
+});
+
+test('task approaching timeFrom (within 15 min) gets boosted', () => {
+  // At 13:50 (830 min), 'soon' (starts at 14:00 = 840) is within 15 min.
+  // Both are mid priority due today. 'soon' gets +30 approaching boost.
+  const tasks = [
+    t('regular', { p: 'mid', dueDate: K }),
+    t('soon', { p: 'mid', dueDate: K, timeFrom: 14 * 60, timeTo: 15 * 60 }),
+  ];
+  const r = getRecommendation({ tasks, today: TODAY, now: 13 * 60 + 50 });
+  assert.equal(r.primary.id, 'soon');
+  assert.equal(r.reason, REASON_APPROACHING_WINDOW);
+  assert.equal(/\d/.test(r.reason), false);
+});
+
+test('task whose scheduled window has already passed does not get boosted', () => {
+  // At 15:30, task scheduled 14:00–15:00 has expired window.
+  // Fresh high-priority task outranks it.
+  const tasks = [
+    t('passed', { p: 'mid', dueDate: K, timeFrom: 14 * 60, timeTo: 15 * 60 }),
+    t('urgent', { p: 'high', dueDate: K }),
+  ];
+  const r = getRecommendation({ tasks, today: TODAY, now: 15 * 60 + 30 });
+  assert.equal(r.primary.id, 'urgent');
+});
+
+test('scheduled task for tomorrow does not receive active boost today even at same clock time', () => {
+  const tasks = [
+    t('tomorrow', { p: 'mid', dueDate: '2026-10-01', timeFrom: 14 * 60, timeTo: 15 * 60 }),
+    t('todayTask', { p: 'mid', dueDate: K }),
+  ];
+  const r = getRecommendation({ tasks, today: TODAY, now: 14 * 60 + 15 });
+  assert.equal(r.primary.id, 'todayTask');
+});
+
+test('long unscheduled task gets penalized when a scheduled task starts soon', () => {
+  // At 14:40 (880 min), meeting starts in 20 min at 15:00 (900 min).
+  // Long task needs 90 min (> 20 min gap) → receives -25 collision penalty.
+  // Short task needs 15 min (<= 20 min gap) → fits gap without penalty.
+  const tasks = [
+    t('meeting', { dueDate: K, timeFrom: 15 * 60, timeTo: 16 * 60 }),
+    t('long', { dueDate: K, p: 'high', durationMin: 90 }),
+    t('short', { dueDate: K, p: 'mid', durationMin: 15 }),
+  ];
+  const r = getRecommendation({ tasks, today: TODAY, now: 14 * 60 + 40 });
+  assert.equal(r.primary.id, 'short');
+  assert.equal(r.reason, REASON_FITS_GAP);
+  assert.equal(/\d/.test(r.reason), false);
+});
+
+test('short unscheduled task fits the gap and is not penalized', () => {
+  // Long task (duration 60) vs short task (duration 10) before a 20-min gap.
+  // Both mid priority. Short task has no penalty and wins easily.
+  const tasks = [
+    t('event', { dueDate: K, timeFrom: 10 * 60, timeTo: 11 * 60 }),
+    t('short', { dueDate: K, p: 'mid', durationMin: 10 }),
+    t('long', { dueDate: K, p: 'mid', durationMin: 60 }),
+  ];
+  const r = getRecommendation({ tasks, today: TODAY, now: 9 * 60 + 40 }); // 20 min gap
+  assert.equal(r.primary.id, 'short');
+  assert.equal(r.reason, REASON_FITS_GAP);
+});
+
+test('missing, null, or malformed timeFrom/timeTo values do not crash ranking', () => {
+  const malformedTasks = [
+    t('bad1', { timeFrom: null, timeTo: null }),
+    t('bad2', { timeFrom: 'garbage', timeTo: -5 }),
+    t('bad3', { timeFrom: 1200, timeTo: 1000 }), // to < from
+    t('bad4', { timeFrom: 9999, timeTo: null }),
+    t('bad5', { timeFrom: undefined, timeTo: undefined }),
+    t('good', { p: 'high', dueDate: K }),
+  ];
+  for (const badNow of [null, undefined, -1, 2000, 'now', new Date('invalid')]) {
+    const r = getRecommendation({ tasks: malformedTasks, today: TODAY, now: badNow });
+    assert.equal(r.state, 'ok');
+    assert.equal(r.primary.id, 'good');
+  }
+});
+
+test('reasonForTask reflects active and approaching time window', () => {
+  const activeTask = t('active', { dueDate: K, timeFrom: 12 * 60, timeTo: 13 * 60 });
+  const reasonActive = reasonForTask(activeTask, { today: TODAY, now: 12 * 60 + 30 });
+  assert.equal(reasonActive, REASON_ACTIVE_WINDOW);
+
+  const approachingTask = t('soon', { dueDate: K, timeFrom: 12 * 60, timeTo: 13 * 60 });
+  const reasonApproaching = reasonForTask(approachingTask, { today: TODAY, now: 11 * 60 + 50 });
+  assert.equal(reasonApproaching, REASON_APPROACHING_WINDOW);
+});
+
+test('resolveNowMinutes safely extracts minutes from numbers and Dates', () => {
+  assert.equal(resolveNowMinutes(840, TODAY), 840);
+  assert.equal(resolveNowMinutes(0, TODAY), 0);
+  assert.equal(resolveNowMinutes(1439, TODAY), 1439);
+  assert.equal(resolveNowMinutes(-1, TODAY), null);
+  assert.equal(resolveNowMinutes(1440, TODAY), null);
+
+  const d = new Date(2026, 8, 30, 15, 45);
+  assert.equal(resolveNowMinutes(d, null), 15 * 60 + 45);
+  assert.equal(resolveNowMinutes(null, d), 15 * 60 + 45);
+  assert.equal(resolveNowMinutes(null, null), null);
 });

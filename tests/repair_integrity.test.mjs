@@ -103,7 +103,7 @@ test('DayCache invalidation: invalidateDayCache() without arguments invalidates 
   invalidateAllBuckets();
   const today = new Date();
   state.tasks = [
-    { id: 'dc-1', text: 'کار روزانه', done: true, doneAt: Date.now(), dueDate: '2026-11-09' },
+    { id: 'dc-1', text: 'کار روزانه', done: true, doneAt: new Date('2026-11-09T10:00:00').getTime(), dueDate: '2026-11-09' },
   ];
 
   const bucket1 = getDayBucket('2026-11-09', today);

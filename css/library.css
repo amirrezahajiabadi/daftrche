@@ -10,7 +10,7 @@
   .r-back:hover{transform:translateY(-1px)}
   .goal-chip:hover{color:var(--accent-text);background:var(--accent-soft)}
   .subribbon-clear:hover{background:color-mix(in srgb,var(--color-danger) 18%,var(--surface))}
-  .shelf-sort-select:hover{border-color:var(--accent)}
+  .shelf-sort-wrap .sm-btn:hover{border-color:var(--accent)}
 }
 
 /* ═══ Library: Single Notebook Summary Strip (#libraryStatsBar) ═══ */
@@ -47,13 +47,18 @@
 .shelf-search-clear:hover{color:var(--text);background:var(--accent-soft)}
 
 .shelf-sort-wrap{flex-shrink:0;display:flex;align-items:center;border-inline-start:1px dashed var(--border);padding-inline-start:6px}
-.shelf-sort-select{border:1px solid transparent;background:color-mix(in srgb,var(--surface) 80%,var(--bg));color:var(--text);font-family:var(--font-ui);font-size:12.5px;font-weight:600;padding:4px 8px;border-radius:var(--radius-pill);outline:none;cursor:pointer;transition:border-color var(--duration-fast),background var(--duration-fast);height:32px;line-height:1.4}
-.shelf-sort-select:focus{border-color:var(--accent);background:var(--surface)}
+/* The sort order sits inside the search bar's own pill, so it wears the bar's
+   quiet border rather than drawing a second one: the pill (.sm-btn) comes from
+   css/components.css, and here it only takes the bar's tone. */
+.shelf-sort-wrap .sm{min-width:0}
+.shelf-sort-wrap .sm-btn{height:32px;padding-inline:9px 7px;border-color:transparent;background:color-mix(in srgb,var(--surface) 80%,var(--bg));font-weight:600}
+@media (hover:hover){.shelf-sort-wrap .sm-btn:hover{background:var(--surface)}}
 @media (max-width:380px){
   .shelf-bar{flex-wrap:wrap;padding:6px 10px;border-radius:var(--radius-lg)}
   .shelf-search-input{min-width:130px}
   .shelf-sort-wrap{width:100%;justify-content:flex-end;margin-top:2px;border-inline-start:none;border-block-start:1px dashed var(--border);padding-top:4px}
-  .shelf-sort-select{width:100%;font-size:13px;padding:6px 10px}
+  .shelf-sort-wrap .sm{width:100%}
+  .shelf-sort-wrap .sm-btn{width:100%;justify-content:space-between;font-size:13px;padding:6px 10px}
 }
 
 .shelf-filter-chips{display:flex;gap:6px;flex-wrap:nowrap;align-items:center;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding:2px 1px}
@@ -119,7 +124,7 @@
 .shelf-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px}
 @media (min-width:768px){.shelf-grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:16px}}
 
-.book-card{contain:layout style;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px;box-shadow:var(--shadow-1);display:flex;flex-direction:column;gap:8px;transition:transform var(--duration-base),box-shadow var(--duration-base);animation:taskIn var(--duration-slow) var(--ease-out) backwards;overflow:hidden;box-sizing:border-box}
+.book-card{contain:layout style;content-visibility:auto;contain-intrinsic-size:150px 240px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px;box-shadow:var(--shadow-1);display:flex;flex-direction:column;gap:8px;transition:transform var(--duration-base),box-shadow var(--duration-base);animation:taskIn var(--duration-slow) var(--ease-out) backwards;overflow:hidden;box-sizing:border-box}
 @media (hover:hover){
   .book-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg)}
   .book-card:hover .book-cover img{transform:scale(1.03)}
@@ -338,7 +343,7 @@ html[data-mode="dark"] #hlBar{
 /* Tool buttons: structured 36px x 36px with 8px radius */
 .r-tool-btn{border:1px solid transparent;background:transparent;color:var(--color-text-primary);width:36px;height:36px;min-width:36px;padding:0;border-radius:var(--radius-xs);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;position:relative;transition:all var(--duration-fast);flex-shrink:0;touch-action:manipulation;box-sizing:border-box}
 .r-tool-btn::after{content:'';position:absolute;inset:-3px}
-.r-tool-btn:hover:not(:disabled){background:var(--color-surface-hover);color:var(--color-accent)}
+.r-tool-btn:hover:not(:disabled){background:var(--color-surface-elevated);color:var(--color-accent)}
 .r-tool-btn:active:not(:disabled){transform:scale(.92)}
 .r-tool-btn.on{background:var(--color-accent-soft);color:var(--color-accent);border-color:color-mix(in srgb,var(--color-accent) 40%,var(--color-border))}
 .r-tool-btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
@@ -364,14 +369,14 @@ html[data-mode="dark"] #hlBar{
 .r-nav-step{width:32px;min-width:32px;font-size:18px;color:var(--color-accent)}
 .dock-page{display:inline-flex;align-items:center;justify-content:center;gap:4px;min-width:60px;height:36px;border:1px solid var(--color-border-strong);background:var(--color-surface);color:var(--color-text-primary);font-family:var(--font-ui);font-size:12px;font-weight:600;padding:0 8px;border-radius:var(--radius-xs);cursor:pointer;position:relative;font-variant-numeric:tabular-nums;transition:all var(--duration-fast);flex-shrink:0;box-sizing:border-box}
 .dock-page::after{content:'';position:absolute;inset:-3px}
-.dock-page:hover:not(:disabled){background:var(--color-surface-hover);border-color:var(--color-accent)}
+.dock-page:hover:not(:disabled){background:var(--color-surface-elevated);border-color:var(--color-accent)}
 .dock-page.on{background:var(--color-accent-soft);color:var(--color-accent);border-color:color-mix(in srgb,var(--color-accent) 40%,var(--color-border))}
 .dock-page.is-read::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--color-success);flex-shrink:0}
 
 /* Stable Tactile Mark Read Button: fixed 36px icon button matching neighbors */
 .mark-read{border:1px solid var(--color-border-strong);background:var(--color-surface);color:var(--color-text-muted);width:36px;min-width:36px;height:36px;padding:0;border-radius:var(--radius-xs);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:all var(--duration-fast);position:relative;flex-shrink:0;box-sizing:border-box}
 .mark-read::after{content:'';position:absolute;inset:-3px}
-.mark-read:hover:not(:disabled){background:var(--color-surface-hover);color:var(--color-text-primary);border-color:var(--color-accent)}
+.mark-read:hover:not(:disabled){background:var(--color-surface-elevated);color:var(--color-text-primary);border-color:var(--color-accent)}
 .mark-read:active:not(:disabled){transform:scale(.94)}
 .mark-read.is-read{background:var(--color-success);color:var(--color-text-on-success);border-style:solid;border-color:var(--color-success);animation:markPop var(--duration-fast) var(--ease-out)}
 @keyframes markPop{0%{transform:scale(.88)}50%{transform:scale(1.1)}100%{transform:scale(1)}}
@@ -390,7 +395,7 @@ html[data-mode="dark"] #hlBar{
 .reader-island-meta{gap:4px;flex-shrink:0;padding-inline:6px}
 .reader-timer{display:inline-flex;align-items:center;justify-content:center;gap:5px;border:1px solid var(--color-border-strong);background:var(--color-surface);color:var(--color-text-muted);font-family:var(--font-ui);font-size:11.5px;font-weight:600;font-variant-numeric:tabular-nums;padding:0 10px;height:36px;border-radius:var(--radius-xs);cursor:pointer;flex-shrink:0;position:relative;transition:all var(--duration-fast);box-sizing:border-box}
 .reader-timer::after{content:'';position:absolute;inset:-4px}
-.reader-timer:hover{color:var(--color-accent);border-color:var(--color-accent);background:var(--color-surface-hover)}
+.reader-timer:hover{color:var(--color-accent);border-color:var(--color-accent);background:var(--color-surface-elevated)}
 .reader-timer.on{color:var(--color-accent);border-color:color-mix(in srgb,var(--color-accent) 40%,var(--color-border));background:var(--color-accent-soft)}
 
 /* Mode icons */
@@ -496,7 +501,7 @@ html[data-mode="dark"] #hlBar{
 .pen-width{display:grid;place-items:center;width:30px;height:30px;border:1px solid transparent;background:transparent;border-radius:var(--radius-xs);cursor:pointer;position:relative;transition:all var(--duration-fast)}
 .pen-width::after{content:'';position:absolute;inset:-6px;border-radius:var(--radius-xs)}
 .pen-width i{display:block;border-radius:50%;background:currentColor;color:var(--color-text-muted);transition:color var(--duration-fast)}
-.pen-width:hover{background:var(--color-surface-hover)}
+.pen-width:hover{background:var(--color-surface-elevated)}
 .pen-width.on{background:var(--color-accent-soft);border-color:color-mix(in srgb,var(--color-accent) 30%,var(--color-border))}
 .pen-width.on i{color:var(--color-accent)}
 
@@ -757,7 +762,7 @@ html[data-mode="dark"] .reader-stage:not(.mode-light):not(.mode-sepia) #highligh
 .b-icon-btn:focus-visible,
 .b-ghost:focus-visible,
 .s-filter-chip:focus-visible,
-.shelf-sort-select:focus-visible,
+  .shelf-sort-wrap .sm-btn:focus-visible,
 .shelf-reset-btn:focus-visible,
 .shelf-search-clear:focus-visible,
 .r-back:focus-visible,

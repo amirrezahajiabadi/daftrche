@@ -76,7 +76,7 @@ export function computeInsights(now = Date.now()) {
   const windowStart = now - 6 * DAY_MS - (new Date(now).getHours() * 3600 + new Date(now).getMinutes() * 60 + new Date(now).getSeconds()) * 1000;
 
   const tasks = (Array.isArray(state.tasks) ? state.tasks : [])
-    .map(normalizeTask).filter(Boolean);
+    .map(normalizeTask).filter(t => t && !t.deletedAt);
 
   const created7 = tasks.filter(t => t.created !== null && t.created >= windowStart && t.created <= now);
   const done7 = tasks.filter(t => t.doneAt !== null && t.doneAt >= windowStart && t.doneAt <= now);

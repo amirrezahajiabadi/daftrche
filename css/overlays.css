@@ -1,4 +1,9 @@
-.overlay{position:fixed;inset:0;z-index:100;background:rgba(46,41,33,.35);backdrop-filter:blur(4px);display:grid;place-items:center;padding:20px;animation:fadeIn var(--duration-base) ease;overflow-y:auto;overscroll-behavior:contain;contain:layout style}
+/* The padding carries the system insets: a dialog on Android 15 is drawn under
+   the status and gesture bars, and a centered card must not slide beneath them
+   on a short screen. Where the system reserves that space the insets are 0. */
+.overlay{position:fixed;inset:0;z-index:100;background:rgba(46,41,33,.35);backdrop-filter:blur(4px);display:grid;place-items:center;
+  padding:max(20px, var(--sat)) max(20px, var(--sar)) max(20px, var(--sab)) max(20px, var(--sal));
+  animation:fadeIn var(--duration-base) ease;overflow-y:auto;overscroll-behavior:contain;contain:layout style}
 /* On a short viewport (landscape phone, keyboard open) the scrim becomes the
    scroll container so the panel stays reachable. Its own scrollbar would only
    add noise over the scrim and would shrink the panel mid-dialog, so it is
@@ -121,14 +126,27 @@ html[data-mode="dark"] .overlay{background:rgba(0,0,0,.5)}
 
    What is left here is what is genuinely the greeting's own: its width, its
    padding, the border-radius it has always had, and the entrance. */
-.bd-card{width:100%;max-width:360px;padding:30px 26px 24px;text-align:center;
-  border-radius:var(--radius-xl);
+.bd-card{width:100%;max-width:360px;padding:34px 26px 24px;text-align:center;
+  border-radius:var(--radius-xl);position:relative;
   animation:popCard var(--duration-base) var(--ease-out)}
+
+/* The garland, pinned edge to edge across the top. It is wider than the card's
+   content box on purpose: a garland that stops short of the paper's edges looks
+   like an illustration, and this one is meant to look hung. */
+.bd-garland{display:block;inline-size:calc(100% + 44px);max-inline-size:none;
+  margin:-14px -22px 0;overflow:visible}
+.bd-garland-string{fill:none;stroke:var(--color-border-strong);stroke-width:1.2;stroke-linecap:round}
+.bd-flag{fill:var(--accent-soft);stroke:var(--accent);stroke-width:.9;stroke-linejoin:round;
+  transform-box:fill-box;transform-origin:50% 0;animation:bdFlagSway 4.6s ease-in-out infinite alternate}
+.bd-flag.is-alt{fill:var(--tape);stroke:var(--color-accent-strong)}
+.bd-garland-flags polygon:nth-child(2n){animation-delay:-1.5s}
+.bd-garland-flags polygon:nth-child(3n){animation-delay:-2.9s}
+@keyframes bdFlagSway{from{transform:rotate(-2.4deg)}to{transform:rotate(2.4deg)}}
 
 .bd-char{display:block;width:76px;height:76px;margin:6px auto 0}
 .bd-char svg{width:100%;height:100%;filter:drop-shadow(0 8px 12px rgba(0,0,0,.14));animation:drift 6s ease-in-out infinite}
 .bd-kicker{display:inline-block;margin:12px 0 0;padding:5px 16px;border-radius:var(--radius-pill);
-  background:var(--accent-soft);color:var(--accent-strong);
+  background:var(--accent-soft);color:var(--color-accent-strong);
   font-family:var(--font-ui);font-size:12px;font-weight:700;line-height:1.6}
 .bd-title{margin:10px 0 6px;font-family:var(--font-personality);font-size:23px;font-weight:700;line-height:1.55}
 /* The name is the reader's own and it is written with textContent, never as
@@ -145,12 +163,25 @@ html[data-mode="dark"] .overlay{background:rgba(0,0,0,.5)}
    the eye has nothing to catch on. It is hidden, not blank, when there is no
    year to count from (js/birthday.js), so the card never shows an empty pill. */
 .bd-age{display:inline-block;margin:2px 0 0;padding:4px 14px;border-radius:var(--radius-pill);
-  background:var(--accent);color:var(--color-text-on-accent);
+  background:linear-gradient(135deg,var(--accent),var(--color-accent-strong));color:var(--color-text-on-accent);
+  box-shadow:0 6px 16px -10px var(--accent);
   font-family:var(--font-ui);font-size:13px;font-weight:700;line-height:1.7}
 .bd-age[hidden]{display:none}
 .bd-line{margin:12px 0 18px;color:var(--muted);font-size:13px;line-height:1.9;font-weight:400}
-.bd-card .go{margin-top:0;width:100%;border:none;background:var(--accent);color:var(--color-text-on-accent);  font-family:var(--font-ui);font-size:15px;font-weight:600;padding:12px;border-radius:var(--radius-sm);  cursor:pointer;transition:transform var(--duration-fast),box-shadow var(--duration-fast)}
+.bd-card .go{margin-top:0;width:100%;border:none;background:linear-gradient(135deg,var(--accent),var(--color-accent-strong));color:var(--color-text-on-accent);  box-shadow:0 10px 22px -12px var(--accent);  font-family:var(--font-ui);font-size:15px;font-weight:600;padding:12px;border-radius:var(--radius-sm);  cursor:pointer;transition:transform var(--duration-fast),box-shadow var(--duration-fast)}
 .bd-card .go:active{transform:scale(.97)}
+/* A warm halo behind the character and the cake, so the two sit in light rather
+   than on top of the paper. It is a radial wash of the accent at low weight — no
+   new colour, and no edge to notice. */
+.bd-visual{position:relative;display:flex;align-items:center;justify-content:center;gap:12px;margin-block-start:2px}
+.bd-visual::before{content:'';position:absolute;inset-block-start:-10px;inset-inline-start:50%;
+  inline-size:190px;block-size:120px;transform:translateX(-50%);border-radius:50%;
+  background:radial-gradient(closest-side,var(--accent-soft),transparent 74%);
+  pointer-events:none;z-index:0}
+.bd-visual>*{position:relative;z-index:1}
+.bd-cake-box{display:block;width:108px;height:72px;cursor:pointer}
+.bd-cake-box svg{width:100%;height:100%;overflow:visible;filter:drop-shadow(0 6px 12px rgba(0,0,0,.14))}
+.bd-actions{display:flex;flex-direction:column;gap:8px;margin-block-start:0;width:100%}
 
 /* Reduced motion: the character's idle drift is decoration and stops with
    everything else in the sheet. The card itself still appears — it is the
@@ -158,9 +189,11 @@ html[data-mode="dark"] .overlay{background:rgba(0,0,0,.5)}
 @media (prefers-reduced-motion:reduce){
   .bd-char svg{animation:none}
   .bd-card{animation:none}
+  .bd-cake-box svg{animation:none}
+  .bd-flag{animation:none}
 }
 /* Likewise while nobody is looking at the tab. */
-html.tab-hidden .bd-char svg{animation-play-state:paused}
+html.tab-hidden .bd-char svg,html.tab-hidden .bd-flag{animation-play-state:paused}
 
 @media (max-width:480px){
   .bd-card{padding:24px 18px 20px;border-radius:var(--radius-lg)}
@@ -168,6 +201,8 @@ html.tab-hidden .bd-char svg{animation-play-state:paused}
   .bd-line{font-size:12px}
   .bd-card .go{font-size:14px;padding:11px}
   .bd-char{width:64px;height:64px}
+  .bd-cake-box{width:90px;height:60px}
+  .bd-garland{margin:-12px -18px 0}
 }
 
 .roll-card{padding:28px 24px 22px}
@@ -198,7 +233,7 @@ html.tab-hidden .bd-char svg{animation-play-state:paused}
 .focus-presets input{width:64px;font-family:var(--font-ui);font-size:12px;font-weight:500;text-align:center;border:1.5px dashed var(--border);background:transparent;color:var(--text);border-radius:var(--radius-pill);padding:5px 6px;outline:none;transition:border-color var(--duration-fast)}
 .focus-presets input:focus{border-color:var(--accent)}
 
-.focus-pill{position:fixed;bottom:max(24px,calc(var(--nav-height) + env(safe-area-inset-bottom,0px) + 12px));inset-inline-start:calc(50% + (var(--rail-offset, 0px) / 2));transform:translateX(50%);z-index:99;display:flex;align-items:center;gap:8px;background:var(--surface);border:1.5px solid var(--accent);color:var(--text);font-family:var(--font-ui);font-weight:600;font-size:13px;padding:10px 18px;border-radius:var(--radius-pill);box-shadow:var(--shadow-lg);cursor:pointer;animation:pillIn var(--duration-base) var(--ease-out)}
+.focus-pill{position:fixed;bottom:max(24px,calc(var(--nav-height) + var(--sab) + 12px));inset-inline-start:calc(50% + (var(--rail-offset, 0px) / 2));transform:translateX(50%);z-index:99;display:flex;align-items:center;gap:8px;background:var(--surface);border:1.5px solid var(--accent);color:var(--text);font-family:var(--font-ui);font-weight:600;font-size:13px;padding:10px 18px;border-radius:var(--radius-pill);box-shadow:var(--shadow-lg);cursor:pointer;animation:pillIn var(--duration-base) var(--ease-out)}
 .focus-pill svg{color:var(--accent)}
 .focus-pill span{max-width:60vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
@@ -616,12 +651,12 @@ body.focus-immersive #page-focus.page{padding-block:0;min-height:0}
 }
 /* Equal top and bottom padding: the column is centred between them, so an
    uneven pair would sit the timer a pixel or two off the middle of the screen. */
-body.focus-immersive .app-focus{min-height:100dvh;padding:max(12px,env(safe-area-inset-top)) 0 12px}
+body.focus-immersive .app-focus{min-height:100dvh;padding:max(12px,var(--sat)) 0 12px}
 /* The measure, not the media query, is what decides whether the ring fits: a
    wildcard so the block also covers the pages that render it outside
    .focus-page-card. */
 @media (max-height:700px){
-  body.focus-immersive .app-focus{padding-block:max(10px,env(safe-area-inset-top)) 10px;gap:10px}
+  body.focus-immersive .app-focus{padding-block:max(10px,var(--sat)) 10px;gap:10px}
   body.focus-immersive .focus-page-card{gap:9px;padding:0}
   body.focus-immersive .focus-char{width:60px;height:60px}
   body.focus-immersive .focus-char .fekrbaz,

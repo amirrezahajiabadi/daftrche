@@ -32,6 +32,21 @@ export function normalizeTask(t) {
   task.timeTo = span ? span.to : null;
   if (!task.created) task.created = Date.now();
   task.doneAt = task.done ? (task.doneAt || Date.now()) : null;
+
+  /* Metadata envelope (Sprint 1.2):
+     updatedAt - epoch ms, client clock, written on mutation only
+     version   - positive integer >= 1, incremented on every mutation (alias rev)
+     deletedAt - epoch ms when soft-deleted (tombstone), null for active tasks */
+  const up = Number(task.updatedAt);
+  task.updatedAt = Number.isFinite(up) && up > 0 ? up : (task.doneAt || task.created || Date.now());
+
+  const v = Number(task.version ?? task.rev);
+  task.version = Number.isInteger(v) && v >= 1 ? v : 1;
+  task.rev = task.version;
+
+  const del = Number(task.deletedAt);
+  task.deletedAt = Number.isFinite(del) && del > 0 ? del : null;
+
   /* Notification fields (optional, safe defaults for old data):
      notify         — per-task switch, user controlled
      notifiedStatus — dedupe marker so a task is never nagged repeatedly:
@@ -66,4 +81,5 @@ export const state = {
   session: null, // active focus session (restored in initFocusPage from storage)
 };
 
-export const getTask = id => state.tasks.find(t => t && t.id === id);
+export const getTask = (id, { includeDeleted = false } = {}) =>
+  state.tasks.find(t => t && t.id === id && (includeDeleted || !t.deletedAt));

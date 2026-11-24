@@ -1,11 +1,12 @@
 {
   "name": "daftarche",
-  "version": "3.3.0",
+  "version": "3.5.0",
   "type": "module",
   "private": true,
   "description": "دفتَرچه — Persian local-first task, focus and reading PWA (no runtime dependencies)",
   "scripts": {
     "test": "node --test",
+    "serve": "node tools/serve.mjs",
     "test:browser": "node tests/browser/regress.mjs",
     "icons": "node scripts/sync-icons.mjs",
     "icons:check": "node scripts/sync-icons.mjs --check",
@@ -13,8 +14,11 @@
     "cap:sync": "node tools/build-www.mjs && npx cap sync android",
     "cap:open": "npx cap open android",
     "keystore:gen": "node tools/gen-keystore.mjs",
-    "build:apk": "node tools/build-apk.mjs",
-    "build:apk:debug": "node tools/build-apk.mjs --debug"
+    "android:sync": "node scripts/sync-android.mjs",
+    "android:debug": "node scripts/build-apk.mjs --debug",
+    "android:release": "node scripts/build-apk.mjs",
+    "build:apk": "node scripts/build-apk.mjs",
+    "build:apk:debug": "node scripts/build-apk.mjs --debug"
   },
   "engines": {
     "node": ">=20"

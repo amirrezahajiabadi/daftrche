@@ -14,8 +14,8 @@ def getBuildInfo() {
 }
 
 def buildInfo = getBuildInfo()
-def appVersionCode = (buildInfo?.versionCode as Integer) ?: 15100
-def appVersionName = (buildInfo?.versionName as String) ?: "3.3.0"
+def appVersionCode = (buildInfo?.versionCode as Integer) ?: 20300
+def appVersionName = (buildInfo?.versionName as String) ?: "3.5.0"
 
 def keystorePropertiesFile = rootProject.file("keystore.properties")
 def keystoreProperties = new Properties()
@@ -39,6 +39,9 @@ android {
              // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
+    }
+    buildFeatures {
+        buildConfig = true
     }
     signingConfigs {
         release {

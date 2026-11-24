@@ -1,5 +1,6 @@
 import { state, getTask } from './state.js';
 import { saveTasks, requestPersistentStorage } from './store.js';
+import { taskRepo, createTask, updateTask, softDeleteTask, restoreTask, reorderTasks } from './taskrepo.js';
 import { prefersReducedMotion } from './motion.js';
 import { $, faNum, startOfToday, dueKeyFromOffset, normalizeFa, parseDurationMin, formatDuration, formatClock, parseTimeRange, reorderSubset, isOverdueTask, stepOrder } from './utils.js';
 import { P_LABEL, CATS, ICONS, PRI_ICONS, LIB_ICONS } from './constants.js';
@@ -13,6 +14,12 @@ import { formatJalaliDate } from './jalali.js';
 import { rememberDone } from './ledger.js';
 import { openChipPicker, closeChipPicker, openTaskEditor, initTaskEditor, catOptions, priOptions, durOptions } from './taskedit.js';
 import { parseQuickAdd, renderQuickAddPreview, stripQuickAddToken } from './quickadd.js';
+import {
+  DEFAULT_BATCH_SIZE,
+  computeWindowSlice,
+  getNextBatchSlice,
+  canAppendMore,
+} from './list-window.js';
 
 let listEl = typeof document !== 'undefined' ? $('#taskList') : null;
 export const getListEl = () => {
@@ -38,6 +45,7 @@ export const matches = t => {
 };
 export const visible = () => (Array.isArray(state.tasks) ? state.tasks : []).filter(t =>
   t &&
+  !t.deletedAt &&
   matches(t) &&
   (!state.noDue || !t.dueDate) &&
   (state.catFilter === 'all' || (t.cat || 'misc') === state.catFilter) &&
@@ -191,7 +199,7 @@ function createTaskEl(task, delay = 0) {
    (aria-valuenow and width percentage) directly without rebuilding list DOM nodes. */
 export function updateCountersAndProgress() {
   if (typeof document === 'undefined') return;
-  const tasks = (Array.isArray(state.tasks) ? state.tasks : []).filter(t => t && typeof t === 'object');
+  const tasks = (Array.isArray(state.tasks) ? state.tasks : []).filter(t => t && typeof t === 'object' && !t.deletedAt);
   const total = tasks.length;
   const doneCount = tasks.filter(t => t.done).length;
   const t0 = startOfToday().getTime();
@@ -307,14 +315,14 @@ let sentinelEl = null;
 let listObserver = null;
 
 function appendNextChunk(allRows) {
-  if (renderedCount >= allRows.length) {
+  if (!canAppendMore(renderedCount, allRows.length)) {
     if (listObserver) { listObserver.disconnect(); listObserver = null; }
     if (sentinelEl && sentinelEl.isConnected) sentinelEl.remove();
     sentinelEl = null;
     return;
   }
 
-  const nextBatch = allRows.slice(renderedCount, renderedCount + CHUNK_SIZE);
+  const nextBatch = getNextBatchSlice(allRows, renderedCount, CHUNK_SIZE);
   renderedCount += nextBatch.length;
 
   const frag = document.createDocumentFragment();
@@ -359,21 +367,30 @@ function setupSentinelObserver(allRows) {
   listObserver.observe(sentinelEl);
 }
 
-export function renderList() {
+let lastRenderSig = '';
+
+export function renderList(force = false) {
   const lEl = getListEl();
   if (!lEl || typeof document === 'undefined') return;
-  if (listObserver) {
-    listObserver.disconnect();
-    listObserver = null;
-  }
   const rows = visible();
-  const initialBatch = rows.slice(0, CHUNK_SIZE);
-  renderedCount = initialBatch.length;
+  const currentSig = [
+    state.filter, state.catFilter, state.noDue, state.query,
+    rows.length,
+    rows.map(t => `${t.id}:${t.done ? 1 : 0}:${t.p || 'mid'}:${t.dueDate || ''}`).join(',')
+  ].join('|');
+
+  if (!force && currentSig === lastRenderSig && lEl.children.length > 0) {
+    updateCountersAndProgress();
+    return;
+  }
+  lastRenderSig = currentSig;
+  const win = computeWindowSlice(rows, 0, CHUNK_SIZE);
+  renderedCount = win.renderedCount;
 
   const frag = document.createDocumentFragment();
-  initialBatch.forEach((t, i) => frag.appendChild(createTaskEl(t, Math.min(i, STAGGER_CAP) * STAGGER_MS)));
+  win.slice.forEach((t, i) => frag.appendChild(createTaskEl(t, Math.min(i, STAGGER_CAP) * STAGGER_MS)));
 
-  if (renderedCount < rows.length) {
+  if (win.hasMore) {
     sentinelEl = document.createElement('li');
     sentinelEl.className = 'task-sentinel';
     sentinelEl.setAttribute('aria-hidden', 'true');
@@ -400,7 +417,7 @@ export function updateEmpty() {
   // The empty-state CTA is presentation-only and rebuilt on each render
   $('#emptyAddBtn')?.remove();
   if (anyVisible || !emptyEl) return;
-  const tasks = Array.isArray(state.tasks) ? state.tasks : [];
+  const tasks = (Array.isArray(state.tasks) ? state.tasks : []).filter(t => t && !t.deletedAt);
   const allDone = tasks.length && tasks.every(t => t.done);
   const artDone = $('#artDone'); if (artDone) artDone.hidden = !allDone;
   const artEmpty = $('#artEmpty'); if (artEmpty) artEmpty.hidden = allDone;
@@ -435,16 +452,14 @@ export function updateEmpty() {
 export function setTaskDone(id, done) {
   const task = getTask(id);
   if (!task || task.done === done) return;
-  task.done = done;
+  updateTask(id, { done });
   if (done) {
-    task.doneAt = Date.now();
     recordDay();
     /* The day book keeps what this day showed, so a task deleted tomorrow cannot
        take today's tick back out of the achievements (js/ledger.js). */
     rememberDone();
-  } else task.doneAt = null;
-  save(); notify();
-  const tasks = (Array.isArray(state.tasks) ? state.tasks : []).filter(t => t && typeof t === 'object');
+  }
+  const tasks = (Array.isArray(state.tasks) ? state.tasks : []).filter(t => t && typeof t === 'object' && !t.deletedAt);
   if (done && tasks.length > 0 && tasks.every(t => t.done)) confetti();
 }
 
@@ -464,22 +479,13 @@ function toggleTask(li, task) {
 
 /* Shared creation used by the Tasks form and the Today quick add */
 export function addTask(text, p = 'mid', cat = 'misc', dueDate, durationMin = null, time = null) {
-  const task = {
-    id: Date.now() + '' + Math.random().toString(16).slice(2),
-    text, done: false, p, cat,
-    created: Date.now(),
-    durationMin: parseDurationMin(durationMin),
-  };
-  task.dueDate = dueDate || null;
-  /* The optional span of the day («۲ تا ۴»). Only the planner's quick add asks
-     for one; the other two doors pass nothing and the task has no span. */
-  const span = parseTimeRange(time && time.from, time && time.to);
-  task.timeFrom = span ? span.from : null;
-  task.timeTo = span ? span.to : null;
-  state.tasks.unshift(task);
-  save(); notify();
+  const res = createTask({
+    text, p, cat, dueDate, durationMin,
+    timeFrom: time && time.from,
+    timeTo: time && time.to,
+  });
   tryPersistStorage();
-  return task;
+  return res.record;
 }
 
 function tryPersistStorage() {
@@ -498,9 +504,7 @@ export function moveTaskToDay(id, key) {
   const task = getTask(id);
   const to = key || null;
   if (!task || (task.dueDate || null) === to) return false;
-  task.dueDate = to;
-  if (task.notifiedStatus) task.notifiedStatus = 'none';
-  save(); notify();
+  updateTask(id, { dueDate: to, notifiedStatus: 'none' });
   return true;
 }
 
@@ -552,21 +556,24 @@ function performUndo() {
   if (items.length > 1) {
     items.sort((a, b) => a.index - b.index);
     for (const { task, index } of items) {
-      const at = Math.min(index, state.tasks.length);
-      state.tasks.splice(at, 0, task);
+      if (!state.tasks.some(t => t && t.id === task.id)) {
+        const at = Math.min(index, state.tasks.length);
+        state.tasks.splice(at, 0, task);
+      }
+      restoreTask(task.id);
     }
-    save();
     renderList();
-    notify();
     commitUndo();
     return;
   }
 
   // Single task restore
   const { task, index } = items[0];
-  const at = Math.min(index, state.tasks.length);
-  state.tasks.splice(at, 0, task);
-  save();
+  if (!state.tasks.some(t => t && t.id === task.id)) {
+    const at = Math.min(index, state.tasks.length);
+    state.tasks.splice(at, 0, task);
+  }
+  restoreTask(task.id);
 
   const shown = visible();
   const lEl = getListEl();
@@ -582,7 +589,6 @@ function performUndo() {
   }
   updateEmpty();
   updateCountersAndProgress();
-  notify();
   commitUndo();
 }
 
@@ -616,17 +622,15 @@ function animateOut(el, onDone) {
 
 /* Actually delete a task (trash button) — removes it from state and shows the undo toast */
 export function collapse(el, id) {
-  const tasks = Array.isArray(state.tasks) ? state.tasks : [];
+  const tasks = (Array.isArray(state.tasks) ? state.tasks : []).filter(t => t && !t.deletedAt);
   const task = tasks.find(t => t && t.id === id);
   const taskIndex = tasks.findIndex(t => t && t.id === id);
-  state.tasks = tasks.filter(t => t && t.id !== id);
-  save();
+  softDeleteTask(id);
   if (state.session && state.session.taskId === id) clearFocus();
   renderedCount = Math.max(0, renderedCount - 1);
   animateOut(el, () => {
     updateCountersAndProgress();
   });
-  notify();
   if (task && taskIndex >= 0) showUndo(task, taskIndex);
 }
 
@@ -720,14 +724,13 @@ function syncOrder() {
      the slots they held — they used to be appended after the visible ones, so
      dragging inside «انجام شده» silently re-sorted the whole list. */
   const order = [...listEl.querySelectorAll('.task')].map(el => el.dataset.id);
-  state.tasks = reorderSubset(state.tasks, order);
-  save();
+  reorderTasks(order);
 }
 
 /* ── Edits from the pickers and the sheet ── */
 function setPriority(li, task, p) {
   if (!P_LABEL[p] || p === (task.p || 'mid')) return;
-  task.p = p; save();
+  updateTask(task.id, { p });
   li.dataset.p = p;
   const dot = li.querySelector('.pri-dot');
   if (dot) {
@@ -736,21 +739,27 @@ function setPriority(li, task, p) {
     dot.setAttribute('aria-label', `اولویت: ${P_LABEL[p]} — تغییر`);
     animatePriDotChange(dot);
   }
-  notify();
 }
 
-function applyEdits(task, c) {
-  task.text = c.text;
-  task.p = P_LABEL[c.p] ? c.p : (task.p || 'mid');
-  task.cat = CATS.some(x => x.key === c.cat) ? c.cat : (task.cat || 'misc');
+export function applyEdits(task, c) {
   const dateChanged = (task.dueDate || null) !== (c.dueDate || null);
-  task.dueDate = c.dueDate || null;
+  const patch = {
+    text: c.text,
+    p: P_LABEL[c.p] ? c.p : (task.p || 'mid'),
+    cat: CATS.some(x => x.key === c.cat) ? c.cat : (task.cat || 'misc'),
+    dueDate: c.dueDate || null,
+    durationMin: c.durationMin,
+  };
   // A new deadline re-arms the reminder so nothing fires twice for one date
-  if (dateChanged && task.notifiedStatus) task.notifiedStatus = 'none';
-  task.durationMin = parseDurationMin(c.durationMin);
-  save(); notify();
+  if (dateChanged) patch.notifiedStatus = 'none';
+  if ('timeFrom' in c || 'timeTo' in c) {
+    patch.timeFrom = c.timeFrom;
+    patch.timeTo = c.timeTo;
+  }
+  updateTask(task.id, patch);
 
-  const row = listEl.querySelector(`[data-id="${task.id}"]`);
+  const lEl = getListEl();
+  const row = lEl ? lEl.querySelector(`[data-id="${task.id}"]`) : null;
   if (row) {
     if (!matches(task) || (state.catFilter !== 'all' && (task.cat || 'misc') !== state.catFilter) || (state.noDue && task.dueDate)) {
       hideFromView(row);
@@ -872,10 +881,10 @@ export function initTasks() {
         label: 'دسته', options: catOptions(), current: task.cat || 'misc',
         onPick: v => {
           const nxt = CATS.find(c => c.key === v); if (!nxt || nxt.key === (task.cat || 'misc')) { btn.focus({ preventScroll: true }); return; }
-          task.cat = nxt.key; save();
+          updateTask(task.id, { cat: nxt.key });
           btn.style.setProperty('--cc', nxt.color); btn.textContent = nxt.label;
           btn.title = `دسته: ${nxt.label} — کلیک برای تغییر`;
-          animateChipFlip(btn); notify();
+          animateChipFlip(btn);
           if (state.catFilter !== 'all' && state.catFilter !== nxt.key) setTimeout(() => hideFromView(li), 500);
           else btn.focus({ preventScroll: true });
         },
@@ -887,13 +896,10 @@ export function initTasks() {
         current: task.dueDate || null,
         onPick: key => {
           const dateChanged = task.dueDate !== key;
-          task.dueDate = key; save();
-          // A new deadline re-arms the reminder so nothing fires twice for one date
-          if (dateChanged && task.notifiedStatus) task.notifiedStatus = 'none';
+          updateTask(task.id, { dueDate: key, ...(dateChanged ? { notifiedStatus: 'none' } : {}) });
           refreshDueChip(li, task);
           const chip = li.querySelector('.due-chip');
           if (chip) animateChipFlip(chip);
-          notify();
         },
       });
     }
@@ -912,10 +918,9 @@ export function initTasks() {
         label: 'زمان تقریبی', options: durOptions(), current: task.durationMin || null,
         custom: { label: 'یا زمان دلخواه (دقیقه)' },
         onPick: v => {
-          task.durationMin = parseDurationMin(v); save();
+          updateTask(task.id, { durationMin: parseDurationMin(v) });
           refreshDurChip(li, task); const chip = li.querySelector('.dur-chip');
           if (chip) { animateChipFlip(chip); chip.focus({ preventScroll: true }); }
-          notify();
         },
       });
     }
@@ -1039,7 +1044,7 @@ export function initTasks() {
       /* Dropping on «بدون مهلت» takes the deadline off (it used to be a pill). */
       if (chip.dataset.flag === 'nodue') {
         if (task.dueDate) {
-          task.dueDate = undefined; save(); notify();
+          updateTask(id, { dueDate: null });
           const el = listEl.querySelector(`[data-id="${id}"]`);
           if (el) {
             refreshDueChip(el, task);
@@ -1051,9 +1056,7 @@ export function initTasks() {
       }
       const targetCat = chip.dataset.cat;
       if (task.cat !== targetCat) {
-        task.cat = targetCat;
-        save();
-        notify();
+        updateTask(id, { cat: targetCat });
         chip.classList.remove('drop-pop');
         void chip.offsetWidth;
         chip.classList.add('drop-pop');
@@ -1142,9 +1145,7 @@ export function initTasks() {
       const id = e.dataTransfer.getData('text/plain') || activeDragId;
       const task = getTask(id);
       if (!task) return;
-      task.dueDate = dueKeyFromOffset(0);
-      save();
-      notify();
+      updateTask(id, { dueDate: dueKeyFromOffset(0) });
       tab.classList.remove('drop-pop');
       void tab.offsetWidth;
       tab.classList.add('drop-pop');

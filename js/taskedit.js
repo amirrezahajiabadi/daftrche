@@ -11,10 +11,11 @@
    Neither writes to the task list. They hand a result back through a callback and
    js/tasks.js applies it, so the list stays the only place that mutates tasks. */
 
-import { $, parseDurationMin, formatDuration, esc } from './utils.js';
+import { $, parseDurationMin, formatDuration, esc, faNum, formatClock, parseTimeRange } from './utils.js';
 import { CATS, P_LABEL, PRI_ICONS, DUR_PRESETS, LIB_ICONS } from './constants.js';
 import { formatJalaliDate } from './jalali.js';
 import { openDuePicker } from './duepicker.js';
+import { mountSelectMenu } from './pickmenu.js';
 
 /* ── Chip picker ── */
 let pop = null, popCleanup = null;
@@ -96,12 +97,12 @@ export function openChipPicker(anchor, { label, options, current, onPick, custom
   const openedAt = performance.now();
   const onScroll = () => { if (performance.now() - openedAt > 400) closeChipPicker(false); };
   document.addEventListener('pointerdown', onDown, true);
-  addEventListener('resize', onScroll);
-  document.addEventListener('scroll', onScroll, true);
+  addEventListener('resize', onScroll, { passive: true });
+  document.addEventListener('scroll', onScroll, { capture: true, passive: true });
   popCleanup = () => {
     document.removeEventListener('pointerdown', onDown, true);
     removeEventListener('resize', onScroll);
-    document.removeEventListener('scroll', onScroll, true);
+    document.removeEventListener('scroll', onScroll, { capture: true, passive: true });
   };
   (items().find(b => b.getAttribute('aria-checked') === 'true') || items()[0]).focus({ preventScroll: true });
 }
@@ -115,7 +116,49 @@ export const durOptions = () => DUR_PRESETS.map(v => ({ value: v, label: v ? for
 const form = () => $('#taskEditForm');
 let draft = null, onSaveCb = null, lastFocus = null;
 
+const TIME_SLOTS = [
+  { key: 'none', label: 'ندارد', from: null, to: null },
+  { key: 'morning', label: 'صبح (۹ تا ۱۲)', from: 9 * 60, to: 12 * 60 },
+  { key: 'noon', label: 'ظهر (۱۲ تا ۱۴)', from: 12 * 60, to: 14 * 60 },
+  { key: 'evening', label: 'عصر (۱۶ تا ۱۸)', from: 16 * 60, to: 18 * 60 },
+  { key: 'night', label: 'شب (۲۰ تا ۲۲)', from: 20 * 60, to: 22 * 60 },
+  { key: 'custom', label: 'دلخواه' },
+];
+
+export function hourLabel(min) {
+  const h = Math.floor(min / 60);
+  if (h === 0) return '۱۲ شب';
+  if (h < 5) return `${faNum(h)} شب`;
+  if (h < 12) return `${faNum(h)} صبح`;
+  if (h === 12) return '۱۲ ظهر';
+  if (h < 17) return `${faNum(h - 12)} بعدازظهر`;
+  if (h < 20) return `${faNum(h - 12)} عصر`;
+  return `${faNum(h - 12)} شب`;
+}
+
+function ensureSelectOption(select, value) {
+  if (!select || value == null) return;
+  const strVal = String(value);
+  if (!Array.from(select.options).some(o => o.value === strVal)) {
+    const min = Number(value);
+    const label = min % 60 === 0
+      ? `${hourLabel(min)} · ${formatClock(min)}`
+      : `${formatClock(min)}`;
+    const newOpt = new Option(label, strVal);
+    let inserted = false;
+    for (const opt of select.options) {
+      if (Number(opt.value) > min) {
+        select.insertBefore(newOpt, opt);
+        inserted = true;
+        break;
+      }
+    }
+    if (!inserted) select.add(newOpt);
+  }
+}
+
 const radio = (host, items, value, onChange) => {
+  if (!host) return;
   host.innerHTML = items.map(o => {
     const on = o.value === value;
     const dot = o.color ? `<i class="chip-pop-dot" style="--cc:${o.color}" aria-hidden="true"></i>` : '';
@@ -131,6 +174,51 @@ const radio = (host, items, value, onChange) => {
 function paint() {
   radio($('#tePri'), priOptions().map(o => ({ ...o, icon: o.icon })), draft.p, v => { draft.p = v; paint(); });
   radio($('#teCat'), catOptions(), draft.cat, v => { draft.cat = v; paint(); });
+
+  let currentSlotKey = 'none';
+  if (draft.timeFrom != null && draft.timeTo != null) {
+    const match = TIME_SLOTS.find(s => s.from === draft.timeFrom && s.to === draft.timeTo);
+    currentSlotKey = match ? match.key : 'custom';
+  }
+  radio($('#teTime'), TIME_SLOTS.map(s => ({ value: s.key, label: s.label })), currentSlotKey, v => {
+    if (v === 'none') {
+      draft.timeFrom = null;
+      draft.timeTo = null;
+    } else if (v === 'custom') {
+      if (draft.timeFrom == null || draft.timeTo == null || draft.timeTo <= draft.timeFrom) {
+        const f = Number($('#teTimeFrom')?.value || (14 * 60));
+        const t = Number($('#teTimeTo')?.value || (16 * 60));
+        draft.timeFrom = f;
+        draft.timeTo = t;
+      }
+    } else {
+      const s = TIME_SLOTS.find(x => x.key === v);
+      if (s) { draft.timeFrom = s.from; draft.timeTo = s.to; }
+    }
+    paint();
+  });
+
+  const customBox = $('#teTimeCustom');
+  if (customBox) {
+    customBox.hidden = currentSlotKey !== 'custom';
+    if (currentSlotKey === 'custom') {
+      const fromSel = $('#teTimeFrom'), toSel = $('#teTimeTo');
+      if (draft.timeFrom != null && fromSel) {
+        ensureSelectOption(fromSel, draft.timeFrom);
+        fromSel.value = String(draft.timeFrom);
+        fromSel.__smSync?.();
+      }
+      if (draft.timeTo != null && toSel) {
+        ensureSelectOption(toSel, draft.timeTo);
+        toSel.value = String(draft.timeTo);
+        toSel.__smSync?.();
+      }
+    } else {
+      const err = $('#teTimeError');
+      if (err) err.hidden = true;
+    }
+  }
+
   radio($('#teDur'), durOptions(), DUR_PRESETS.includes(draft.durationMin) ? draft.durationMin : undefined, v => {
     draft.durationMin = v; $('#teDurCustom').value = ''; paint();
   });
@@ -151,11 +239,21 @@ export function closeTaskEditor() {
 
 export function openTaskEditor(task, onSave, opener = null) {
   const ov = $('#taskEditOverlay'); if (!ov) return;
-  draft = { text: task.text, p: task.p || 'mid', cat: task.cat || 'misc', dueDate: task.dueDate || null, durationMin: task.durationMin || null };
+  draft = {
+    text: task.text,
+    p: task.p || 'mid',
+    cat: task.cat || 'misc',
+    dueDate: task.dueDate || null,
+    durationMin: task.durationMin || null,
+    timeFrom: task.timeFrom ?? null,
+    timeTo: task.timeTo ?? null,
+  };
   onSaveCb = onSave; lastFocus = opener;
   $('#teTitle').value = task.text;
   $('#teDurCustom').value = '';
   $('#teError').hidden = true;
+  const timeErr = $('#teTimeError');
+  if (timeErr) timeErr.hidden = true;
   paint();
   ov.hidden = false;
 }
@@ -163,6 +261,44 @@ export function openTaskEditor(task, onSave, opener = null) {
 export function initTaskEditor() {
   const f = form(), ov = $('#taskEditOverlay');
   if (!f || !ov) return;
+
+  const fromSel = $('#teTimeFrom'), toSel = $('#teTimeTo');
+  if (fromSel && toSel) {
+    const opts = Array.from({ length: 24 }, (_, h) => {
+      const min = h * 60;
+      return `<option value="${min}">${hourLabel(min)} · ${formatClock(min)}</option>`;
+    }).join('');
+    fromSel.innerHTML = opts;
+    toSel.innerHTML = opts;
+    fromSel.value = String(14 * 60);
+    toSel.value = String(16 * 60);
+
+    /* The hour is picked from the app's own pill (js/pickmenu.js) like the
+       calendar's year, not from the phone's white system sheet. The pill shows
+       the clock — «۱۴:۰۰» — because it shares the row with the other end of the
+       range; the list keeps the spoken hour beside it. */
+    const hourText = t => t.split('·').pop().trim();
+    mountSelectMenu(fromSel, { text: hourText });
+    mountSelectMenu(toSel, { text: hourText });
+
+    const onTimeChange = () => {
+      const fVal = Number(fromSel.value);
+      const tVal = Number(toSel.value);
+      const err = $('#teTimeError');
+      if (tVal <= fVal) {
+        if (err) err.hidden = false;
+      } else {
+        if (err) err.hidden = true;
+        if (draft) {
+          draft.timeFrom = fVal;
+          draft.timeTo = tVal;
+        }
+      }
+    };
+    fromSel.addEventListener('change', onTimeChange);
+    toSel.addEventListener('change', onTimeChange);
+  }
+
   $('#teDueBtn').addEventListener('click', () => {
     openDuePicker({ current: draft && draft.dueDate, onPick: key => { if (draft) { draft.dueDate = key || null; paint(); } } });
   });
@@ -175,6 +311,7 @@ export function initTaskEditor() {
     radio($('#teDur'), durOptions(), undefined, nv => { draft.durationMin = nv; $('#teDurCustom').value = ''; paint(); });
   });
   $('#teTitle').addEventListener('input', () => { $('#teError').hidden = true; });
+  $('#teClose')?.addEventListener('click', closeTaskEditor);
   $('#teCancel').addEventListener('click', closeTaskEditor);
   ov.addEventListener('click', e => { if (e.target === ov) closeTaskEditor(); });
   ov.addEventListener('keydown', e => { if (e.key === 'Escape' && $('#dueOverlay')?.hidden !== false) { e.stopPropagation(); closeTaskEditor(); } });
@@ -184,6 +321,23 @@ export function initTaskEditor() {
     if (!text) { $('#teError').hidden = false; $('#teTitle').focus(); return; }
     const raw = $('#teDurCustom').value;
     if (raw !== '' && parseDurationMin(raw) === null) { $('#teDurCustom').focus(); return; }
+
+    const customBox = $('#teTimeCustom');
+    if (customBox && !customBox.hidden) {
+      const fVal = Number($('#teTimeFrom')?.value);
+      const tVal = Number($('#teTimeTo')?.value);
+      if (isNaN(fVal) || isNaN(tVal) || tVal <= fVal) {
+        const err = $('#teTimeError');
+        if (err) err.hidden = false;
+        $('#teTimeFrom')?.focus();
+        return;
+      }
+      if (draft) {
+        draft.timeFrom = fVal;
+        draft.timeTo = tVal;
+      }
+    }
+
     const cb = onSaveCb, result = { ...draft, text };
     closeTaskEditor();
     if (cb) cb(result);

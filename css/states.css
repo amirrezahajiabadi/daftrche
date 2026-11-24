@@ -84,19 +84,56 @@ html[data-text="xl"] .page{zoom:1.25}
    always-visible animated layer costs a composited frame on every vsync, and
    that is most of what "slow on some phones" amounts to.
 
-   The content sits one small step below the browser scale. The same layout in
-   a full-bleed window looks larger than it does inside a tab, so native pages
-   lay out at .94; the reader's own text size multiplies on top of it. The
-   min-height and the bottom padding are scaled back up (1 / .94 = 1.064) so
-   the page still fills the window and still clears the dock. */
+   The content is laid out at exactly the browser's scale. It used to be shrunk
+   to .94 «because a full-bleed window looks larger than a tab», with the page's
+   height and dock clearance multiplied back up by 1.064 to compensate. That
+   compensation never held on a phone: `zoom` on the page makes it a fraction
+   wider than the window it is in, the WebView answers a page wider than the
+   viewport with its own shrink-to-fit, and the reader got a layout that was
+   simultaneously cropped and enlarged — the opposite of the web app. One scale,
+   the browser's, is the only one that can match what the site looks like, so
+   the reader's own text size (html[data-text]) is the only thing left that
+   scales a page, on every platform alike. */
 html.is-native .page,
 html.is-native .page[data-enter]{animation:none!important}
-html.is-native .page{zoom:.94;min-height:calc(100vh * 1.064);min-height:calc(100dvh * 1.064);
-  padding-bottom:calc((var(--nav-height) + 24px) * 1.064)}
-html.is-native[data-text="lg"] .page{zoom:1.053}
-html.is-native[data-text="xl"] .page{zoom:1.175}
-html.is-native .bottom-nav{backdrop-filter:blur(8px) saturate(1.5)!important;
-  -webkit-backdrop-filter:blur(8px) saturate(1.5)!important}
+/* The dock is the one surface that floats over every scrolling page for the
+   whole session, and a backdrop blur is re-sampled every time the page under it
+   moves — on a WebView that is the single largest cost of a scroll. There is
+   nothing to sample on a phone screen this narrow anyway: the bar is opaque
+   paper, its border and its drop shadow carry the floating look, and the blur
+   is gone from every frame. The web keeps its glass. */
+html.is-native .bottom-nav{backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+  /* The frosted themes paint the dock from their own translucent fill; on a
+     phone it must be the solid surface, or it would be see-through glass with
+     no blur behind it. */
+  background:var(--color-surface)!important}
+
+/* A modal scrim blur covers the whole viewport for as long as the dialog is
+   open, and every card and sheet behind it is another sample. On native the
+   scrim is a denser flat wash instead: same focus, no full-screen filter. */
+html.is-native .overlay{backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;background:rgba(46,41,33,.52)}
+html.is-native[data-mode="dark"] .overlay{background:rgba(0,0,0,.62)}
+html.is-native .reader-top{backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;background:var(--surface)}
+
+/* One blur per book cover, twenty covers per shelf. The badge keeps its dark
+   plate and loses the frosting. */
+html.is-native .book-pct-badge{backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;background:rgba(0,0,0,.72)}
+
+/* A long page is a long page: the parts below the fold (the achievement list,
+   a shelf, the calendar's month rows) are built and painted when they come
+   near the viewport instead of all at once when the page opens. The intrinsic
+   size is the height each block was last seen at, so the scrollbar does not
+   jump while they are still unrendered. */
+html.is-native :is(#achvList,.shelf-grid,#calList,#doneShelf){content-visibility:auto;
+  contain-intrinsic-size:auto 520px}
+@supports (content-visibility:auto){
+  :is(#achvList,.shelf-grid,#calList,#doneShelf,.stat-section,#taskList,.today-reading){
+    content-visibility:auto;contain-intrinsic-size:auto 320px}
+}
 html.is-native::before,
 html.is-native::after,
 html.is-native body::after{animation:none!important}
@@ -105,3 +142,45 @@ html.is-native .t-row,
 html.is-native .book-card,
 html.is-native .lastread,
 html.is-native .today-sec{animation:none!important}
+
+/* ═══ A finger is not a cursor ═══
+   The phone build keeps the drawn size of its chips, tabs and text buttons —
+   they are the design — but each one owns a finger-sized strip of the page
+   around it: the width it already has, at least 44px tall, centred on itself.
+   The expansion is vertical only, so a tap between two neighbours in the same
+   row can never land on the wrong one. Every one of these is already wider
+   than 44px, which is why nothing has to grow sideways, and each has a free
+   ::before to carry the strip; the icon buttons (.check, .pri-dot, .bell-btn,
+   .switch, .task-more-btn) already carry their own expander in tasks.css. */
+html.is-native :is(.cat-chip,.cat-tag,.due-chip,.dur-chip,.seg-btn,.stat-range-btn,
+  .settings-btn,.settings-tab,.today-all,.today-date-link,.frog-toggle,.clear-btn,
+  .go,.import-btn,.empty-cta,.page-back,.add-more-toggle,.dice){position:relative}
+html.is-native :is(.cat-chip,.cat-tag,.due-chip,.dur-chip,.seg-btn,.stat-range-btn,
+  .settings-btn,.settings-tab,.today-all,.today-date-link,.frog-toggle,.clear-btn,
+  .go,.import-btn,.empty-cta,.page-back,.add-more-toggle,.dice)::before{
+  content:"";position:absolute;top:50%;inset-inline:0;
+  translate:0 -50%;height:max(100%,44px)}
+
+/* Long-press on a control is a press, not the start of a text selection: the
+   blue highlight and the copy popup have no business appearing over a chip. */
+html.is-native :is(button,.nav-tab,.cat-chip,.cat-tag,.due-chip,.seg-btn,.settings-tab,
+  .stat-range-btn){-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+
+/* The keyboard is part of the window (interactive-widget=resizes-content), so a
+   focused field near the bottom must be able to scroll clear of it rather than
+   sit under it. */
+html.is-native :is(input,textarea,select){scroll-margin-block:96px}
+
+/* Press, immediately. These controls are flat by design — a chip has no depth
+   to push — so the press is a tint of its own ink in the first frame, before any
+   transition has run. On the register of touch feedback, not animation. */
+html.is-native :is(.cat-chip,.cat-tag,.due-chip,.seg-btn,.stat-range-btn,.settings-btn,
+  .settings-tab,.today-all,.today-date-link,.frog-toggle,.clear-btn,.page-back,.add-more-toggle,
+  .dice,.import-btn,.empty-cta,.go):active{filter:brightness(.94)}
+
+/* The category strip is a horizontal scroller 35px tall, and an overflow box
+   clips a hit area to its own edges: the chips' 44px strip was being cut back to
+   35 for the topmost and bottommost rows of pixels. Eight pixels of padding on
+   the scroller is room for the strip to exist, and reads as the breathing room a
+   row of chips wanted anyway. */
+html.is-native .cats{padding-block:8px}

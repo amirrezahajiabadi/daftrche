@@ -252,7 +252,7 @@ function buildStats(rangeKey = DEFAULT_RANGE, now = Date.now()) {
   const created = sum(days, d => d.created);
   const donePrev = sum(prevDays, d => d.done);
 
-  const tasks = (Array.isArray(state.tasks) ? state.tasks : []).filter(t => t && typeof t === 'object');
+  const tasks = (Array.isArray(state.tasks) ? state.tasks : []).filter(t => t && typeof t === 'object' && !t.deletedAt);
   const inWindow = (t, start, end) =>
     (t.created !== null && t.created >= start && t.created < end) ||
     (t.doneAt !== null && t.doneAt >= start && t.doneAt < end);
@@ -574,13 +574,31 @@ function paintRing(model, animate) {
   }
 }
 
+let cachedStatsModel = null;
+let lastStatsDataSig = '';
+
 export function renderStats(force = false) {
   const page = $('#page-stats');
   if (!page) return;
   if (!rangeKey) rangeKey = rangeByKey(loadStatsRange() || DEFAULT_RANGE).key;
   paintRangeButtons();
 
-  const model = computeStats(rangeKey);
+  const activeTasks = (Array.isArray(state.tasks) ? state.tasks : []).filter(t => t && !t.deletedAt);
+  const dataSig = [
+    rangeKey, historyExpanded, activeTasks.length,
+    activeTasks.filter(t => t.done).length,
+    Array.isArray(state.history) ? state.history.length : 0,
+    state.moods ? Object.keys(state.moods).length : 0
+  ].join('|');
+
+  let model;
+  if (!force && dataSig === lastStatsDataSig && cachedStatsModel) {
+    model = cachedStatsModel;
+  } else {
+    model = computeStats(rangeKey);
+    cachedStatsModel = model;
+    lastStatsDataSig = dataSig;
+  }
   const h = model.headline;
 
   const sub = $('#statsSub');
@@ -589,7 +607,7 @@ export function renderStats(force = false) {
   /* Signature: a repaint that would write the same numbers is a repaint the
      reader pays for and never sees. */
   const sig = [rangeKey, h.done, h.donePrev, h.rate, h.focusMinutes, h.focusMinutesPrev, h.activeDays, h.streak, model.focus.count, model.reading.marks, model.mood.days, model.timing.dated, historyExpanded].join('|');
-  if (!force && sig === lastSig) return;
+  if (!force && sig === lastSig && $('#statsHead')?.children.length > 0) return;
   const animate = !lastSig;
   lastSig = sig;
 

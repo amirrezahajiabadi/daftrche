@@ -13,8 +13,9 @@
    3. One layer. A frosted card never contains another frosted card; inner chips
       stay on the flat accent-soft fill.
 
-   The aurora behind it is plain CSS gradients on the body, fixed so the glass
-   has something to bend over while the page scrolls. */
+   The aurora behind it is plain CSS gradients on the body. They are left to
+   scroll with the document on purpose: background-attachment:fixed forces the
+   engine to re-resolve the whole backdrop of the page on every scroll frame. */
 
 html[data-theme="aurora"] body{
   background-color:var(--color-bg);
@@ -22,14 +23,14 @@ html[data-theme="aurora"] body{
     radial-gradient(60% 38% at 12% 8%,#9fe3e0 0,transparent 70%),
     radial-gradient(55% 40% at 92% 22%,#c9a7ff 0,transparent 70%),
     radial-gradient(60% 45% at 28% 96%,#ffc2d6 0,transparent 70%);
-  background-attachment:fixed}
+}
 html[data-theme="nightglass"] body{
   background-color:var(--color-bg);
   background-image:
     radial-gradient(60% 38% at 10% 6%,rgba(56,189,200,.30) 0,transparent 70%),
     radial-gradient(55% 40% at 95% 24%,rgba(139,92,246,.38) 0,transparent 70%),
     radial-gradient(60% 45% at 30% 98%,rgba(236,72,153,.22) 0,transparent 70%);
-  background-attachment:fixed}
+}
 
 @supports ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
   @media not (prefers-reduced-transparency:reduce){
@@ -49,21 +50,26 @@ html[data-theme="nightglass"] body{
       --glass-edge:rgba(251,146,60,.28);
       --glass-shadow:0 12px 32px -12px rgba(10,5,20,.65)}
 
+    /* Cards carry the glass by their fill and edge, not by sampling the page.
+       Everything behind an in-flow card is the theme's own aurora — three radial
+       gradients with a 70% falloff, i.e. no detail for a blur to smooth — so an
+       unfiltered card painted at 68–86% fill looks the same while twenty task
+       tiles stop taking twenty backdrop samples on every frame. The frost that
+       is still worth paying for lives on the floating layer below. */
     :is(html[data-theme="aurora"],html[data-theme="nightglass"],html[data-theme="simorgh"]) :is(
       .progress-card,.today-list,.task,.today-add,.week-card,.vibe-card,.sheet-paper,.theme-btn,.page-back){
       background:var(--glass-fill);
       border-color:var(--glass-edge);
-      box-shadow:var(--glass-shadow);
-      backdrop-filter:blur(10px) saturate(1.35);
-      -webkit-backdrop-filter:blur(10px) saturate(1.35)}
+      box-shadow:var(--glass-shadow)}
 
-    /* The floating layer is frosted a little harder and reads from the stronger
-       fill, because it travels over every page's content. */
+    /* The floating layer keeps one blur — one filter function, the same single
+       pass the dock takes in base.css — because it travels over live content
+       instead of the flat aurora. The stronger fill carries its colour. */
     :is(html[data-theme="aurora"],html[data-theme="nightglass"],html[data-theme="simorgh"]) :is(.bottom-nav,.sheet,.name-card){
       background:var(--glass-fill-strong);
       border-color:var(--glass-edge);
-      backdrop-filter:blur(10px) saturate(1.45);
-      -webkit-backdrop-filter:blur(10px) saturate(1.45)}
+      backdrop-filter:blur(8px);
+      -webkit-backdrop-filter:blur(8px)}
 
     /* One layer: anything frosted that sits inside something frosted goes flat. */
     :is(html[data-theme="aurora"],html[data-theme="nightglass"],html[data-theme="simorgh"])
@@ -80,3 +86,24 @@ html[data-theme="nightglass"] body{
     }
   }
 }
+
+/* ═══ The frosted themes, on the phone ═══
+   These themes frost every card, not just the floating layer: twenty task tiles
+   are twenty samples of the page behind them, re-taken on every frame the page
+   moves. The fills stay exactly as designed — they are the theme — but on native
+   they are opaque, and the frost is left to the one surface where it is still
+   worth a blur: none of them. The card branch below reads from --glass-fill,
+   so pointing that token at the solid surface paints the theme without a single
+   filter. */
+html.is-native:is([data-theme="aurora"],[data-theme="nightglass"],[data-theme="simorgh"]){
+  --glass-fill:var(--color-surface);
+  /* The strong fill is what sheets, the name card and the dock read from; on a
+     phone it is the same solid surface, so a sheet opening over a page is a
+     paper card on paper rather than a tinted window with nothing behind it. */
+  --glass-fill-strong:var(--color-surface)}
+
+html.is-native:is([data-theme="aurora"],[data-theme="nightglass"],[data-theme="simorgh"]) :is(
+  .progress-card,.today-list,.task,.today-add,.week-card,.vibe-card,.sheet-paper,
+  .theme-btn,.page-back,.sheet,.name-card,.bottom-nav){
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important}

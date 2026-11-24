@@ -23,13 +23,15 @@
    other. */
 
 import { $, faNum } from './utils.js';
-import { loadTheme, saveTheme, loadThemeModes, saveThemeModes, loadAchv, loadThemeAuto, saveThemeAuto } from './store.js';
+import { loadTheme, saveTheme, loadThemeModes, saveThemeModes, loadAchv, loadThemeAuto, saveThemeAuto, loadBirthday, loadBirthdayThemeOff, saveBirthdayThemeOff } from './store.js';
 import {
-  THEMES, THEME_MODES, DEFAULT_THEME, NIGHT_THEME,
+  THEMES, PICKER_THEMES, THEME_MODES, DEFAULT_THEME, NIGHT_THEME,
   normalizeTheme, modeOf, themesOfMode,
 } from './constants.js';
 import { modeSwitch, swatchRow } from './chipgroup.js';
 import { hasReward, normalizeState, rewardFor, rewardRequirements } from './achievements.js';
+import { birthdayKey, birthdayStamp, normalizeBirthday, applyBirthdayDay } from './birthday.js';
+import { syncSystemBars } from './native.js';
 
 let modeControl = { mark() {} };
 let swatchControl = { mark() {}, setMode() {} };
@@ -49,10 +51,10 @@ export const systemPrefersDark = () => {
 /* Which half of the table is on screen. Read from the attribute the boot script
    or applyTheme wrote; anything unexpected is the light half, which is where
    the default theme lives, so a caller always gets an answer. */
-export const currentMode = () => (root().dataset.mode === 'dark' ? 'dark' : 'light');
+export const currentMode = () => (root()?.dataset?.mode === 'dark' ? 'dark' : 'light');
 
 export const currentTheme = () =>
-  normalizeTheme(root().dataset.theme) || (systemPrefersDark() ? NIGHT_THEME : DEFAULT_THEME);
+  normalizeTheme(root()?.dataset?.theme) || (systemPrefersDark() ? NIGHT_THEME : DEFAULT_THEME);
 
 export let QA_UNLOCK_ALL_THEMES = false;
 export const setQaUnlockAllThemes = val => { QA_UNLOCK_ALL_THEMES = Boolean(val); };
@@ -64,6 +66,14 @@ export const isThemeUnlocked = (key, { ignoreQaBypass = false } = {}) => {
   const normalized = normalizeTheme(key);
   if (!normalized) return false;
   if (QA_UNLOCK_ALL_THEMES && !ignoreQaBypass) return true;
+  if (normalized === 'tavalod') {
+    /* Not a theme to choose and not one to earn: it is worn for the birthday
+       itself and taken off the next day. The day is the whole key, so it cannot
+       be kept past midnight, and the reader who would rather not have it simply
+       picks another theme (see the opt-out in applyTheme). */
+    const b = normalizeBirthday(loadBirthday());
+    return Boolean(b && birthdayKey(new Date(), b));
+  }
   const reward = rewardFor('theme', normalized);
   return !reward || hasReward(normalizeState(loadAchv()), reward.id);
 };
@@ -96,18 +106,24 @@ export function themeForMode(mode) {
   const fallback = mode === 'dark' ? NIGHT_THEME : DEFAULT_THEME;
   const remembered = rememberedModes()[mode];
   if (remembered && isThemeUnlocked(remembered)) return remembered;
-  return themesOfMode(mode).find(t => isThemeUnlocked(t.key))?.key || fallback;
+  return themesOfMode(mode).find(t => !t.hidden && isThemeUnlocked(t.key))?.key || fallback;
 }
 
 /* The browser paints its own chrome (Android status bar, Safari toolbar) from
    the theme-color meta. It has to follow the theme actually in use rather than
    the system preference alone, and it is read from the same token the CSS paints
    with, so the brand colour and the interface can never drift apart. */
-function syncThemeColor() {
-  const meta = document.querySelector('meta[name="theme-color"]');
-  if (!meta) return;
-  const bg = getComputedStyle(root()).getPropertyValue('--color-bg').trim();
-  if (bg) meta.setAttribute('content', bg);
+export function syncThemeColor() {
+  /* Exported because the day face is written on top of the theme: a birthday
+     repaints --color-bg without going through applyTheme, and the browser's own
+     chrome has to be re-read after it. Guarded for the Node tests, where there
+     is a document but not always a meta. */
+  try {
+    const meta = document.querySelector?.('meta[name="theme-color"]');
+    const bg = getComputedStyle(root()).getPropertyValue('--color-bg').trim();
+    if (meta && bg) meta.setAttribute('content', bg);
+    syncSystemBars(currentMode(), bg);
+  } catch { /* no document to paint */ }
 }
 
 /* The switch in the header flips to the other half of the table; its label says
@@ -139,9 +155,24 @@ export function markThemePicker() {
    when the value being applied is the one already stored (or one the reader
    never chose), where re-saving it would turn a system preference into a
    decision. */
-export function applyTheme(key, { remember = true } = {}) {
+export function applyTheme(key, { remember = true, dismissBirthday = true } = {}) {
   const requested = normalizeTheme(key) || DEFAULT_THEME;
   if (remember && !isThemeUnlocked(requested)) return false;
+
+  /* Choosing a theme on your birthday is how you decline the birthday one. The
+     day's stamp is written down so that a reload — or the next tick of the day
+     watcher — does not put it back on. Picking the birthday theme itself (only
+     possible while the day is on) is not a decline.
+
+     `dismissBirthday: false` is for the one caller that is not the reader: the
+     automatic-theme restore in initTheme, which runs before anyone has touched
+     anything and must not count as «no thanks». */
+  if (remember && dismissBirthday && requested !== 'tavalod') {
+    const b = normalizeBirthday(loadBirthday());
+    const stamp = b && birthdayStamp(new Date(), b);
+    if (stamp) saveBirthdayThemeOff(stamp);
+  }
+
   const next = allowedTheme(requested);
   const mode = modeOf(next);
   root().dataset.theme = next;
@@ -194,12 +225,42 @@ export const toggleTheme = () => {
   applyTheme(currentMode() === 'dark' ? themeForMode('light') : themeForMode('dark'));
 };
 
-export const unlockedThemesCount = () => THEMES.filter(t => isThemeUnlocked(t.key)).length;
-export const totalThemesCount = () => THEMES.length;
+export const unlockedThemesCount = () => PICKER_THEMES.filter(t => isThemeUnlocked(t.key)).length;
+export const totalThemesCount = () => PICKER_THEMES.length;
+
+/* ── The birthday theme, put on and taken off by the calendar ──
+   The one theme the reader does not choose. On the day it replaces whatever
+   theme is on screen, without asking and without being stored as a choice; the
+   day after, the reader's own theme is put back. A reader who wants their
+   colours on their birthday just picks one, which records the day in
+   loadBirthdayThemeOff() and is honoured here.
+
+   The day face on the root goes on and off with it, here rather than in the
+   caller: it is the same decision, and a caller that only asked this question
+   must not be able to leave the day's palette painted over a theme that is no
+   longer the day's.
+
+   Returns whether the birthday theme is the one now on screen. */
+export function applyBirthdayTheme(now = new Date()) {
+  const b = normalizeBirthday(loadBirthday());
+  const stamp = b && birthdayStamp(now, b);
+  if (stamp && loadBirthdayThemeOff() !== stamp) {
+    if (currentTheme() !== 'tavalod') applyTheme('tavalod', { remember: false });
+    applyBirthdayDay(true);
+    return true;
+  }
+  if (currentTheme() === 'tavalod') {
+    applyTheme(normalizeTheme(loadTheme()) || DEFAULT_THEME, { remember: false });
+  }
+  applyBirthdayDay(false);
+  return false;
+}
 
 export function initTheme() {
   modeControl = modeSwitch($('#themeModeSwitch'), { modes: THEME_MODES, onPick: applyMode });
-  swatchControl = swatchRow($('#themeSwatches'), THEMES.map((theme, idx) => {
+  /* PICKER_THEMES, not THEMES: the birthday theme is a key js/birthday.js puts on
+     by itself, and offering it here would be offering it on the wrong day. */
+  swatchControl = swatchRow($('#themeSwatches'), PICKER_THEMES.map((theme, idx) => {
     const reward = rewardFor('theme', theme.key);
     const condition = reward ? rewardRequirements(reward.id).map(({ achievement }) =>
       `نشان «${achievement.title}»`).join(' یا ') : '';
@@ -207,7 +268,7 @@ export function initTheme() {
     let groupSub = '';
     if (idx === 0) {
       groupTitle = 'تم‌های پایه';
-    } else if (theme.family === 'world' && THEMES[idx - 1]?.family !== 'world') {
+    } else if (theme.family === 'world' && PICKER_THEMES[idx - 1]?.family !== 'world') {
       groupTitle = 'دنیاهای ویژه (با نشان‌ها باز می‌شوند)';
       groupSub = 'هر دنیا یک کارت تعاملی به صفحهٔ امروز اضافه می‌کند';
     }
@@ -253,19 +314,27 @@ export function initTheme() {
 
   if (isAutoTheme()) {
     const mode = systemPrefersDark() ? 'dark' : 'light';
-    applyTheme(themeForMode(mode), { remember: true });
+    applyTheme(themeForMode(mode), { remember: true, dismissBirthday: false });
   } else {
     const active = loadTheme() || currentTheme();
     applyTheme(allowedTheme(active), { remember: false });
   }
 
+  /* The calendar gets the last word: on the birthday the theme is the birthday's
+     own, and the reader's stored choice is left untouched underneath it. */
+  applyBirthdayTheme();
+
   try {
     if (typeof window !== 'undefined' && window.matchMedia) {
       const mq = window.matchMedia('(prefers-color-scheme: dark)');
       const onSchemeChange = e => {
-        if (isAutoTheme()) {
+        /* A system setting is not the reader declining anything, so it must not
+           count as «no thanks» to the birthday theme — and while the day's
+           theme is on, the day keeps the colours until it is over or the
+           reader picks one themselves. */
+        if (isAutoTheme() && currentTheme() !== 'tavalod') {
           const mode = e.matches ? 'dark' : 'light';
-          applyTheme(themeForMode(mode), { remember: true });
+          applyTheme(themeForMode(mode), { remember: true, dismissBirthday: false });
         }
       };
       if (mq.addEventListener) {

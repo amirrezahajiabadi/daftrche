@@ -13,7 +13,7 @@ const lastScope = () => (scopeFn ? scopeFn() : []);
 export const setRollScope = fn => { scopeFn = fn; };
 export function openRoll(scopePool) {
   rollOnToday = Array.isArray(scopePool);
-  const pool = rollOnToday ? scopePool : state.tasks.filter(t => !t.done);
+  const pool = rollOnToday ? scopePool : (Array.isArray(state.tasks) ? state.tasks : []).filter(t => t && !t.deletedAt && !t.done);
   $('#rollOverlay').hidden = false;
   $('#rollActions').hidden = true;
   const box = $('#rollBox');

@@ -1,0 +1,281 @@
+/* ═══ Persian calendar — a month page of the notebook ═══
+   The grid is the whole design: seven columns, six rows, and one number per
+   square. The one geometric budget to know is the phone: seven cells inside a
+   320px screen leave about forty pixels each, which is why nothing but the day
+   number and a four-pixel mark goes inside a cell. A second line of text there
+   would be the thing that clips.
+
+   The `pcal-` prefix is not decoration. The app already has two month grids —
+   the deadline picker and the birthday picker (js/jalalical.js) — and they own
+   the `.cal-*` names. Sharing them made this page's grid reshape those pickers
+   and their day buttons resize this page's panel, so this page keeps a
+   namespace of its own.
+
+   Every colour, radius and shadow comes from the shared tokens, so the calendar
+   is another page of this notebook rather than a widget that happens to live in
+   it. Nothing is written with physical left/right. */
+
+/* ── The head of the calendar ──
+   A wall calendar's top line: the Persian month and year between two round
+   arrows, and under it the Gregorian and Hijri ranges the same month falls in.
+   The arrows are circles rather than words because the month is already named in
+   the middle — a left arrow cannot be read as anything else. */
+.pcal-bar{display:flex;flex-direction:column;gap:5px;align-items:stretch;padding:2px 0 10px}
+.pcal-head{display:flex;align-items:center;justify-content:center;gap:12px}
+.pcal-nav{flex:0 0 auto;width:34px;height:34px;border:1.5px solid var(--border);border-radius:50%;
+  background:var(--surface);color:var(--accent);display:grid;place-items:center;cursor:pointer;
+  transition:background var(--duration-fast),border-color var(--duration-fast),color var(--duration-fast)}
+@media (hover:hover){.pcal-nav:hover{background:var(--accent-soft);border-color:var(--accent)}}
+.pcal-nav:focus-visible{outline:2px solid var(--color-focus);outline-offset:2px}
+.pcal-title{display:flex;align-items:center;justify-content:center;gap:6px;min-width:0}
+.pcal-range{min-width:0;text-align:center;font-family:var(--font-personality);font-size:19px;font-weight:700;color:var(--text);white-space:nowrap}
+.pcal-sub{display:flex;flex-direction:column;align-items:center;gap:1px;margin:0;text-align:center;
+  font-family:var(--font-ui);font-size:11px;font-weight:500;color:var(--muted);line-height:1.7;
+  font-variant-numeric:tabular-nums}
+/* The year is a jump, not a step: the month is walked a month at a time and the
+   year is left behind in one move. It wears the app's select pill (.sm-btn, in
+   css/components.css) so the jump opens on this page's paper instead of in the
+   phone's white system menu — the one thing a native list could not borrow from
+   the round arrows beside it. Only the width is the calendar's own: five digits
+   and a caret, no more, because the month's name shares the row. */
+.pcal-title .sm-btn{max-width:104px}
+/* The one way back to today, filled and as wide as the calendar: a paper
+   calendar's last line rather than another word in the toolbar. */
+.pcal-today-btn{width:100%;min-height:44px;margin-block-start:10px;border:0;border-radius:var(--radius-sm);
+  background:var(--accent);color:var(--color-text-on-accent);font-family:var(--font-ui);font-size:13px;
+  font-weight:700;cursor:pointer;transition:background var(--duration-fast)}
+@media (hover:hover){.pcal-today-btn:hover{background:var(--color-accent-strong)}}
+.pcal-today-btn:focus-visible{outline:2px solid var(--color-focus);outline-offset:2px}
+
+/* ── The page ──
+   The month on the reading side and the day beside it: one column on a phone,
+   where the day arrives under the grid the finger just left, and two from
+   1024px, where the month stays in view while the day scrolls. */
+.cal-body{display:flex;flex-direction:column;gap:18px;min-width:0}
+.cal-main{display:flex;flex-direction:column;gap:12px;min-width:0}
+/* The `pcal-` prefix is load-bearing here: `.cal-day` already belongs to the two
+   date pickers' day buttons (css/overlays.css), and a host that borrowed the
+   name wore their 44px square. */
+.pcal-day{min-width:0}
+
+/* ── The month ──
+   A ruled page rather than forty-two buttons: one hairline under the weekday
+   row and one between weeks, and nothing between days. That single line is what
+   lets seven columns of Persian digits read as a calendar instead of as a crowd
+   of numbers, and it costs no colour of its own.
+
+   The digit and its occasion dot share one round well, so every number in the
+   grid stands on the same centre line — with the dot as a sibling, a day that
+   had one pushed its digit a pixel or two above a day that did not, and the
+   whole month looked hand-set. The well is also what hover, today and the
+   selection paint: the tap target is the square, the thing that changes is the
+   circle, so a selection never reshapes the cell it sits in. */
+.pcal-wrap{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);padding:12px;box-shadow:var(--shadow-sm)}
+/* The weekday row is a filled band, the way a printed calendar has one: it is
+   the only full-width colour in the grid, so the eye lands on the seven columns
+   before it reads a single number. */
+.pcal-dow{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));background:var(--accent);
+  border-radius:var(--radius-sm);padding:8px 2px}
+.pcal-dow span{text-align:center;font-family:var(--font-ui);font-size:11.5px;font-weight:700;
+  color:var(--color-text-on-accent);letter-spacing:.02em}
+.pcal-grid{display:flex;flex-direction:column;margin-block-start:6px}
+.pcal-row{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));
+  border-block-end:1px solid color-mix(in srgb,var(--border) 55%,transparent);
+  transition:background var(--duration-fast);border-radius:var(--radius-sm)}
+.pcal-row:last-child{border-block-end:0}
+.pcal-row.has-sel,
+.pcal-row:has(.pcal-cell.sel){background:color-mix(in srgb,var(--accent) 4.5%,transparent)}
+
+.pcal-cell{position:relative;display:grid;place-items:center;min-height:54px;min-width:0;padding:0;
+  border:0;background:transparent;color:var(--text);font-family:var(--font-ui);cursor:pointer;
+  touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+/* The number is the calendar, so it is set as one: bold at every size, with the
+   Gregorian day in the small line under it. The digits share a width, so a 7
+   never stands in a column of 1s of its own making. */
+.pcal-num{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+  width:42px;height:42px;border-radius:var(--radius-sm);font-size:15.5px;font-weight:700;line-height:1.05;
+  font-variant-numeric:tabular-nums;
+  transition:background var(--duration-fast),box-shadow var(--duration-fast),color var(--duration-fast)}
+.pcal-g{font-size:9.5px;font-weight:500;color:var(--muted);line-height:1;font-variant-numeric:tabular-nums}
+/* The occasion dot moves to the cell's corner: the two digits own the column now,
+   and a third item inside the well would push them off centre. */
+.pcal-mark{position:absolute;inset-block-start:6px;inset-inline-end:8px;width:4px;height:4px;
+  border-radius:50%;background:transparent}
+.pcal-cell.has-occ .pcal-mark{background:var(--accent)}
+/* The day's plan, in the week strip's own vocabulary: a 3px bar that fills with
+   what is done. It sits under the well, so it never pushes a number around, and
+   a day nobody planned shows no track at all. */
+.pcal-plan{position:absolute;inset-block-end:6px;inset-inline-start:50%;transform:translateX(-50%);
+  width:20px;height:3px;border-radius:var(--radius-pill);background:transparent;overflow:hidden}
+.pcal-plan.has{background:color-mix(in srgb,var(--muted) 18%,transparent)}
+.pcal-plan i{display:block;height:100%;width:0;border-radius:var(--radius-pill);background:var(--accent);
+  transition:width var(--duration-base) var(--ease-out)}
+/* The grid is «armed» for the length of a drag (js/planner.js): the days lift a
+   shade so the hand already looking for a place to drop has one. */
+.pcal-grid.armed .pcal-cell{background:color-mix(in srgb,var(--accent) 6%,transparent)}
+.pcal-cell.drop{background:var(--accent-soft);box-shadow:inset 0 0 0 1.5px var(--accent)}
+.pcal-cell.flash{animation:wk-pulse .7s var(--ease-out)}
+
+/* A day of another month is readable and still a door into that month, but it
+   is not the page being read, so the digit steps back and its dot with it. */
+.pcal-cell.out .pcal-num{color:var(--muted)}
+.pcal-cell.out .pcal-mark{background:color-mix(in srgb,var(--accent) 40%,transparent)}
+/* Friday is the weekend and reads quiet; an occasion holiday is the day off the
+   calendar is telling the reader about, so it takes the danger colour — the one
+   meaning colour the app already uses for a day nobody works. */
+.pcal-cell.friday .pcal-num{color:var(--muted)}
+.pcal-cell.holiday .pcal-num{color:var(--color-danger);font-weight:700}
+.pcal-cell.holiday .pcal-mark{background:var(--color-danger)}
+/* Today is the month's only filled well, so it is found without a legend, and
+   the dot inside it takes the ink that sits on that fill. */
+.pcal-cell.today .pcal-num{background:var(--accent);color:var(--color-text-on-accent);font-weight:700}
+.pcal-cell.today .pcal-g{color:color-mix(in srgb,var(--color-text-on-accent) 82%,transparent)}
+.pcal-cell.today .pcal-mark{background:var(--color-text-on-accent)}
+.pcal-cell.today.holiday .pcal-num{background:var(--color-danger);color:var(--color-text-on-danger)}
+.pcal-cell.today.holiday .pcal-g{color:color-mix(in srgb,var(--color-text-on-danger) 82%,transparent)}
+.pcal-cell.today.holiday .pcal-mark{background:var(--color-text-on-danger)}
+/* The selection is a ring on the well. Today keeps its fill — the colour that
+   says «today» must not be repainted by a tap — and a selected holiday keeps
+   the danger ink it was already wearing. */
+.pcal-cell.sel .pcal-num{background:var(--accent-soft);color:var(--color-accent-text);
+  box-shadow:inset 0 0 0 1.5px var(--accent)}
+.pcal-cell.sel.holiday .pcal-num{color:var(--color-danger);box-shadow:inset 0 0 0 1.5px var(--color-danger)}
+.pcal-cell.sel.today .pcal-num{background:var(--accent);color:var(--color-text-on-accent);
+  box-shadow:inset 0 0 0 2px var(--color-text-on-accent)}
+.pcal-cell.sel.today.holiday .pcal-num{background:var(--color-danger);color:var(--color-text-on-danger);
+  box-shadow:inset 0 0 0 2px var(--color-text-on-danger)}
+.pcal-cell:focus-visible{outline:2px solid var(--color-focus);outline-offset:-2px;border-radius:var(--radius-xs)}
+@media (hover:hover){.pcal-cell:not(.sel):hover .pcal-num{background:color-mix(in srgb,var(--accent) 10%,transparent)}}
+
+/* Birthday highlight in the month grid */
+.pcal-bday-badge{position:absolute;inset-block-start:1px;inset-inline-end:4px;display:flex;align-items:center;justify-content:center;color:var(--color-warning);pointer-events:none;z-index:1}
+.pcal-bday-badge svg{width:11px;height:11px}
+.pcal-cell.out .pcal-bday-badge{opacity:.4}
+.pcal-cell.is-birthday .pcal-num{box-shadow:0 0 0 1.5px var(--color-warning),0 0 8px color-mix(in srgb,var(--color-warning) 35%,transparent)}
+.pcal-cell.is-birthday.sel .pcal-num{box-shadow:inset 0 0 0 1.5px var(--accent),0 0 0 1.5px var(--color-warning),0 0 8px color-mix(in srgb,var(--color-warning) 40%,transparent)}
+.pcal-cell.is-birthday.today .pcal-num{box-shadow:0 0 0 2px var(--color-warning),0 0 10px color-mix(in srgb,var(--color-warning) 50%,transparent)}
+.pcal-cell.is-birthday.today.sel .pcal-num{box-shadow:inset 0 0 0 2px var(--color-text-on-accent),0 0 0 2px var(--color-warning),0 0 10px color-mix(in srgb,var(--color-warning) 50%,transparent)}
+.pcal-cell.out.is-birthday .pcal-num{box-shadow:0 0 0 1px color-mix(in srgb,var(--color-warning) 45%,transparent)}
+
+/* ── The selected day ──
+   The panel itself is js/planner.js's (css/planner.css) because both zooms read
+   it. Only the parts of it that are the calendar's own are drawn here: the
+   holiday badge, the Gregorian line and the day's occasions. */
+.pcal-badge{font-family:var(--font-ui);font-size:11px;font-weight:700;padding:3px 10px;border-radius:var(--radius-pill);
+  color:var(--color-danger);background:color-mix(in srgb,var(--color-danger) 12%,transparent);white-space:nowrap}
+.pcal-badge[hidden],.pcal-badge-birthday[hidden]{display:none!important}
+.pcal-badge-birthday{display:inline-flex;align-items:center;gap:5px;color:var(--color-warning);background:color-mix(in srgb,var(--color-warning) 14%,transparent);
+  border:1px solid color-mix(in srgb,var(--color-warning) 32%,transparent)}
+.pcal-badge-birthday svg{width:13px;height:13px;color:var(--color-warning)}
+.pcal-day-sub{margin:0;font-size:11.5px;font-weight:500;color:var(--muted);font-variant-numeric:tabular-nums}
+.pcal-occ{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.pcal-occ li{display:flex;align-items:flex-start;gap:9px;font-family:var(--font-ui);font-size:13px;
+  font-weight:500;line-height:1.9;color:var(--text);word-break:break-word}
+.pcal-occ-dot{flex:0 0 auto;width:6px;height:6px;border-radius:50%;background:var(--accent);margin-block-start:.62em}
+.pcal-occ li.is-holiday{color:var(--color-danger)}
+.pcal-occ li.is-holiday .pcal-occ-dot{background:var(--color-danger)}
+.pcal-occ li.is-birthday{color:var(--color-warning);font-weight:700}
+.pcal-occ li.is-birthday .pcal-occ-dot{display:none}
+.pcal-occ-ico{display:inline-flex;align-items:center;margin-inline-end:5px;vertical-align:middle;color:var(--color-warning)}
+.pcal-occ-ico svg{width:13px;height:13px}
+.wk-occ-empty{margin:0;font-size:12.5px;font-weight:400;color:var(--muted);line-height:1.9}
+
+/* ── The month's occasions ──
+   A card under the calendar, printed the way a diary prints them: the month's
+   name on top, then one line per occasion with its day in a chip. */
+.pcal-month{display:flex;flex-direction:column;gap:8px;background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);padding:14px 14px 8px;box-shadow:var(--shadow-sm)}
+.pcal-month-title{margin:0 0 6px;text-align:center;font-family:var(--font-personality);font-size:16px;
+  font-weight:700;color:var(--text)}
+.pcal-list-row:last-child{border-block-end:0}
+.pcal-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.pcal-list-row{display:flex;align-items:center;gap:10px;width:100%;min-height:44px;
+  background:transparent;border:0;border-block-end:1px solid var(--color-border);
+  padding:8px 2px;text-align:start;font-family:var(--font-ui);cursor:pointer;color:var(--text);
+  touch-action:manipulation;
+  transition:color var(--duration-fast),background var(--duration-fast)}
+.pcal-list-row:focus-visible{outline:2px solid var(--color-focus);outline-offset:-2px;border-radius:var(--radius-xs)}
+@media (hover:hover){.pcal-list-row:hover{color:var(--accent)}}
+.pcal-list-row.is-birthday{background:color-mix(in srgb,var(--color-warning) 8%,transparent);border-radius:var(--radius-sm);padding-inline:6px}
+.pcal-list-row.is-birthday .pcal-list-day{background:color-mix(in srgb,var(--color-warning) 20%,transparent);color:var(--color-warning);font-weight:700}
+.pcal-list-row.is-birthday .pcal-list-title{color:var(--color-warning);font-weight:700}
+.pcal-list-ico{display:inline-flex;align-items:center;margin-inline-end:6px;vertical-align:middle;color:var(--color-warning)}
+.pcal-list-ico svg{width:13px;height:13px}
+@media (hover:hover){.pcal-list-row.is-birthday:hover{background:color-mix(in srgb,var(--color-warning) 15%,transparent);color:var(--color-warning)}}
+.pcal-list-day{flex:0 0 auto;display:grid;place-items:center;width:28px;height:28px;border-radius:50%;
+  background:var(--accent-soft);color:var(--color-accent-text);font-size:12px;font-weight:700;
+  font-variant-numeric:tabular-nums}
+.pcal-list-row.is-holiday .pcal-list-day{background:color-mix(in srgb,var(--color-danger) 12%,transparent);
+  color:var(--color-danger)}
+.pcal-list-title{flex:1;min-width:0;font-size:13px;font-weight:500;line-height:1.9;word-break:break-word}
+.pcal-list-empty{list-style:none;padding:14px 2px;font-size:12.5px;font-weight:400;color:var(--muted);line-height:1.9}
+.pcal-note{margin:0;font-size:11.5px;font-weight:400;color:var(--muted);line-height:1.9}
+
+/* ── The way in from Today ──
+   The date line sits where the reader already reads the date; making it the door
+   puts the calendar one tap away without a new tab in the bar. */
+.today-date-link{display:inline-flex;align-items:center;gap:6px;min-height:32px;max-width:100%;
+  border:none;background:transparent;color:inherit;font:inherit;padding:2px 0;cursor:pointer;text-align:start}
+.today-date-link .subtitle{margin:0}
+.today-date-link svg{flex:0 0 auto;color:var(--muted);transition:color var(--duration-fast)}
+.today-date-link:focus-visible{outline:2px solid var(--color-focus);outline-offset:2px;border-radius:var(--radius-xs)}
+@media (hover:hover){.today-date-link:hover svg{color:var(--accent)}}
+.today-occasion{margin-top:2px;font-family:var(--font-ui);font-size:12px;font-weight:600;
+  color:var(--color-accent-text);line-height:1.8}
+.today-occasion[hidden]{display:none}
+
+/* ── Desktop: one page, two columns ──
+   Same shape in both zooms — the zoom on the reading side and the day beside it
+   — because they are two sizes of one calendar, not two screens. Last on
+   purpose: these rules must out-cascade the base ones above. */
+@media (min-width:1024px){
+  #page-calendar .app{max-width:1200px}
+  #page-calendar main.app{display:grid;grid-template-columns:minmax(0,1fr);row-gap:14px;align-items:start}
+
+  /* The zoom on the reading side (col 1: month calendar + occasions) and the day beside it (col 2). */
+  /* Equal columns, one gap: the month and its day read as the two halves of one
+     spread rather than a wide panel beside a narrow sidebar. */
+  .cal-body{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+    grid-template-rows:auto auto;column-gap:22px;row-gap:18px;align-items:start}
+  /* The month stays on screen while the day scrolls, so a drag target is never
+     off-screen: the whole point of the two-column shape. */
+  /* Nothing here is sticky: the calendar is a page, not a toolbar, and a month
+     that followed the scroll down past itself stopped reading as one. */
+  .cal-main{grid-column:1;grid-row:1;min-width:0}
+  .pcal-day{grid-column:2;grid-row:1 / span 2}
+  #calMonthList{grid-column:1;grid-row:2}
+  .pcal-wrap{padding:16px}
+
+  .pcal-cell{min-height:62px}
+  .pcal-num{width:46px;height:46px;font-size:16px}
+  .pcal-g{font-size:10px}
+}
+@media (min-width:641px) and (max-width:1023.9px){
+  #page-calendar .app{max-width:640px}
+}
+
+@media (max-width:400px){
+  .pcal-plan{width:18px}
+  .pcal-head{gap:8px}
+  .pcal-nav{width:32px;height:32px}
+  .pcal-wrap{padding:10px}
+  .pcal-cell{min-height:52px}
+  .pcal-num{width:38px;height:38px;font-size:14.5px}
+  .pcal-range{font-size:17px}
+  .pcal-title .sm-btn{font-size:12px;max-width:92px}
+  .pcal-today-btn{min-height:42px;font-size:12.5px}
+}
+@media (max-width:360px){
+  .pcal-wrap{padding:9px}
+  .pcal-cell{min-height:50px}
+  .pcal-num{width:35px;height:35px;font-size:14px}
+  .pcal-mark{width:3px;height:3px}
+  .pcal-bday-badge{font-size:9.5px;inset-inline-end:2px;inset-block-start:1px}
+  .pcal-bday-badge svg{width:9.5px;height:9.5px}
+}
+
+@media (prefers-reduced-motion:reduce){
+  .pcal-nav,.pcal-title .sm-btn,.pcal-num,.pcal-plan i,.pcal-cell,.pcal-today-btn,.pcal-list-row,.pcal-row,.today-date-link svg,.pcal-badge-birthday,.pcal-bday-badge{transition:none}
+  .pcal-cell.flash{animation:none;background:var(--accent-soft)}
+}

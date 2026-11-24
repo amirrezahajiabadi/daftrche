@@ -156,8 +156,8 @@ html[data-mode="dark"] .tour-card{border-color:var(--color-border-strong)}
   body.tour-mobile-stage .tour-page-space{
     display:block;block-size:var(--tour-page-space,280px)}
   .tour-overlay{
-    --tour-safe-top:env(safe-area-inset-top,0px);
-    --tour-safe-bottom:env(safe-area-inset-bottom,0px)}
+    --tour-safe-top:var(--sat);
+    --tour-safe-bottom:var(--sab)}
   .tour-card{
     display:grid;
     grid-template-columns:minmax(0,1fr) auto;

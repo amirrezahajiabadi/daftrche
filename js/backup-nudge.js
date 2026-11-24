@@ -31,7 +31,7 @@ export function initBackupNudge() {
   if (!num(STORAGE_KEYS.firstSeen)) safeSet(STORAGE_KEYS.firstSeen, String(now));
   const card = $('#backupNudge');
   if (!card) return;
-  const items = (state.tasks?.length || 0);
+  const items = (Array.isArray(state.tasks) ? state.tasks.filter(t => t && !t.deletedAt).length : 0);
   if (!shouldNudge({ now, firstSeen: num(STORAGE_KEYS.firstSeen), lastBackup: num(STORAGE_KEYS.backupAt), lastNudge: num(STORAGE_KEYS.backupNudge), itemCount: items })) return;
   card.hidden = false;
   $('#backupNudgeLater')?.addEventListener('click', () => {

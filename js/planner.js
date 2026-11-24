@@ -1,6 +1,6 @@
-/* ═══ Weekly planner — the week as a calendar ═══
-   Seven days across, the day you pick filling the rest of the page. Two
-   questions are answered together: what is planned for a day, and what actually
+/* ═══ The day panel — one day, worked on ═══
+   The calendar's month picks the day; this file paints it. Two questions are
+   answered together: what is planned for a day, and what actually
    happened on it — the second read from the day book (js/ledger.js) that the
    achievements were already keeping, so this page is a view over data the app
    has, not a second place where data starts being written.
@@ -11,23 +11,27 @@
    addTask, setTaskDone and collapse are the shared doors, and there is no fourth
    notion of "when" beyond the due date and the optional span.
 
-   Nothing that holds a caret is ever rebuilt: the bar, the strip and the day
-   panel's frame are written once and only their contents are redrawn. A notify
-   from any other module arrives on every save, and it must never be able to wipe
-   a half-written task out of the input. */
+   Nothing that holds a caret is ever rebuilt: the panel's frame is written once
+   and only its contents are redrawn. A notify from any other module arrives on
+   every save, and it must never be able to wipe a half-written task out of the
+   input. */
 
 import { state, getTask } from './state.js';
 import {
-  $, dayKey, faNum, weekStartOf, dateFromKey, shiftKey, formatClock,
-  WEEKDAYS_SHORT, parseTimeRange,
+  $, esc, dayKey, faNum, faDigits, dateFromKey, shiftKey, formatClock, parseTimeRange,
 } from './utils.js';
 import { subscribe } from './bus.js';
-import { addTask, setTaskDone, collapse, timeRangeLabel, moveTaskToDay } from './tasks.js';
+import { addTask, setTaskDone, collapse, timeRangeLabel, moveTaskToDay, applyEdits } from './tasks.js';
+import { mountSelectMenu } from './pickmenu.js';
+import { openTaskEditor } from './taskedit.js';
 import { collectTotals } from './ledger.js';
 import { ICONS, MOODS, LIB_ICONS } from './constants.js';
-import { dateToJalali, JALALI_MONTHS } from './jalali.js';
+import { dateToJalali, jalaliToGregorian, JALALI_MONTHS } from './jalali.js';
+import { GREGORIAN_MONTHS, occasionsOf, isFriday } from './calendarmodel.js';
 import { pickerRow } from './chipgroup.js';
 import { parseQuickAdd, renderQuickAddPreview, stripQuickAddToken } from './quickadd.js';
+import { loadBirthday, loadName } from './store.js';
+import { normalizeBirthday, effectiveBirthdayDay } from './birthday.js';
 
 /* ── Where the page is looking ──
    One value: the day on screen. The week laid out is the week that day falls
@@ -36,33 +40,21 @@ import { parseQuickAdd, renderQuickAddPreview, stripQuickAddToken } from './quic
 let focusKey = null;
 let spanSlot = 'none';
 let spanPicker = null;
-let builtWeek = null;    // the week the strip was built for
-const cells = new Map(); // day key → { cell, fill }
+
+/* Where a task can land: the month's own grid, which registers a hit test, an
+   element per day and the box to arm (js/calendar.js). The panel is a view of a
+   day, not a calendar, so it offers no targets of its own. */
+let monthDrop = null;
+export function setMonthDrop(drop) { monthDrop = drop; }
+const zoneEl = key => (monthDrop && monthDrop.el ? monthDrop.el(key) : null);
+const armedRoot = () => (monthDrop && monthDrop.root ? monthDrop.root() : null);
 
 const todayKey = () => dayKey(new Date());
 const shownKey = () => (focusKey ? focusKey : todayKey());
-const shownDate = () => dateFromKey(shownKey());
-
-const weekKeys = () => {
-  const first = dayKey(weekStartOf(shownDate()));
-  return Array.from({ length: 7 }, (_, i) => shiftKey(first, i));
-};
 
 const dateFmt = (opts, key) => new Intl.DateTimeFormat('fa-IR', opts).format(dateFromKey(key));
 const fullDate = key => dateFmt({ weekday: 'long', day: 'numeric', month: 'long' }, key);
 const weekdayName = key => dateFmt({ weekday: 'long' }, key);
-
-/* The week's own name: «۶ تا ۱۲ مهر» — one month, or both when the week falls
-   across a change of month, which in a Jalali calendar is common enough that it
-   cannot be left to the day numbers alone. */
-function weekLabel(keys) {
-  const a = dateToJalali(dateFromKey(keys[0]));
-  const b = dateToJalali(dateFromKey(keys[6]));
-  const md = m => JALALI_MONTHS[m - 1];
-  return a.jm === b.jm && a.jy === b.jy
-    ? `${faNum(a.jd)} تا ${faNum(b.jd)} ${md(a.jm)}`
-    : `${faNum(a.jd)} ${md(a.jm)} تا ${faNum(b.jd)} ${md(b.jm)}`;
-}
 
 /* How far the day is from today, in the words a reader would use. */
 function relLabel(key) {
@@ -115,7 +107,9 @@ function currentSpan() {
 /* ═══ The frame: built once, then only its contents change ═══ */
 
 function buildShell() {
-  const day = $('#wkDay');
+  /* The panel is the calendar page's day, not the week's: both zooms read it,
+     so it is built in the shared host and never inside the week's own box. */
+  const day = $('#calDay');
   if (!day || day.dataset.built) return;
   day.dataset.built = '1';
   day.innerHTML = `
@@ -123,7 +117,11 @@ function buildShell() {
       <div class="wk-panel-head">
         <h2 id="wkHead"></h2>
         <span class="wk-rel" id="wkRel"></span>
+        <span class="pcal-badge pcal-badge-birthday" id="calBirthdayBadge" hidden>${ICONS.cake} روز تولد تو</span>
+        <span class="pcal-badge" id="calHoliday" hidden>تعطیل</span>
       </div>
+      <p class="pcal-day-sub" id="wkGreg"></p>
+      <ul class="pcal-occ" id="wkOccList"></ul>
 
       <form class="wk-add" id="wkAdd" autocomplete="off">
         <input id="wkInput" type="text" maxlength="120" aria-label="افزودن کار به این روز"/>
@@ -224,37 +222,20 @@ function buildShell() {
   $('#wkFrom').addEventListener('change', syncSpan);
   $('#wkTo').addEventListener('change', syncSpan);
 
-  /* Delegated: the bar and the strip are redrawn often and own no listeners. */
-  $('#wkBar').addEventListener('click', e => {
-    const nav = e.target.closest('[data-move]');
-    if (nav) { focusKey = shiftKey(shownKey(), Number(nav.dataset.move)); renderPlanner(); return; }
-    if (e.target.closest('#wkTodayBtn')) { focusKey = todayKey(); renderPlanner(); }
-  });
-
-  $('#wkStrip').addEventListener('click', e => {
-    const cell = e.target.closest('.wk-cell');
-    if (cell) { focusKey = cell.dataset.key; renderPlanner(); }
-  });
-
-  /* Choosing is moving, the way a radio group behaves; the horizontal pair
-     follows the writing direction. */
-  $('#wkStrip').addEventListener('keydown', e => {
-    const step = e.key === 'ArrowLeft' ? 1 : e.key === 'ArrowRight' ? -1 : 0;
-    if (!step) return;
-    e.preventDefault();
-    focusKey = shiftKey(shownKey(), step);
-    renderPlanner();
-    cells.get(shownKey())?.cell.focus();
-  });
-
-  $('#wkDay').addEventListener('click', e => {
+  $('#calDay').addEventListener('click', e => {
     const row = e.target.closest('.wk-row');
     if (!row) return;
     const task = getTask(row.dataset.id);
     if (!task) return;
     if (e.target.closest('.wk-check')) setTaskDone(task.id, !task.done);
     else if (e.target.closest('.wk-del')) collapse(row, task.id);
+    else if (e.target.closest('.wk-edit')) {
+      const editBtn = e.target.closest('.wk-edit');
+      openTaskEditor(task, c => applyEdits(task, c), editBtn);
+    }
   });
+
+  $('#moveUndoBtn')?.addEventListener('click', performMoveUndo);
 
   /* Moving a task to another day: by hand off the grip, or by arrow key from the
      row's own buttons. Both land in js/tasks.js (moveTaskToDay), because the
@@ -266,8 +247,8 @@ function buildShell() {
      the finger off the panel altogether — a release heard only inside the panel
      would never arrive, and the page would keep a card stuck under the finger
      with a row faded out. On the window the same release always lands. */
-  $('#wkDay').addEventListener('pointerdown', pressRow);
-  $('#wkDay').addEventListener('keydown', moveByKey);
+  $('#calDay').addEventListener('pointerdown', pressRow);
+  $('#calDay').addEventListener('keydown', moveByKey);
   addEventListener('pointermove', moveDrag);
   addEventListener('pointerup', releaseRow);
   addEventListener('pointercancel', cancelDrag);
@@ -286,6 +267,12 @@ function fillHourPicks() {
   $('#wkTo').innerHTML = opts;
   $('#wkFrom').value = String(14 * 60);
   $('#wkTo').value = String(16 * 60);
+
+  /* The two ends of the span wear the app's select pill (js/pickmenu.js): the
+     clock on the button, the spoken hour («دو بعدازظهر · ۱۴:۰۰») in the list. */
+  const hourText = t => t.split('·').pop().trim();
+  mountSelectMenu($('#wkFrom'), { text: hourText });
+  mountSelectMenu($('#wkTo'), { text: hourText });
 }
 
 function pickSpan(key) {
@@ -298,6 +285,8 @@ function pickSpan(key) {
   if (key === 'custom' && before) {
     $('#wkFrom').value = String(before.from);
     $('#wkTo').value = String(before.to);
+    $('#wkFrom').__smSync?.();
+    $('#wkTo').__smSync?.();
   }
   syncSpan();
 }
@@ -361,74 +350,16 @@ function onSubmit(e) {
   if (input) { input.value = ''; input.focus(); }
 }
 
-/* ═══ The bar, the strip ═══ */
-
-function renderBar(keys) {
-  const bar = $('#wkBar');
-  if (!bar) return;
-  const onToday = shownKey() === todayKey();
-  bar.innerHTML = `
-    <button class="wk-nav" type="button" data-move="-7">هفتهٔ قبل</button>
-    <span class="wk-range">${weekLabel(keys)}</span>
-    <button class="wk-nav" type="button" data-move="7">هفتهٔ بعد</button>
-    <button class="wk-today" type="button" id="wkTodayBtn"${onToday ? ' hidden' : ''}>همین امروز</button>`;
-}
-
-function buildStrip(keys) {
-  const strip = $('#wkStrip');
-  if (!strip) return;
-  cells.clear();
-  const frag = document.createDocumentFragment();
-  keys.forEach((key, i) => {
-    const cell = document.createElement('button');
-    cell.type = 'button';
-    cell.className = 'wk-cell';
-    cell.dataset.key = key;
-    cell.setAttribute('role', 'radio');
-    const j = dateToJalali(dateFromKey(key));
-    cell.innerHTML = `<span class="wk-dow">${WEEKDAYS_SHORT[i]}</span>`
-      + `<span class="wk-num">${faNum(j.jd)}</span>`
-      + '<span class="wk-track" aria-hidden="true"><i></i></span>';
-    frag.appendChild(cell);
-    cells.set(key, { cell, fill: cell.querySelector('.wk-track i') });
-  });
-  strip.replaceChildren(frag);
-}
-
-/* The bar under each day is the day's plan filling up: no tasks, no bar — a day
-   nobody planned shows nothing rather than an empty track waiting for one. */
-function syncStrip(keys) {
-  const cur = shownKey(), today = todayKey();
-  /* One pass over the tasks, not one per cell: the strip is redrawn on every
-     save in the app, and fourteen passes over a long list to answer the same
-     question seven times is work nobody asked for. */
-  const counts = new Map(keys.map(k => [k, { total: 0, done: 0 }]));
-  for (const t of (Array.isArray(state.tasks) ? state.tasks : [])) {
-    if (!t || typeof t !== 'object') continue;
-    const day = t.dueDate && counts.get(t.dueDate);
-    if (!day) continue;
-    day.total++;
-    if (t.done) day.done++;
-  }
-
-  for (const key of keys) {
-    const c = cells.get(key);
-    if (!c) continue;
-    const { total, done } = counts.get(key);
-    c.cell.classList.toggle('sel', key === cur);
-    c.cell.classList.toggle('today', key === today);
-    c.cell.classList.toggle('past', key < today);
-    c.cell.setAttribute('aria-checked', String(key === cur));
-    c.cell.tabIndex = key === cur ? 0 : -1;
-    c.cell.setAttribute('aria-label', total
-      ? `${fullDate(key)} — ${faNum(done)} از ${faNum(total)} کار انجام شده`
-      : `${fullDate(key)} — بدون کار`);
-    c.fill.style.width = total ? Math.round((done / total) * 100) + '%' : '';
-    c.fill.parentElement.classList.toggle('has', total > 0);
-  }
-}
-
 /* ═══ The day ═══ */
+
+export function formatBirthdayGreeting(jy, birthday, name) {
+  const b = normalizeBirthday(birthday);
+  if (!b) return '';
+  const age = (b.y !== null && (jy - b.y) > 0) ? (jy - b.y) : null;
+  const cleanName = typeof name === 'string' ? name.trim() : '';
+  const greeting = cleanName ? `تولدت مبارک، ${cleanName}!` : 'تولدت مبارک!';
+  return `${greeting}${age ? ` آغاز ${faNum(age)} سالگی` : ''}`;
+}
 
 function renderDayHead() {
   const key = shownKey();
@@ -440,6 +371,63 @@ function renderDayHead() {
     rel.textContent = r.text;
     rel.className = 'wk-rel ' + r.cls;
   }
+
+  /* The other half of a day: what it *is*, beside what is planned on it. This
+     panel is shared by both zooms, so the month's occasions are read here rather
+     than in a second panel that would have to be kept in step with this one. */
+  const j = dateToJalali(dateFromKey(key));
+  const occasions = occasionsOf(j.jy, j.jm, j.jd);
+  const off = occasions.some(o => o.holiday) || isFriday(j.jy, j.jm, j.jd);
+  const badge = $('#calHoliday');
+  if (badge) badge.hidden = !off;
+
+  const rawBirthday = loadBirthday();
+  const birthday = normalizeBirthday(rawBirthday);
+  const bdayDay = effectiveBirthdayDay(birthday, j.jy);
+  const isBirthdayDay = !!birthday && j.jm === birthday.m && j.jd === bdayDay;
+  const bdayBadge = $('#calBirthdayBadge');
+  if (bdayBadge) bdayBadge.hidden = !isBirthdayDay;
+
+  const greg = $('#wkGreg');
+  if (greg) {
+    const g = jalaliToGregorian(j.jy, j.jm, j.jd);
+    greg.textContent = `${faNum(g.gd)} ${GREGORIAN_MONTHS[g.gm - 1]} ${faDigits(g.gy)}`;
+  }
+
+  const occ = $('#wkOccList');
+  if (occ) {
+    const items = [];
+    if (isBirthdayDay) {
+      const name = loadName();
+      const bdayTitle = formatBirthdayGreeting(j.jy, birthday, name);
+      items.push({ title: bdayTitle, holiday: false, isBirthday: true });
+    }
+    for (const o of occasions) {
+      items.push({ ...o, isBirthday: false });
+    }
+
+    if (items.length) {
+      occ.replaceChildren(...items.map(o => {
+        const li = document.createElement('li');
+        if (o.holiday) li.className = 'is-holiday';
+        if (o.isBirthday) li.className = (li.className ? li.className + ' ' : '') + 'is-birthday';
+        const dot = document.createElement('span');
+        dot.className = 'pcal-occ-dot';
+        dot.setAttribute('aria-hidden', 'true');
+        const text = document.createElement('span');
+        const icon = o.isBirthday ? `<span class="pcal-occ-ico" aria-hidden="true">${ICONS.cake}</span>` : '';
+        text.innerHTML = icon + esc(o.title);
+        li.append(dot, text);
+        return li;
+      }));
+    } else {
+      const li = document.createElement('li');
+      li.className = 'wk-occ-empty';
+      li.textContent = 'برای این روز مناسبتی ثبت نشده.';
+      occ.replaceChildren(li);
+    }
+  }
+
   const input = $('#wkInput');
   if (input) {
     input.placeholder = `+ برای ${weekdayName(key)} یه کار بنویس…`;
@@ -467,6 +455,7 @@ function rowEl(task, slot) {
     ${slot && span ? `<span class="wk-slot-badge">${LIB_ICONS.clock} ${span}</span>` : ''}
     <span class="wk-title"></span>
     ${slot ? '' : spanChip}
+    <button class="wk-edit" type="button" aria-label="ویرایش">${ICONS.edit}</button>
     <button class="wk-del" type="button" aria-label="حذف">${ICONS.trash}</button>`;
   li.querySelector('.wk-title').textContent = task.text;
   return li;
@@ -528,7 +517,7 @@ function renderLists() {
      span is an anchor and the rest of the day hangs off it. Sorted by time
      alone, so ticking a task never makes its row jump away from the finger. */
   const untimed = 24 * 60;
-  const tasks = (Array.isArray(state.tasks) ? state.tasks : []).filter(t => t && typeof t === 'object');
+  const tasks = (Array.isArray(state.tasks) ? state.tasks : []).filter(t => t && typeof t === 'object' && !t.deletedAt);
   const planned = tasks
     .filter(t => t.dueDate === key)
     .sort((a, b) => (a.timeFrom == null ? untimed : a.timeFrom) - (b.timeFrom == null ? untimed : b.timeFrom));
@@ -599,16 +588,11 @@ function renderLists() {
 const DRAG_SLOP = 8;   // how far a press may wander before it counts as a drag
 let drag = null;       // { taskId, row, pointerId, x, y, on, key, ghost }
 
-/* The column a point is over, or the nearest one when it is on the margin. */
-function dayAtX(x) {
-  let near = null, best = Infinity;
-  for (const [key, c] of cells) {
-    const r = c.cell.getBoundingClientRect();
-    if (x >= r.left && x <= r.right) return key;
-    const d = Math.min(Math.abs(x - r.left), Math.abs(x - r.right));
-    if (d < best) { best = d; near = key; }
-  }
-  return near;
+/* The day a point is over: the month answers in two dimensions, because its
+   days are laid out in rows. A grid that is not on screen has no width and is
+   never a target. */
+function dayAt(x, y) {
+  return monthDrop && monthDrop.hit ? monthDrop.hit(x, y) : null;
 }
 
 function pressRow(e) {
@@ -625,7 +609,7 @@ function liftDrag(e) {
   drag.on = true;
   drag.row.classList.add('dragging');
   document.documentElement.classList.add('wk-dragging');
-  $('#wkStrip').classList.add('armed');
+  armedRoot()?.classList.add('armed');
   drag.ghost = ghostFor(drag.row);
   /* The capture keeps a mouse that wanders off the panel still pointing at the
      row it picked up; the `try` is for a pointer that is already gone. */
@@ -640,11 +624,11 @@ function moveDrag(e) {
     /* The same move that lifts the row also chooses the day it is over: a quick
        flick puts a task down in one gesture, not two. */
   }
-  const key = dayAtX(e.clientX);
+  const key = dayAt(e.clientX, e.clientY);
   if (key !== drag.key) {
-    if (drag.key) cells.get(drag.key)?.cell.classList.remove('drop');
+    if (drag.key) zoneEl(drag.key)?.classList.remove('drop');
     drag.key = key;
-    if (key) cells.get(key).cell.classList.add('drop');
+    if (key) zoneEl(key)?.classList.add('drop');
     drag.ghost.to.textContent = key && key !== shownKey() ? `میره به ${fullDate(key)}` : '';
   }
   /* Placed last, against the width the card has *now*: writing the destination
@@ -660,7 +644,11 @@ function releaseRow(e) {
   drag = null;
   if (!d.on) return;                 // never travelled: not a drag at all
   endDrag(d);
-  if (d.key && moveTaskToDay(d.taskId, d.key)) flashCell(d.key);
+  const prevKey = getTask(d.taskId)?.dueDate || shownKey();
+  if (d.key && d.key !== prevKey && moveTaskToDay(d.taskId, d.key)) {
+    landTask(d.taskId, d.key);
+    showMoveUndo(d.taskId, prevKey, d.key);
+  }
 }
 
 function cancelDrag() {
@@ -673,8 +661,8 @@ function cancelDrag() {
 function endDrag(d) {
   d.row.classList.remove('dragging');
   document.documentElement.classList.remove('wk-dragging');
-  $('#wkStrip').classList.remove('armed');
-  if (d.key) cells.get(d.key)?.cell.classList.remove('drop');
+  armedRoot()?.classList.remove('armed');
+  if (d.key) zoneEl(d.key)?.classList.remove('drop');
   if (d.ghost) d.ghost.el.remove();
   /* The row may already be gone: a drop re-renders the day's two lists. */
   try { d.row.releasePointerCapture(d.pointerId); } catch (err) { /* already released */ }
@@ -733,11 +721,28 @@ function moveGhost(e) {
 /* Where a task just landed, said in the one place the reader is already looking:
    the day itself, which is also the row of numbers they will scan afterwards. */
 function flashCell(key) {
-  const cell = cells.get(key)?.cell;
+  const cell = zoneEl(key);
   if (!cell) return;
   cell.classList.remove('drop');
   cell.classList.add('flash');
   setTimeout(() => cell.classList.remove('flash'), 700);
+}
+
+/* A task that just landed somewhere: that day becomes the day on screen. With a
+   finger the destination was under the hand; with a keyboard there is nothing to
+   see otherwise. The focus goes back to the task's own tick, so moving a task
+   three days on is three presses, not a walk into the next week and back. The
+   drag and the arrow keys both come through here, so they cannot drift. */
+function landTask(id, key) {
+  focusKey = key;
+  /* The month, when it is the zoom on screen, takes its own selection along — it
+     repaints itself here, and the panel is repainted below, once. */
+  if (monthDrop && monthDrop.focus) monthDrop.focus(key);
+  renderPlanner();
+  flashCell(key);
+  const moved = $('#calDay').querySelector(`.wk-row[data-id="${id}"] .wk-check`);
+  if (moved) moved.focus();
+  else zoneEl(key)?.focus();
 }
 
 /* Keyboard: a row's own tick and bin are already tab stops, so moving hangs off
@@ -748,6 +753,55 @@ function flashCell(key) {
    row's own tick — because with a finger the destination was under it, and with
    a keyboard there is nothing to see otherwise. Moving a task three days on is
    then three presses, not a walk into the next week and back. */
+/* ── Undo Toast for moving a task ── */
+let moveUndoTimer = null;
+let moveHideTimer = null;
+let lastMove = null;
+
+function showMoveUndo(taskId, prevKey, newKey) {
+  lastMove = { taskId, prevKey, newKey };
+  const toast = $('#moveToast');
+  if (!toast) return;
+  const task = getTask(taskId);
+  const title = task && task.text ? (task.text.length > 20 ? task.text.slice(0, 19).trim() + '…' : task.text) : 'کار';
+  const label = toast.querySelector('.toast-text');
+  if (label) {
+    label.textContent = `${title} جابه‌جا شد`;
+  }
+  const bar = toast.querySelector('.toast-bar');
+  if (bar) {
+    bar.style.animation = 'none'; void bar.offsetWidth; bar.style.animation = '';
+  }
+  toast.hidden = false;
+  requestAnimationFrame(() => toast.classList.add('show'));
+  clearTimeout(moveUndoTimer);
+  clearTimeout(moveHideTimer);
+  moveUndoTimer = setTimeout(hideMoveUndo, 5000);
+}
+
+function hideMoveUndo() {
+  clearTimeout(moveUndoTimer);
+  moveUndoTimer = null;
+  const toast = $('#moveToast');
+  if (!toast) return;
+  toast.classList.remove('show');
+  clearTimeout(moveHideTimer);
+  moveHideTimer = setTimeout(() => {
+    toast.hidden = true;
+    moveHideTimer = null;
+  }, 300);
+  lastMove = null;
+}
+
+function performMoveUndo() {
+  if (!lastMove) return;
+  const { taskId, prevKey } = lastMove;
+  hideMoveUndo();
+  if (taskId && prevKey && moveTaskToDay(taskId, prevKey)) {
+    landTask(taskId, prevKey);
+  }
+}
+
 function moveByKey(e) {
   const step = e.key === 'ArrowLeft' ? 1 : e.key === 'ArrowRight' ? -1 : 0;
   if (!step) return;
@@ -757,33 +811,33 @@ function moveByKey(e) {
   if (!task) return;
   e.preventDefault();
   const id = task.id;
-  const key = shiftKey(task.dueDate || shownKey(), step);
+  const prevKey = task.dueDate || shownKey();
+  const key = shiftKey(prevKey, step);
   if (!moveTaskToDay(id, key)) return;
-  focusKey = key;
-  renderPlanner();
-  flashCell(key);
-  const moved = $('#wkDay').querySelector(`.wk-row[data-id="${id}"] .wk-check`);
-  if (moved) moved.focus();
-  else cells.get(key)?.cell.focus();
+  landTask(id, key);
+  showMoveUndo(id, prevKey, key);
 }
 
 export function renderPlanner() {
-  const keys = weekKeys();
-  renderBar(keys);
-  if (keys[0] !== builtWeek) { buildStrip(keys); builtWeek = keys[0]; }
-  syncStrip(keys);
   renderDayHead();
   renderLists();
 }
 
 /* Every save in the app arrives here. Nothing is redrawn while the page is not
-   on screen — the planner is a view, and a view nobody is looking at costs
+   on screen — the panel is a view, and a view nobody is looking at costs
    nothing. */
 function onData() {
-  const page = document.getElementById('page-week');
+  const page = document.getElementById('page-calendar');
   if (!page || !page.classList.contains('active')) return;
-  syncStrip(weekKeys());
+  renderDayHead();
   renderLists();
+}
+
+/* The month knows a Jalali date; the panel is keyed by the Gregorian day key the
+   tasks already carry, so the shell converts and hands one over. */
+export function focusPlannerDay(key) {
+  if (!key) return;
+  focusKey = key;
 }
 
 export function initPlanner() {
@@ -791,8 +845,9 @@ export function initPlanner() {
   syncSpan();
   if (spanPicker) spanPicker.mark(spanSlot);
   subscribe(onData);
-  /* Painted only when active at boot (e.g. direct URL hash); otherwise lazy */
-  if (document.getElementById('page-week')?.classList.contains('active')) {
+  /* Painted only when active at boot (e.g. a #calendar hash); otherwise the
+     first visit paints it. */
+  if (document.getElementById('page-calendar')?.classList.contains('active')) {
     renderPlanner();
   }
 }

@@ -19,6 +19,9 @@ export const STORAGE_KEYS = {
   freeze: 'daftarche-streak-freeze',
   birthday: 'daftarche-birthday',
   birthdaySeen: 'daftarche-birthday-seen',
+  birthdayThemeOff: 'daftarche-birthday-theme-off',
+  birthdayCandle: 'daftarche-birthday-candle',
+  birthdayWishes: 'daftarche-birthday-wishes',
   /* A fresh marker for the main 3.0.0 tour. The previous marker is deliberately
      left behind as inert device data so every reader gets this release's walk
      once, including readers who completed an earlier tour. */
@@ -62,7 +65,7 @@ export const THEMES = [
   { key: 'lajvard',    label: 'لاجورد',   mode: 'dark',  palette: 'lajvard',    family: 'tile'  },
   { key: 'graphite',   label: 'گرافیت',   mode: 'dark',  palette: 'graphite',   family: 'clean' },
   { key: 'nightglass', label: 'شب‌شیشه',  mode: 'dark',  palette: 'nightglass', family: 'glass' },
-  /* The ten worlds: each is earned (js/achievements.js REWARDS) and each brings
+  /* The eleven worlds: each is earned (js/achievements.js REWARDS) and each brings
      a small feature of its own to Today (js/worlds.js). */
   { key: 'tarnama',     label: 'تارنما',    mode: 'light', palette: 'tarnama',     family: 'world' },
   { key: 'baghche',     label: 'باغچه',     mode: 'light', palette: 'baghche',     family: 'world' },
@@ -74,7 +77,18 @@ export const THEMES = [
   { key: 'kimiyagar',   label: 'کیمیاگر',   mode: 'dark',  palette: 'kimiyagar',   family: 'world' },
   { key: 'rasadkhane',  label: 'رصدخانه',   mode: 'dark',  palette: 'rasadkhane',  family: 'world' },
   { key: 'simorgh',     label: 'سیمرغ',    mode: 'dark',  palette: 'simorgh',     family: 'world' },
+  /* The birthday theme is not a theme the reader picks: it is worn for the one
+     day and taken off again. It stays in this table because it is still a key —
+     css/base.css has an html[data-theme="tavalod"] block for it and the birthday
+     world card hangs off it — but `hidden` keeps it out of the picker, out of the
+     unlocked count and out of every «choose a theme» list. js/theme.js applies it
+     by itself on the day (applyBirthdayTheme), and nothing else may. */
+  { key: 'tavalod',     label: 'تولد',     mode: 'light', palette: 'tavalod',     family: 'world', hidden: true },
 ];
+
+/* What the picker walks, what it counts, and what a mode switch may land on:
+   every theme except the ones the reader is never offered. */
+export const PICKER_THEMES = THEMES.filter(t => !t.hidden);
 
 export const THEME_KEYS = THEMES.map(t => t.key);
 export const THEME_MODES = ['light', 'dark'];
@@ -82,11 +96,17 @@ export const DEFAULT_THEME = 'daftarche';
 
 /* ─── Navigation map ───
    Two lists, one source. The four homes the bottom bar moves between, and the
-   five destinations that live behind its «بیشتر» sheet (js/app.js). The bar's
+   destinations that live behind its «بیشتر» sheet (js/app.js). The bar's
    ORDER is the swipe order and the rail's order, so both are written once and
-   nothing re-derives them from the markup. */
+   nothing re-derives them from the markup.
+
+   The calendar is one destination because it is one page: the week a day is
+   planned in and the month it sits in are two zooms of the same calendar, and
+   the switch between them sits on the page rather than in the bar. «هفته» used
+   to be a destination of its own and keeps working as an alias of this one
+   (js/app.js), so an old link still lands on the week. */
 export const PRIMARY_PAGES = ['today', 'tasks', 'focus', 'library'];
-export const MORE_PAGES = ['week', 'stats', 'achv', 'profile', 'settings'];
+export const MORE_PAGES = ['calendar', 'stats', 'achv', 'profile', 'settings'];
 /* The dark end of the table, and the first of the two halves the one-tap switch
    in the header walks between. */
 export const NIGHT_THEME = 'lajvard';
@@ -216,4 +236,5 @@ export const ICONS = {
   clock: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="13" r="8"/><path d="M12 13V9"/><path d="M12 5V3M9 3h6"/></svg>`,
   trash: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6M10 11v6M14 11v6"/></svg>`,
   bell:  `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>`,
+  cake:  `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-8a2 2 0 00-2-2H6a2 2 0 00-2 2v8"/><path d="M4 16s2-1 4-1 4 1 4 1 2-1 4-1 4 1 4 1"/><path d="M2 21h20"/><path d="M12 7v4"/><path d="M12 3a1.5 1.5 0 011 2.5L12 7l-1-1.5A1.5 1.5 0 0112 3z" fill="currentColor"/></svg>`,
 };

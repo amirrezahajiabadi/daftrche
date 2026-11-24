@@ -236,7 +236,7 @@ export const ACHIEVEMENTS = [
    An achievement can open one or more things outside the shelf. The catalogue
    stores stable reward ids; this table owns how each reward is described and
    lets future features use the same lock, picker and celebration contract. */
-/* The ten worlds are the rewards: each theme opens with one badge's tier, and
+/* The eleven worlds are the rewards: each theme opens with one badge's tier, and
    its entry here owns the words for the lock and for the moment it opens. The
    contract is the same one any future reward (a card style, a scene) uses. */
 const world = (key, label, lockedText, unlockText) => Object.freeze({

@@ -13,8 +13,13 @@ export const EXAMPLES = {
 export const examplesFor = goal => EXAMPLES[GOALS.includes(goal) ? goal : 'tasks'];
 
 /* The two titles and lines the pane shows, as data — so the copy can be read and
-   tested without a DOM. */
+   tested without a DOM.
+
+   Written as the benefit, not the feature: «کاری از قلم نمی‌افته» says what the
+   reader gets out of the tasks page, where «کارها» only named a tab. The task
+   step promises a ready answer rather than a blank box, because the example is
+   already in the field when the pane opens. */
 export const PANES = {
-  goal: { steps: '۲ از ۳', title: 'بیشتر برای چی اومدی؟', sub: 'فقط برای اینه که مثال‌ها و راهنما به کارت بیان.' },
-  task: { steps: '۳ از ۳', title: 'اولین کارت رو بنویس', sub: 'همین‌جوری که حرف می‌زنی؛ زمان و دسته رو خودم می‌فهمم.' },
+  goal: { steps: '۲ از ۳', title: 'دفترچه چه کاری از دوشت برداره؟', sub: 'یک انتخاب، تا مثال‌ها و راهنمای امروز به کارِ خودت بیاد.' },
+  task: { steps: '۳ از ۳', title: 'اولین کار، آماده است', sub: 'همین رو تأیید کن یا بنویس؛ زمان و دسته رو خودم می‌فهمم.' },
 };

@@ -99,6 +99,8 @@ const WORLDS = {
   negarkhane: ['first-note', 3], kimiyagar: ['hard-worker', 2], qollenavard: ['early-bird', 2],
   rasadkhane: ['chain', 4], simorgh: ['perfect-month', 1],
 };
+/* «تولد» is not in this table on purpose: it is not a theme a badge opens, it is
+   the one day the calendar opens a theme by itself. */
 
 test('each world theme is a reward of one badge tier, and not earned by default', () => {
   for (const [key, [badge, tier]] of Object.entries(WORLDS)) {
@@ -127,7 +129,7 @@ test('only the world themes are gated; the seven everyday themes are always open
     assert.equal(T.isThemeUnlocked(k), true, k);
   }
 
-  // 2. By default (no achievements), all 10 world themes are locked
+  // 2. By default (no achievements), all 11 world themes are locked
   for (const k of Object.keys(WORLDS)) {
     assert.equal(T.isThemeUnlocked(k), false, k);
   }
@@ -138,7 +140,7 @@ test('only the world themes are gated; the seven everyday themes are always open
   assert.equal(T.themeForMode('dark'), 'lajvard');
 
   try {
-    // 3. Verify each of the 10 worlds unlocks only with its specific badge and tier
+    // 3. Verify each of the 11 worlds unlocks only with its specific badge and tier
     for (const [key, [badge, tier]] of Object.entries(WORLDS)) {
       // Prior to earning
       S.saveAchv(A.emptyState());
@@ -155,7 +157,8 @@ test('only the world themes are gated; the seven everyday themes are always open
       assert.equal(T.isThemeUnlocked(key), true, `${key} should unlock at tier ${tier}`);
     }
 
-    // 4. Test QA bypass toggle
+    // 4. Test QA bypass toggle. Seventeen, not eighteen: the birthday theme is
+    // not one of the reader's themes and is never counted with them.
     S.saveAchv(A.emptyState());
     assert.equal(T.unlockedThemesCount(), 7);
     T.setQaUnlockAllThemes(true);

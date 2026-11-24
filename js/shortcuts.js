@@ -37,7 +37,8 @@ function focusNewTask() {
   const activePage = document.querySelector('.page.active')?.id;
   if (activePage === 'page-today') {
     $('#todayInput')?.focus();
-  } else if (activePage === 'page-week') {
+  } else if (activePage === 'page-calendar') {
+    /* The calendar's quick add is the field this shortcut means. */
     $('#wkInput')?.focus();
   } else {
     if (activePage !== 'page-tasks') {

@@ -56,6 +56,8 @@ let copiedCount = 0;
 let totalBytes = 0;
 
 for (const relPath of shellFiles) {
+  // Service Worker is for Web PWA only, excluded from native Android APK assets
+  if (relPath === 'sw.js') continue;
   const src = path.join(ROOT, relPath);
   if (!fs.existsSync(src)) {
     console.error(`❌ Missing shell file: ${relPath}`);

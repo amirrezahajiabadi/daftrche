@@ -34,6 +34,7 @@ import { renderToday } from './today.js';
 import { renderProfile } from './profile.js';
 import { renderAchievements } from './achievementsview.js';
 import { renderPlanner } from './planner.js';
+import { formatDiagnosticsReport, clearDiagnostics, getDiagnostics } from './diagnostics.js';
 
 let activeSettingsTab = 'general';
 let updateStatus = 'idle';
@@ -710,6 +711,53 @@ export function initSettings() {
     say(choice === 'merge' ? 'ادغام شد؛ دفترچه دوباره بالا می‌آد…' : 'بازگردانی شد؛ دفترچه دوباره بالا می‌آد…');
     setTimeout(() => location.reload(), 600);
   });
+
+  /* ── Local Diagnostics ── */
+  const copyDiagBtn = $('#copyDiagnosticsBtn');
+  const clearDiagBtn = $('#clearDiagnosticsBtn');
+  const diagHint = $('#diagnosticsHint');
+
+  const updateDiagUI = () => {
+    const logs = getDiagnostics();
+    if (diagHint) {
+      diagHint.textContent = logs.length
+        ? `${faNum(logs.length)} مورد خطا روی این دستگاه ثبت شده است (بدون اطلاعات شخصی یا ارسال به سرور).`
+        : 'هیچ خطایی ثبت نشده است. دفترچه بدون مشکل کار کرده است.';
+    }
+  };
+
+  if (copyDiagBtn) {
+    copyDiagBtn.addEventListener('click', async () => {
+      try {
+        const report = await formatDiagnosticsReport();
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+          await navigator.clipboard.writeText(report);
+        } else {
+          const ta = document.createElement('textarea');
+          ta.value = report;
+          ta.style.position = 'fixed';
+          ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          ta.remove();
+        }
+        showNotice('گزارش عیب‌یابی در کلیپ‌بورد کپی شد.', { actionLabel: 'باشه' });
+      } catch {
+        showNotice('کپی گزارش انجام نشد.', { actionLabel: 'باشه' });
+      }
+    });
+  }
+
+  if (clearDiagBtn) {
+    clearDiagBtn.addEventListener('click', () => {
+      clearDiagnostics();
+      updateDiagUI();
+      showNotice('گزارش خطاهای محلی پاک شد.', { actionLabel: 'باشه' });
+    });
+  }
+
+  updateDiagUI();
 
   /* ── The wipe ──
      localStorage holds tasks, settings and the book metadata; the PDF files and

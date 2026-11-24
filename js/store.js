@@ -433,12 +433,25 @@ export const saveThemeModes = m     => scheduleSave(STORAGE_KEYS.themeModes, m);
 export const loadBirthday = ()    => read(STORAGE_KEYS.birthday, null);
 export const saveBirthday = b     => b ? scheduleSave(STORAGE_KEYS.birthday, b) : scheduleSave(STORAGE_KEYS.birthday, null);
 
-/* The last day the greeting was shown, as a bare MM-DD. It carries no year on
-   purpose: nothing about it has to expire, so next year's greeting arrives by
-   itself with no cleanup and no year to roll over. Device-local, so js/backup.js
+/* The last birthday the greeting was shown on, as «Jalali year-MM-DD». The year
+   is what makes the record expire: comparing a bare MM-DD with today's MM-DD
+   silenced every birthday after the first one. Device-local, so js/backup.js
    keeps it out of the file. */
 export const loadBirthdaySeen = ()    => readString(STORAGE_KEYS.birthdaySeen);
-export const saveBirthdaySeen = key   => scheduleSave(STORAGE_KEYS.birthdaySeen, key || '');
+export const saveBirthdaySeen = stamp => scheduleSave(STORAGE_KEYS.birthdaySeen, stamp || '');
+
+/* The birthday the reader said «not this time» to, as the same kind of stamp.
+   Choosing another theme on the day writes it here, and js/theme.js reads it to
+   leave the reader's own colours alone instead of putting the birthday one back
+   on the next reload. One day only: tomorrow's stamp is a different string. */
+export const loadBirthdayThemeOff = ()    => readString(STORAGE_KEYS.birthdayThemeOff);
+export const saveBirthdayThemeOff = stamp => scheduleSave(STORAGE_KEYS.birthdayThemeOff, stamp || '');
+
+/* Birthday World state persistence: candle blown date and annual wish capsules */
+export const loadBirthdayCandle = ()    => readString(STORAGE_KEYS.birthdayCandle);
+export const saveBirthdayCandle = key   => scheduleSave(STORAGE_KEYS.birthdayCandle, key || '');
+export const loadBirthdayWishes = ()    => read(STORAGE_KEYS.birthdayWishes, {});
+export const saveBirthdayWishes = w     => scheduleSave(STORAGE_KEYS.birthdayWishes, w || {});
 
 /* The guided tour. This release owns a new marker on purpose: the old
    `daftarche-tour-done` key belongs to the previous tour and must not suppress

@@ -1,52 +1,14 @@
-/* ═══ Weekly planner ═══
-   A week laid out in seven columns and the day you picked under it. Everything
-   here is built out of the tokens the rest of the app uses: no colour, radius or
-   shadow of its own, so the planner is another page of the same notebook rather
-   than a plugin that happens to share its storage.
-
-   The strip is the one place with a hard geometric budget: seven cells inside a
-   320px phone leave about forty pixels each, which is what sets the sizes below
-   — a weekday initial, a day number, and a bar. The numbers themselves go to the
-   cell's label instead of onto the cell, because at that width a printed count
-   would be the thing that clipped. */
-
-.wk-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.wk-nav{flex:0 0 auto;border:1.5px solid var(--border);background:transparent;color:var(--muted);
-  font-family:var(--font-ui);font-size:11.5px;font-weight:600;padding:7px 12px;border-radius:var(--radius-pill);
-  cursor:pointer;transition:color var(--duration-fast),border-color var(--duration-fast),background var(--duration-fast)}
-@media (hover:hover){.wk-nav:hover{color:var(--accent);border-color:var(--accent)}}
-.wk-nav:focus-visible{outline:2px solid var(--color-focus);outline-offset:2px}
-.wk-range{flex:1;min-width:0;text-align:center;font-family:var(--font-ui);font-size:13px;font-weight:600;color:var(--text)}
-.wk-today{flex:0 0 auto;border:none;background:transparent;color:var(--accent);font-family:var(--font-ui);
-  font-size:11.5px;font-weight:600;padding:7px 4px;border-radius:var(--radius-pill);cursor:pointer}
-.wk-today[hidden]{display:none}
-.wk-today:focus-visible{outline:2px solid var(--color-focus);outline-offset:2px}
-
-/* ── The week strip ── */
-.wk-strip{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;
-  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
-  padding:8px 6px;box-shadow:var(--shadow-sm)}
-.wk-cell{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0;
-  border:1.5px solid transparent;background:transparent;border-radius:var(--radius-sm);
-  padding:6px 2px 5px;cursor:pointer;font-family:var(--font-ui);min-height:48px;
-  transition:background var(--duration-fast),border-color var(--duration-fast),color var(--duration-fast)}
-.wk-dow{font-size:11px;font-weight:600;color:var(--muted);line-height:1}
-.wk-num{font-size:15px;font-weight:700;color:var(--text);line-height:1.2}
-.wk-cell.today .wk-num{color:var(--accent)}
-.wk-cell.past .wk-num{color:var(--muted)}
-/* The bar is the day's plan filling up. A day with nothing planned has no bar
-   at all — an empty track would be a promise the day never made. */
-.wk-track{width:100%;height:3px;border-radius:var(--radius-pill);background:transparent;overflow:hidden}
-.wk-track.has{background:color-mix(in srgb,var(--muted) 28%,transparent)}
-.wk-track i{display:block;height:100%;width:0;border-radius:var(--radius-pill);background:var(--accent);
-  transition:width var(--duration-base) var(--ease-out)}
-.wk-cell.sel{border-color:var(--accent);background:var(--accent-soft)}
-.wk-cell.sel .wk-dow,.wk-cell.sel .wk-num{color:var(--accent)}
-.wk-cell:focus-visible{outline:2px solid var(--color-focus);outline-offset:2px}
+/* ═══ The day panel ═══
+   One day, the day the calendar's grid points at. Everything here is built out
+   of the tokens the rest of the app uses: no colour, radius or shadow of its
+   own, so the panel is another page of the same notebook rather than a plugin
+   that happens to share its storage. The month's own furniture — the grid, its
+   numbers, their plan bars — lives in css/calendar.css. */
 
 /* ── The day ── */
 .wk-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
-  padding:16px 18px;box-shadow:var(--shadow-sm);display:flex;flex-direction:column;gap:14px}
+  /* The same inner padding as the month card it sits beside (css/calendar.css). */
+  padding:12px;box-shadow:var(--shadow-sm);display:flex;flex-direction:column;gap:14px}
 .wk-panel-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .wk-panel-head h2{font-family:var(--font-personality);font-size:18px;font-weight:700;margin:0}
 .wk-rel{font-size:11px;font-weight:600;padding:3px 10px;border-radius:var(--radius-pill);
@@ -62,7 +24,7 @@
    button's shadow crossing the pill's own border and read as two shapes
    overlapping. */
 .wk-add{display:flex;align-items:center;gap:10px;background:var(--bg);border:1.5px solid var(--border);
-  border-radius:var(--radius-pill);padding-block:6px;padding-inline:18px 6px;box-shadow:none;
+  border-radius:var(--radius-pill);padding-block:5px;padding-inline:16px 5px;box-shadow:none;
   transition:border-color var(--duration-base),box-shadow var(--duration-base),background var(--duration-slow)}
 /* One ring, and it belongs to the row: the field inside never draws its own, so
    a focused reader sees a single outline rather than two sharing the same box. */
@@ -76,7 +38,7 @@
   appearance:none;-webkit-appearance:none;background:transparent;color:var(--text);
   font-family:var(--font-ui);font-size:15px;font-weight:400;padding:9px 0}
 .wk-add input::placeholder{color:var(--muted);font-weight:400}
-.wk-go{flex:0 0 auto;width:44px;height:44px;min-width:44px;min-height:44px;border:none;border-radius:50%;background:var(--accent);
+.wk-go{flex:0 0 auto;width:40px;height:40px;min-width:40px;min-height:40px;border:none;border-radius:50%;background:var(--accent);
   color:var(--color-text-on-accent);cursor:pointer;display:grid;place-items:center;
   box-shadow:none;transition:transform var(--duration-fast) var(--ease-spring),background var(--duration-fast);-webkit-tap-highlight-color:transparent}
 .wk-go:hover{background:var(--color-accent-strong);transform:scale(1.02);box-shadow:none}
@@ -101,10 +63,11 @@
 .wk-span .pick-chip:focus-visible{outline:2px solid var(--color-focus);outline-offset:2px}
 .wk-span-picks{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .wk-span-picks[hidden]{display:none}
-.wk-span-picks select{border:1.5px solid var(--border);background:var(--bg);color:var(--text);
-  font-family:var(--font-ui);font-size:12.5px;font-weight:600;padding:7px 8px;border-radius:var(--radius-sm);
-  max-width:46%;cursor:pointer}
-.wk-span-picks select:focus-visible{outline:2px solid var(--color-focus);outline-offset:2px}
+/* The span's two hours are the app's select pills (.sm-btn, css/components.css)
+   on the panel's own paper, not the phone's system sheet. */
+.wk-span-picks .sm{max-width:46%;min-width:0;flex:0 1 auto}
+.wk-span-picks .sm-btn{max-width:100%;border-radius:var(--radius-sm);background:var(--bg);font-size:12.5px;font-weight:600;padding:7px 8px}
+.wk-span-picks .sm-btn:focus-visible{outline:2px solid var(--color-focus);outline-offset:2px}
 .wk-span-to{font-size:11.5px;color:var(--muted)}
 .wk-span-hint{margin:0;font-size:11.5px;font-weight:500;color:var(--danger)}
 .wk-span-hint[hidden]{display:none}
@@ -132,6 +95,14 @@
    accent rather than in a chip grey — it is the planner's own signal. */
 .wk-span-chip{flex-shrink:0;font-size:11px;font-weight:700;padding:2px 9px;border-radius:var(--radius-pill);
   color:var(--accent-text);background:var(--accent-soft);white-space:nowrap}
+.wk-edit{position:relative;border:none;background:transparent;color:var(--muted);width:28px;height:28px;border-radius:var(--radius-xs);
+  cursor:pointer;display:grid;place-items:center;flex-shrink:0;opacity:0;transform:scale(.8);
+  transition:opacity var(--duration-fast),transform var(--duration-fast),color var(--duration-fast),background var(--duration-fast)}
+.wk-edit::after{content:'';position:absolute;inset:-8px;border-radius:var(--radius-sm)}
+.wk-row:hover .wk-edit,.wk-edit:focus-visible{opacity:1;transform:none}
+.wk-edit:hover{color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent)}
+.wk-edit:active{transform:scale(.88)!important}
+@media (hover:none){.wk-edit{opacity:.55;transform:none}}
 .wk-del{position:relative;border:none;background:transparent;color:var(--muted);width:28px;height:28px;border-radius:var(--radius-xs);
   cursor:pointer;display:grid;place-items:center;flex-shrink:0;opacity:0;transform:scale(.8);
   transition:opacity var(--duration-fast),transform var(--duration-fast),color var(--duration-fast),background var(--duration-fast)}
@@ -162,20 +133,9 @@
 .wk-row:hover .wk-grip{opacity:.85}
 html.wk-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
 html.wk-dragging .wk-grip{cursor:grabbing}
-.wk-row.dragging{opacity:1!important;box-shadow:var(--shadow-md);z-index:50}
-/* The strip is «armed» for the length of a drag (js/planner.js): every cell in
-   it is a landing zone, and until now nothing on screen said so — the class was
-   toggled and had no rule behind it. A held breath rather than an announcement:
-   the accent border lifts, the day cells rise a hair, and the whole board reads
-   as pickable at the moment the finger is already looking for a place to drop.
-   transform/opacity and one border colour only, so the cue costs no layout. */
-.wk-strip.armed{border-color:color-mix(in srgb,var(--accent) 45%,var(--border));
-  box-shadow:var(--shadow-1)}
-.wk-strip.armed .wk-cell{transform:scale(1.01)}
-.wk-strip.armed .wk-cell:not(.drop):not(.sel){border-color:color-mix(in srgb,var(--accent) 22%,transparent)}
-.wk-cell.drop{border-color:var(--accent);background:var(--accent-soft)}
-.wk-cell.drop .wk-dow,.wk-cell.drop .wk-num{color:var(--accent)}
-.wk-cell.flash{animation:wk-pulse .7s var(--ease-out)}
+.wk-row.dragging{opacity:1!important;box-shadow:var(--shadow-2);z-index:50}
+/* The landing flash is the month's (css/calendar.css); the keyframes stay here
+   because the panel's own rows were the first thing to use them. */
 @keyframes wk-pulse{0%,55%{background:var(--accent-soft)}100%{background:transparent}}
 .wk-ghost{position:fixed;inset-block-start:0;inset-inline-start:0;z-index:99;pointer-events:none;
   display:flex;flex-wrap:wrap;align-items:center;gap:8px;max-width:min(20rem,80vw);
@@ -236,55 +196,27 @@ html.wk-dragging .wk-grip{cursor:grabbing}
 }
 .wk-untimed-sec{display:flex;flex-direction:column;gap:8px}
 
+/* The panel's inner padding follows the month card's at every width, so the two
+   halves of the spread start their content on the same inset. */
 @media (max-width:400px){
-  .wk-panel{padding:14px 14px}
-  .wk-num{font-size:14px}
-  .wk-dow{font-size:11px}
-  .wk-strip{padding:7px 5px}
+  .wk-panel{padding:10px}
   .wk-title{font-size:13px}
 }
 @media (max-width:360px){
-  .wk-strip{gap:3px;padding:6px 3px}
-  .wk-cell{padding:5px 1px 4px;min-height:48px}
-  .wk-num{font-size:13px}
-  .wk-dow{font-size:11px}
-  .wk-span-picks select{max-width:calc(50% - 10px);min-width:0;padding:6px 4px;font-size:11.5px}
+  .wk-panel{padding:9px}
+  .wk-span-picks .sm{max-width:calc(50% - 10px)}
+  .wk-span-picks .sm-btn{padding:6px 4px;font-size:11.5px}
 }
 
-/* ── Desktop: the week gets the room it always wanted ──
-   The .app column stays 480px on the other pages — reading, tasks and focus are
-   single-column papers. The planner is a calendar, and a calendar pinned into a
-   phone column on a 1440px screen wastes the whole sheet, so here the column is
-   allowed to widen, and from 1024px the week itself climbs beside the day:
-   RTL means the week sits on the right where the eye enters, and the day's
-   panel takes what is left. 1024 is where a 2/5+3/5 split leaves both halves
-   wider than their phone selves, so nothing crosses 1000px already cramped.
-   This block sits last on purpose: every rule here has to out-cascade the base
-   rules above it, which share its selectors. */
+/* ── Desktop ──
+   How the panel sits beside the month belongs to the calendar page
+   (css/calendar.css); this is the panel's own furniture, sized for the column
+   it is given. */
 @media (min-width:1024px){
-  #page-week .app{max-width:1200px}
-  #page-week main.app{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,3fr);
-    grid-template-rows:auto auto 1fr;align-items:start;column-gap:20px}
-  /* Every child is placed by hand: in a grid, an unplaced child auto-fills the
-     first free cell and shoves the whole layout a row down. */
-  #page-week main.app>header{grid-column:1/-1;grid-row:1}
-  .wk-bar{grid-column:1;grid-row:2}
-  .wk-strip{grid-column:1;grid-row:3}
-  #wkDay{grid-column:2;grid-row:2/span 2}
-  /* The week stays on screen while the day scrolls, so a drag target is never
-     off-screen: the whole point of the two-column shape. */
-  .wk-strip{position:sticky;top:20px;padding:12px 10px}
-  .wk-cell{padding:10px 2px 8px;gap:4px}
-  .wk-num{font-size:16px}
-  .wk-dow{font-size:11.5px}
-  .wk-panel{padding:20px 22px}
-}
-@media (min-width:641px) and (max-width:1023.9px){
-  #page-week .app{max-width:640px}
+  .wk-panel{padding:16px}
 }
 @media (prefers-reduced-motion:reduce){
-  .wk-nav,.wk-cell,.wk-track i,.wk-check,.wk-check svg,.wk-del,.wk-add,.wk-go,.wk-grip{transition:none}
+  .wk-check,.wk-check svg,.wk-edit,.wk-del,.wk-add,.wk-go,.wk-grip{transition:none}
   .wk-add.shake{animation:none}
   .wk-go:active{transform:none}
-  .wk-cell.flash{animation:none;background:var(--accent-soft)}
 }

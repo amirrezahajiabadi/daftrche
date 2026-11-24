@@ -84,23 +84,43 @@ export async function saveAndShareBlob(blob, filename, { title = 'دَفتَرچ
   }
 }
 
-/* ── Hardware Back Button ──
-   Listens to Android back gesture: closes open dialog/sheet first;
-   if none open, navigates history back; otherwise minimizes app. */
+/* ── Hardware / gesture Back ──
+   Android's back is the reader's gesture, not the app's exit, so it unwinds one
+   thing at a time:
+
+     1. an open dialog or sheet closes — a question being answered is not a page
+        to leave (the same closeTopDialog the on-screen back uses);
+     2. the PDF reader closes, if it is open over the page;
+     3. one step back on the app's own trail (`history.state.trail`, written by
+        js/app.js), which is the pages the reader actually walked through;
+     4. and only on the first page does the app go to the background.
+
+   `history.length` is deliberately not used: a WebView counts entries this app
+   never wrote (a redirect on the way in, the initial about:blank), so keying on
+   it would either swallow the first real back press or leave a page the reader
+   never opened. The trail is the app's own record and is always present. */
 export async function initNativeBackHandler(onDialogClose) {
   if (!isNative()) return;
 
   try {
     const { App } = await import('@capacitor/app');
     App.addListener('backButton', () => {
-      if (typeof onDialogClose === 'function' && onDialogClose()) {
+      if (typeof onDialogClose === 'function' && onDialogClose()) return;
+
+      const reader = document.getElementById('readerView');
+      if (reader && !reader.hidden) {
+        window.dispatchEvent(new CustomEvent('close-reader'));
         return;
       }
-      if (window.history && window.history.length > 1) {
+
+      const trail = window.history && window.history.state && window.history.state.trail;
+      if (Array.isArray(trail) && trail.length > 1) {
         window.history.back();
-      } else {
-        App.minimizeApp();
+        return;
       }
+
+      if (typeof App.minimizeApp === 'function') App.minimizeApp();
+      else App.exitApp();
     });
   } catch (err) {
     console.error('Failed to register back button listener:', err);
@@ -110,14 +130,28 @@ export async function initNativeBackHandler(onDialogClose) {
 /* ── Status Bar / System Bars Sync ──
    Sets light/dark icon contrast on system bars to match active theme mode
    and ensures the system bar never overlays the webview content. */
-export async function syncSystemBars(mode) {
+export async function syncSystemBars(mode, bg) {
+  const isDark = mode === 'dark';
+  const colorBg = bg || (typeof document !== 'undefined' && document.documentElement ? getComputedStyle(document.documentElement).getPropertyValue('--color-bg').trim() : '');
+
+  if (typeof window !== 'undefined' && window.AndroidBridge && typeof window.AndroidBridge.setSystemBars === 'function') {
+    window.AndroidBridge.setSystemBars(colorBg, isDark);
+  }
+
   if (!isNative()) return;
 
   try {
     const { StatusBar, Style } = await import('@capacitor/status-bar');
-    const isDark = mode === 'dark';
     await StatusBar.setStyle({ style: isDark ? Style.Dark : Style.Light });
-    await StatusBar.setOverlaysWebView({ overlay: false });
+    /* The page draws edge-to-edge (see MainActivity and --sat/--sab), so the
+       system bars sit over the content instead of beside it: the bar is a strip
+       of the page's own background with the icons on top. Asking the plugin to
+       lay the WebView below the bars would undo that and leave a coloured band
+       in the theme's colour instead of the page's. */
+    await StatusBar.setOverlaysWebView({ overlay: true });
+    if (colorBg) {
+      await StatusBar.setBackgroundColor({ color: colorBg });
+    }
   } catch {
     // StatusBar plugin call optional
   }

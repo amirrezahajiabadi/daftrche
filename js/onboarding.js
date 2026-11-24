@@ -7,6 +7,24 @@
      ۲ از ۳  what are you mostly here for — tasks, books or focus
      ۳ از ۳  write your first task (the same quick-add language Today speaks)
 
+   This is Material's Self-Select model, not a benefits carousel: the one
+   question that is asked genuinely changes the first run (the examples, the
+   Today suggestions and the tour's own station all read the answer), so a
+   separate «here is what the app does» walk would tell the reader twice and
+   cost a screen. Material explicitly says not to put Self-Select and Top User
+   Benefits behind each other, and this app has nothing to announce that the
+   choice does not already say.
+
+   What the three steps are built to do:
+     · every step is one tap — the goal cards advance on the tap that chooses
+       them, and the third step opens with a ready example already typed in the
+       field, so «first task» costs a confirmation, not a sentence;
+     · the exit never leaves the screen: the card's body scrolls, its footer
+       (primary action + skip) does not, so a short phone or the edge-to-edge
+       drawing of Android 15 can never bury the way out;
+     · the pane change is Material's emphasized pair — 200ms accelerate out,
+       400ms decelerate in — instead of an instant text swap.
+
    Then the tour (js/tour.js) walks a page that already has the reader's own
    task on it, which is what makes its «tick it» station a real one.
    Every step can be skipped; the answers only ever steer examples and the
@@ -20,17 +38,25 @@ import { dayKey } from './utils.js';
 import { haptic } from './motion.js';
 import { EXAMPLES, examplesFor, PANES } from './onboarding-copy.js';
 
+/* Each card is a benefit, not a tab name: what the reader gets out of that part
+   of the notebook, in the words they would use for it. */
 const GOAL_CARDS = {
-  tasks: { icon: LIB_ICONS.check, title: 'کارهای روزمره', sub: 'لیست و برنامهٔ هر روز' },
-  books: { icon: LIB_ICONS.book, title: 'کتاب خوندن', sub: 'قفسهٔ PDF و یادداشت' },
-  focus: { icon: LIB_ICONS.clock, title: 'تمرکز', sub: 'تایمر و آمار تمرکز' },
+  tasks: { icon: LIB_ICONS.check, title: 'هیچ کاری از قلم نمی‌افته', sub: 'امروز، مهلت‌ها و پیشنهاد «از کجا شروع کنم»' },
+  books: { icon: LIB_ICONS.book, title: 'کتاب و یادداشت، یک‌جا', sub: 'قفسهٔ PDF، درصد مطالعه و یادداشت‌های خودت' },
+  focus: { icon: LIB_ICONS.clock, title: 'تمرکز، با آمار', sub: 'تایمر، رکوردها و این‌که وقتت کجا رفته' },
 };
 
 export { EXAMPLES, examplesFor, PANES };
 
-let overlay, titleEl, subEl, stepsEl, goalsEl, form, input, preview, suggest, skipBtn, finishCb = null, wired = false;
+let overlay, titleEl, subEl, stepsEl, goalsEl, form, input, preview, suggest, skipBtn, goBtn, finishCb = null, wired = false;
+let swapTimer = null;
 
-function pane(which) {
+const reduceMotion = () => typeof matchMedia === 'function'
+  && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* Fills the pane. Nothing here animates: it is called once the outgoing pane has
+   finished leaving, so the reader never sees two texts at once. */
+function paintPane(which) {
   const p = PANES[which];
   stepsEl.textContent = p.steps;
   titleEl.textContent = p.title;
@@ -38,15 +64,49 @@ function pane(which) {
   const isGoal = which === 'goal';
   goalsEl.hidden = !isGoal;
   form.hidden = isGoal;
-  /* A fresh class each time restarts the arrival, so the swap reads as a step. */
-  const card = $('#onboardCard');
-  card.classList.remove('ob-swap'); void card.offsetWidth; card.classList.add('ob-swap');
-  if (!isGoal) {
-    paintSuggestions();
-    setTimeout(() => input.focus(), 260);
-  } else {
-    setTimeout(() => goalsEl.querySelector('button')?.focus(), 260);
+
+  /* The footer's primary is the page's call to action, and what it means is the
+     step's own answer: on the question it moves on with whatever is chosen — or
+     with nothing, which is a legitimate answer — and on the task it submits the
+     example already in the field. The quiet button beside it is always the way
+     out, and it is never hidden. */
+  if (goBtn) goBtn.textContent = isGoal ? 'بریم با همین' : 'اضافه کن و بریم';
+  if (skipBtn) skipBtn.textContent = isGoal ? 'شروع بدون انتخاب' : 'رد کردن این کار';
+
+  if (isGoal) {
+    setTimeout(() => goalsEl.querySelector('button')?.focus(), 40);
+    return;
   }
+
+  paintSuggestions();
+  /* The third step opens with the answer already written: the first example of
+     the chosen goal is in the field and parsed, so the step costs one tap. It is
+     selected, so a reader with a different task in mind just types over it. */
+  const first = examplesFor(loadGoal())[0];
+  input.value = first;
+  input.dispatchEvent(new Event('input'));
+  setTimeout(() => input.focus(), 40);
+}
+
+/* One step to the next, in Material's emphasized pair: the pane on screen leaves
+   on emphasized-accelerate (200ms), the next one settles on emphasized-decelerate
+   (400ms). Reduced motion skips the wait rather than the content. */
+function pane(which) {
+  const card = $('#onboardCard');
+  if (!card || reduceMotion()) {
+    paintPane(which);
+    card?.classList.add('ob-swap');
+    return;
+  }
+  clearTimeout(swapTimer);
+  card.classList.remove('ob-swap');
+  card.classList.add('ob-leave');
+  swapTimer = setTimeout(() => {
+    card.classList.remove('ob-leave');
+    paintPane(which);
+    void card.offsetWidth;      // a fresh class, so the arrival restarts
+    card.classList.add('ob-swap');
+  }, 200);
 }
 
 function paintSuggestions() {
@@ -59,6 +119,8 @@ function paintSuggestions() {
 }
 
 function close(done = true) {
+  clearTimeout(swapTimer);
+  $('#onboardCard')?.classList.remove('ob-leave');
   overlay.hidden = true;
   const cb = finishCb; finishCb = null;
   if (done && cb) cb();
@@ -71,6 +133,7 @@ function wire() {
   titleEl = $('#obTitle'); subEl = $('#obSub'); stepsEl = $('#obSteps');
   goalsEl = $('#obGoals'); form = $('#obTaskForm'); input = $('#obTaskInput');
   preview = $('#obPreview'); suggest = $('#obSuggest'); skipBtn = $('#obSkip');
+  goBtn = $('#obGo');
 
   goalsEl.replaceChildren(...GOALS.map(g => {
     const b = document.createElement('button');
@@ -81,7 +144,8 @@ function wire() {
     b.addEventListener('click', () => {
       goalsEl.querySelectorAll('.ob-goal').forEach(x => x.setAttribute('aria-checked', String(x === b)));
       saveGoal(g); haptic('pick');
-      setTimeout(() => pane('task'), 220);
+      /* Long enough for the chosen card to show its state before it leaves. */
+      setTimeout(() => pane('task'), 140);
     });
     return b;
   }));
@@ -108,6 +172,20 @@ function wire() {
     haptic('done');
     window.dispatchEvent(new CustomEvent('navigate', { detail: 'today' }));
     close(true);
+  });
+
+  /* The footer's primary: on the question it moves on with whatever is chosen,
+     or straight into the app when nothing is — the same door the quiet button
+     behind it opens, offered as the obvious one. On the task step it submits the
+     example already in the field, so the first task is one tap away. */
+  goBtn?.addEventListener('click', () => {
+    if (form.hidden) {
+      const chosen = goalsEl.querySelector('.ob-goal[aria-checked="true"]')?.dataset.goal;
+      if (chosen) { haptic('pick'); pane('task'); }
+      else { haptic('back'); close(true); }
+      return;
+    }
+    form.requestSubmit();
   });
 
   skipBtn.addEventListener('click', () => close(true));
