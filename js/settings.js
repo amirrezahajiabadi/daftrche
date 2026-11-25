@@ -18,13 +18,14 @@ import { APP_VERSION, openReleaseNotes } from './changelog.js';
 import { startTour } from './tour.js';
 import { clearLibraryData, exportBookPack, importBookPack, reloadBooks } from './library.js';
 import { clearUserAudioData } from './audio.js';
+import { clearJournalMediaData } from './journal-media.js';
 import { renderBirthdayRow } from './birthday.js';
 import { openShortcuts } from './shortcuts.js';
 import { TEXT_SIZES, loadTextSize, saveTextSize } from './textsize.js';
 import { markBackupDone } from './backup-nudge.js';
 import { collectBackup, parseBackup, applyBackup, mergeBackup, backupFileName, BACKUP_MAX_CHARS } from './backup.js';
 import { confirmDialog, showNotice } from './dialog.js';
-import { clearAll, flushPending, resetPending, loadTasks, loadName, loadHistory, loadMoods, loadPomo } from './store.js';
+import { clearAll, flushPending, resetPending, loadTasks, loadName, loadHistory, loadMoods, loadPomo, loadJournal, loadStudy } from './store.js';
 import { systemReducedMotion, userReducedMotion, setUserReducedMotion } from './motion.js';
 import { isNative, saveAndShareBlob } from './native.js';
 import { notify } from './bus.js';
@@ -35,6 +36,9 @@ import { renderProfile } from './profile.js';
 import { renderAchievements } from './achievementsview.js';
 import { renderPlanner } from './planner.js';
 import { formatDiagnosticsReport, clearDiagnostics, getDiagnostics } from './diagnostics.js';
+import { getAuthState, requestOtp, verifyOtp, logout, getLastSyncAt } from './auth-client.js';
+import { syncNow } from './sync-client.js';
+import { getPendingCount } from './outbox.js';
 
 let activeSettingsTab = 'general';
 let updateStatus = 'idle';
@@ -435,7 +439,60 @@ export function renderSettings() {
   renderMotionRow();
   renderSettingsThemeCount();
   renderUpdateSection();
+  renderCloudSyncSection();
   switchSettingsTab(activeSettingsTab);
+}
+
+function maskIdentifier(identifier) {
+  if (typeof identifier !== 'string' || !identifier) return '—';
+  if (identifier.includes('@')) {
+    const [local, domain] = identifier.split('@');
+    if (local.length <= 2) return `${local[0] || ''}•••@${domain}`;
+    return `${local.slice(0, 2)}•••@${domain}`;
+  }
+  if (identifier.length >= 9) {
+    return `${identifier.slice(0, 6)}•••${identifier.slice(-4)}`;
+  }
+  return identifier;
+}
+
+export function renderCloudSyncSection() {
+  const badge = $('#syncAccountBadge');
+  const guestView = $('#syncGuestView');
+  const userView = $('#syncUserView');
+  const userIdEl = $('#syncUserIdentifier');
+  const statusMeta = $('#syncStatusMeta');
+  if (!badge && !guestView && !userView) return;
+
+  const { isLoggedIn, user } = getAuthState();
+  if (isLoggedIn && user) {
+    if (badge) {
+      badge.textContent = 'متصل';
+      badge.className = 'update-status-badge ok';
+    }
+    if (guestView) guestView.hidden = true;
+    if (userView) userView.hidden = false;
+    if (userIdEl) userIdEl.textContent = maskIdentifier(user.identifier);
+    if (statusMeta) {
+      const pending = getPendingCount();
+      const lastAt = getLastSyncAt();
+      const lastLabel = lastAt
+        ? new Date(lastAt).toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })
+        : 'هنوز انجام نشده';
+      statusMeta.textContent = pending > 0
+        ? `${faNum(pending)} تغییر در صف • آخرین همگام‌سازی: ${lastLabel}`
+        : `به‌روز • آخرین همگام‌سازی: ${lastLabel}`;
+    }
+  } else {
+    if (badge) {
+      badge.textContent = 'حالت مهمان';
+      badge.className = 'update-status-badge';
+    }
+    if (guestView) guestView.hidden = false;
+    if (userView) userView.hidden = true;
+    if (userIdEl) userIdEl.textContent = '—';
+    if (statusMeta) statusMeta.textContent = '—';
+  }
 }
 
 function renderThemeAutoRow() {
@@ -759,6 +816,105 @@ export function initSettings() {
 
   updateDiagUI();
 
+  /* ── Guest-First Cloud Sync & OTP Account ── */
+  const idInput = $('#syncIdentifierInput');
+  const otpStep = $('#syncOtpStep');
+  const otpInput = $('#syncOtpInput');
+  const reqOtpBtn = $('#syncRequestOtpBtn');
+  const verifyOtpBtn = $('#syncVerifyOtpBtn');
+  const syncNowBtn = $('#syncNowBtn');
+  const logoutBtn = $('#syncLogoutBtn');
+  const syncFeedback = $('#syncFeedback');
+  const saySync = msg => { if (syncFeedback) syncFeedback.textContent = msg; };
+
+  let lastRequestedId = '';
+
+  reqOtpBtn?.addEventListener('click', async () => {
+    const rawId = idInput?.value?.trim() || '';
+    if (!rawId) {
+      saySync('لطفاً ایمیل یا شماره موبایل معتبر وارد کن.');
+      idInput?.focus();
+      return;
+    }
+    reqOtpBtn.disabled = true;
+    saySync('در حال ارسال کد تأیید…');
+    const res = await requestOtp(rawId);
+    reqOtpBtn.disabled = false;
+    if (!res.ok) {
+      saySync(res.error || 'ارسال کد ناموفق بود.');
+      return;
+    }
+    lastRequestedId = res.identifier || rawId;
+    if (otpStep) otpStep.hidden = false;
+    saySync('کد ۶ رقمی ارسال شد؛ کد را وارد کن.');
+    otpInput?.focus();
+  });
+
+  verifyOtpBtn?.addEventListener('click', async () => {
+    const rawId = lastRequestedId || idInput?.value?.trim() || '';
+    const code = otpInput?.value?.trim() || '';
+    if (!rawId || !code) {
+      saySync('شناسه و کد ۶ رقمی هر دو لازم هستند.');
+      return;
+    }
+    verifyOtpBtn.disabled = true;
+    saySync('در حال بررسی کد…');
+    const res = await verifyOtp(rawId, code, isNative() ? 'android' : 'web');
+    verifyOtpBtn.disabled = false;
+    if (!res.ok) {
+      saySync(res.error || 'کد تأیید نادرست است.');
+      return;
+    }
+    if (otpInput) otpInput.value = '';
+    if (otpStep) otpStep.hidden = true;
+    renderCloudSyncSection();
+    saySync('ورود انجام شد! در حال همگام‌سازی…');
+    const syncRes = await syncNow();
+    renderCloudSyncSection();
+    if (syncRes.ok && !syncRes.skipped) {
+      saySync('همگام‌سازی انجام شد.');
+      renderList();
+      renderToday();
+    } else if (syncRes.unauthorized) {
+      saySync('نشست منقضی شد؛ داده‌های محلی دست‌نخورده ماندند.');
+    } else {
+      saySync('حساب متصل شد؛ همگام‌سازی در اولین اتصال برقرار می‌شود.');
+    }
+  });
+
+  syncNowBtn?.addEventListener('click', async () => {
+    syncNowBtn.disabled = true;
+    saySync('در حال همگام‌سازی…');
+    const res = await syncNow();
+    syncNowBtn.disabled = false;
+    renderCloudSyncSection();
+    if (res.ok && !res.skipped) {
+      saySync(`همگام‌سازی انجام شد (${faNum(res.pushed || 0)} ارسال، ${faNum(res.pulled || 0)} دریافت).`);
+      renderList();
+      renderToday();
+    } else if (res.unauthorized) {
+      saySync('نشست کاربری منقضی شد؛ داده‌های محلی بدون تغییر باقی ماندند.');
+    } else if (res.reason === 'offline') {
+      saySync('آفلاین هستی؛ تغییرات در صف می‌مانند تا آنلاین شوی.');
+    } else if (!res.ok) {
+      saySync(res.error || 'همگام‌سازی با خطا مواجه شد.');
+    } else {
+      saySync('همه‌چیز به‌روز است.');
+    }
+  });
+
+  logoutBtn?.addEventListener('click', async () => {
+    logoutBtn.disabled = true;
+    await logout();
+    logoutBtn.disabled = false;
+    renderCloudSyncSection();
+    saySync('از حساب خارج شدی؛ داده‌های محلی روی دستگاه باقی ماندند.');
+  });
+
+  window.addEventListener('daftarche:auth-changed', renderCloudSyncSection);
+  window.addEventListener('daftarche:sync-updated', renderCloudSyncSection);
+  renderCloudSyncSection();
+
   /* ── The wipe ──
      localStorage holds tasks, settings and the book metadata; the PDF files and
      the uploaded music live in their own databases and are removed explicitly.
@@ -778,12 +934,13 @@ export function initSettings() {
       danger: true,
     });
     if (!ok) return;
-    const [booksCleared, audioCleared] = await Promise.all([
+    const [booksCleared, audioCleared, journalMediaCleared] = await Promise.all([
       clearLibraryData(),
       clearUserAudioData(),
+      clearJournalMediaData(),
     ]);
     clearAll();
-    if (!booksCleared || !audioCleared) {
+    if (!booksCleared || !audioCleared || !journalMediaCleared) {
       /* Nothing left to reload into a toast on this page — the wipe may have
          taken the storage the toast would have been painted over — so the
          message is a notice and the reload waits for it to have been read. */
@@ -801,6 +958,8 @@ export function hydrateStateAfterRestore() {
   state.userName = loadName();
   state.history = loadHistory();
   state.moods = loadMoods();
+  state.journal = loadJournal();
+  state.study = loadStudy();
   state.pomoMin = loadPomo();
   try { reloadBooks(); } catch { /* ignore */ }
   invalidateAllBuckets();

@@ -10,7 +10,6 @@ import { initTheme } from './theme.js';
 import { notify } from './bus.js';
 import { initTasks, initAddForm, renderList, updateEmpty } from './tasks.js';
 import { initProgress } from './progress.js';
-import { initWeek } from './week.js';
 import { initFocusPage, syncFocusPage } from './focus.js';
 import { initRoll } from './roll.js';
 import { initLibrary, renderShelf } from './library.js';
@@ -22,6 +21,8 @@ import { initStats, renderStats } from './stats.js';
 import { initShareCard } from './sharecard.js';
 import { initAchievements, renderAchievements } from './achievementsview.js';
 import { initToday, renderToday } from './today.js';
+import { initJournalPage, renderJournalPage } from './journal.js';
+import { initStudyPage, renderStudyPage } from './study.js';
 import { initPlanner } from './planner.js';
 import { initCalendar, renderCalendar, openToday } from './calendar.js';
 import { initNotifications, notificationsSupported } from './notifications.js';
@@ -36,6 +37,7 @@ import { initStorageWarning } from './storagewarn.js';
 import { initShortcuts } from './shortcuts.js';
 import { isNative, initNativeBackHandler, syncSystemBars, checkMinWebViewVersion } from './native.js';
 import { initDiagnostics } from './diagnostics.js';
+import { initSyncTriggers } from './sync-client.js';
 
 /* Each section is initialized separately; an error in one section doesn't break the rest of the app */
 const safe = (name, fn) => {
@@ -59,6 +61,8 @@ const safe = (name, fn) => {
    keeping Total Blocking Time (TBT) under 50ms even under 4X CPU Slowdown. */
 const readyPages = new Set();
 export function ensurePageReady(page) {
+  if (page === 'week') page = 'calendar';
+  if (page === 'achv') page = 'profile';
   if (readyPages.has(page)) return;
   readyPages.add(page);
   if (page === 'calendar' || page === 'week') {
@@ -84,6 +88,10 @@ export function ensurePageReady(page) {
     safe('پیشرفت', initProgress);
   } else if (page === 'today') {
     safe('امروز', initToday);
+  } else if (page === 'journal') {
+    safe('ژورنال', initJournalPage);
+  } else if (page === 'study') {
+    safe('درس و برنامه', initStudyPage);
   }
 }
 
@@ -186,6 +194,8 @@ function initNavigation() {
     if (page === 'achv') renderAchievements();
     if (page === 'settings') renderSettings();
     if (page === 'calendar') renderCalendar();
+    if (page === 'study') renderStudyPage();
+    if (page === 'journal') renderJournalPage();
     if (page === 'library') renderShelf();
 
     if (page !== 'library') {
@@ -829,10 +839,8 @@ safe('وضعیت نمایش', initVisibility);
    contained. */
 safe('دربرگیری رویه‌ها', initModalContainment);
 safe('اسم', initName);
-safe('تسک‌ها', initTasks);
-safe('فرم افزودن', initAddForm);
-safe('پیشرفت', initProgress);
-safe('امروز', initToday);
+ensurePageReady('tasks');
+ensurePageReady('today');
 safe('جستجو', initSearch);
 safe('کیبورد', initKeyboard);
 
@@ -889,14 +897,15 @@ if (isNative()) {
 const deferredTasks = [
   () => {
     safe('دنیای تم', initWorlds);
-    safe('هفته', initWeek);
-    safe('تمرکز', initFocusPage);
+    ensurePageReady('focus');
     safe('رولت', initRoll);
     safe('مهلت', initDuePicker);
     safe('تولد', initBirthday);
   },
   () => {
     ensurePageReady('calendar');
+    ensurePageReady('study');
+    ensurePageReady('journal');
     ensurePageReady('library');
     ensurePageReady('settings');
   },
@@ -908,6 +917,7 @@ const deferredTasks = [
     safe('میانبرها', initShortcuts);
     safe('راهنمای نصب iOS', initIOSInstallGuide);
     safe('پوستهٔ آفلاین', initPWA);
+    safe('همگام‌سازی ابری', initSyncTriggers);
     if (notificationsSupported()) safe('یادآوری‌ها', () => initNotifications(() => (Array.isArray(state.tasks) ? state.tasks : []).filter(t => t && !t.deletedAt)));
   },
   () => {
@@ -937,6 +947,10 @@ if (typeof requestIdleCallback === 'function') {
 } else {
   setTimeout(runNextDeferred, 30);
 }
+
+window.addEventListener('daftarche:sync-updated', () => {
+  renderList();
+});
 
 /* First visit: stay on the Today page and ask for the name */
 if (!state.userName) {

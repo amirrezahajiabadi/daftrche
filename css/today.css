@@ -29,8 +29,6 @@
 .sec-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:8px}
 .frog-sec .sec-head{margin-bottom:0}
 
-#moodLabel{font-size:12px;color:var(--muted);font-weight:500}
-
 /* ── Frog hero ── */
 /* ── Decision Hero ──
    The signature component: largest title, strongest CTA, most air.
@@ -159,13 +157,7 @@ html[data-mode="dark"] .frog-empty-done .frog-empty-title{color:var(--color-succ
 .tp-text{margin-top:9px;font-size:12px;color:var(--muted);font-weight:500;min-height:1.6em}
 .tp-text b{color:var(--green);font-weight:700}
 
-/* ── Mood ── */
-.mood-sec{padding-bottom:4px}
-.mood-sec .moods{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;width:100%}
-.mood-sec .moods button{width:100%;min-height:44px;height:44px;border-radius:var(--radius-md);display:grid;place-items:center}
-.mood-sec .moods button svg{width:24px;height:24px}
-
-/* ═══ Responsive: Today ═══ */
+/* ── Responsive: Today ═══ */
 @media (max-width:480px){
   .frog-hero{padding:26px 18px 22px;border-radius:var(--radius-xl);gap:10px}
   .frog-emoji{font-size:50px}
@@ -189,9 +181,6 @@ html[data-mode="dark"] .frog-empty-done .frog-empty-title{color:var(--color-succ
   .frog-emoji{font-size:44px}
   .frog-name{font-size:18px}
   .frog-empty-title{font-size:15px}
-  .mood-sec .moods{gap:4px}
-  .mood-sec .moods button{min-height:44px;height:44px}
-  .mood-sec .moods button svg{width:22px;height:22px}
 }
 
 /* ── Reading goal on the Today page ── */

@@ -1,0 +1,413 @@
+/* ═══ World 2: GTA: San Andreas — Grove Street (PS2 Game-Menu + HUD) ═══
+   Strictly scoped to html[data-world="gtasa-grove"]. Zero bleed into any other world.
+   Uses CSS semantic tokens & rgba/color-mix only (zero raw hex codes),
+   solid comic offsets (zero blur filters), logical RTL CSS, and strict reduced motion. */
+
+/* ── Per-Page Layered Bespoke SVG Scene Container ── */
+#gtasaBackdropRoot{
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index:-1;
+  overflow:hidden;
+  contain:strict;
+  transform:translateZ(0);
+}
+
+.gtasa-scene-svg,
+.gtasa-scrim-layer{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  pointer-events:none;
+  display:block;
+}
+
+.gtasa-scrim-layer{
+  background:
+    radial-gradient(ellipse at center, rgba(10,14,11,.22) 15%, rgba(7,10,8,.82) 100%),
+    linear-gradient(to bottom, rgba(10,14,11,.56) 0%, rgba(10,14,11,.48) 45%, rgba(8,12,9,.88) 100%);
+}
+
+/* ── PS2 San Andreas Comic-Menu Borders & Shadows ── */
+html[data-world="gtasa-grove"] :is(.frog-hero,.progress-card,.world-card,.today-journal-card,.vibe-card,.stat-section,.achv-rank,.achv-item,.book-card,.scd-card,.scf-card,.name-card,.confirm-card,.roll-card,.sheet){
+  border-radius:6px;
+  border:2px solid var(--color-border-strong);
+  box-shadow:0 4px 0 rgba(0,0,0,.62), inset 0 1px 0 color-mix(in srgb,var(--color-accent) 18%,transparent);
+}
+
+html[data-world="gtasa-grove"] :is(.confirm-card,.roll-card){
+  border-inline-start:5px solid var(--color-warning);
+}
+
+html[data-world="gtasa-grove"] .toast{
+  border-radius:5px;
+  border:2px solid var(--color-accent);
+  box-shadow:0 4px 0 rgba(0,0,0,.65);
+}
+
+html[data-world="gtasa-grove"] .bottom-nav,
+html[data-world="gtasa-grove"] .side-rail{
+  border:2px solid var(--color-border-strong);
+}
+
+html[data-world="gtasa-grove"] :is(.bottom-nav,.side-rail) .nav-tab{
+  border-radius:4px;
+  border-inline-start:4px solid transparent;
+  transition:background var(--duration-fast),border-color var(--duration-fast),color var(--duration-fast);
+}
+
+html[data-world="gtasa-grove"] :is(.bottom-nav,.side-rail) .nav-tab:hover,
+html[data-world="gtasa-grove"] :is(.bottom-nav,.side-rail) .nav-tab.active{
+  border-inline-start-color:var(--color-accent);
+  background:linear-gradient(270deg, var(--color-accent-soft), transparent);
+  color:var(--color-text-primary);
+}
+
+html[data-world="gtasa-grove"] .t-row{
+  border-radius:5px;
+  border:1.5px solid var(--color-border);
+  border-inline-start:4px solid var(--color-border-strong);
+  background:var(--color-surface);
+  box-shadow:0 2px 0 rgba(0,0,0,.45);
+}
+html[data-world="gtasa-grove"] .t-row:hover{
+  border-inline-start-color:var(--color-accent);
+  background:var(--color-surface-elevated);
+}
+html[data-world="gtasa-grove"] .t-row[data-p="high"]:not(.done){
+  border-inline-start-color:var(--color-warning);
+}
+html[data-world="gtasa-grove"] .t-row.is-overdue{
+  border-inline-start-color:var(--state-danger);
+}
+html[data-world="gtasa-grove"] .t-row.done{
+  border-inline-start-color:var(--state-success);
+}
+
+/* ── Classic San Andreas HUD Card (#worldCard[data-world="gtasa-grove"]) ── */
+#worldCard[data-world="gtasa-grove"]{
+  contain:layout style;
+  border-radius:6px;
+  border:2px solid var(--color-border-strong);
+  border-inline-start:5px solid var(--color-accent);
+  background:
+    radial-gradient(90% 70% at 15% 0%, color-mix(in srgb,var(--color-warning) 10%,transparent) 0%, transparent 65%),
+    var(--color-surface);
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+
+.gtasa-card-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
+.gtasa-card-sub{
+  margin:2px 0 0;
+  font-size:12px;
+  font-weight:600;
+  color:var(--color-text-secondary);
+}
+
+.gtasa-hud-right{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-shrink:0;
+}
+
+.gtasa-cash{
+  font-family:ui-monospace,SFMono-Regular,Consolas,monospace;
+  font-size:18px;
+  font-weight:900;
+  line-height:1.1;
+  color:var(--color-accent-text);
+  background:var(--color-bg);
+  border:2px solid var(--color-border-strong);
+  border-radius:4px;
+  padding:4px 9px;
+  text-shadow:1px 1px 0 rgba(0,0,0,.9), -1px -1px 0 rgba(0,0,0,.9);
+}
+
+.gtasa-mute-btn{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  border:1.5px solid var(--color-border-strong);
+  background:var(--color-bg);
+  color:var(--color-text-secondary);
+  font-family:ui-monospace,SFMono-Regular,Consolas,monospace;
+  font-size:10.5px;
+  font-weight:700;
+  padding:5px 8px;
+  min-height:32px;
+  border-radius:4px;
+  cursor:pointer;
+}
+.gtasa-mute-btn:hover{border-color:var(--color-accent);color:var(--color-accent-text)}
+.gtasa-mute-btn.is-muted{color:var(--color-text-muted);opacity:.78}
+
+.gtasa-hud-grid{
+  display:grid;
+  grid-template-columns:1.15fr .85fr;
+  gap:10px;
+  align-items:stretch;
+}
+@media (max-width:520px){
+  .gtasa-hud-grid{grid-template-columns:1fr}
+}
+
+.gtasa-respect-panel{
+  contain:layout style;
+  background:var(--color-bg);
+  border:1.5px solid var(--color-border);
+  border-radius:4px;
+  padding:10px 12px;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  gap:8px;
+}
+
+.gtasa-respect-top{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  flex-wrap:wrap;
+}
+.gtasa-respect-label{
+  font-family:ui-monospace,SFMono-Regular,Consolas,monospace;
+  font-size:12px;
+  font-weight:900;
+  color:var(--color-warning);
+  text-shadow:1px 1px 0 rgba(0,0,0,.85);
+}
+.gtasa-respect-val{
+  font-size:11.5px;
+  font-weight:600;
+  color:var(--color-text-secondary);
+}
+
+.gtasa-respect-track{
+  width:100%;
+  height:12px;
+  border-radius:2px;
+  background:var(--color-surface);
+  border:2px solid var(--color-border-strong);
+  overflow:hidden;
+}
+.gtasa-respect-fill{
+  display:block;
+  height:100%;
+  background:var(--color-accent);
+  transition:width .35s var(--ease-out,ease);
+}
+
+.gtasa-save-btn{
+  contain:layout style;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  background:var(--color-bg);
+  border:1.5px solid var(--color-border-strong);
+  border-radius:4px;
+  padding:9px 11px;
+  cursor:pointer;
+  text-align:start;
+  color:var(--color-text-primary);
+  font-family:var(--font-ui);
+  min-height:48px;
+  transition:border-color var(--duration-fast),background var(--duration-fast),transform var(--duration-fast);
+}
+.gtasa-save-btn:hover{
+  border-color:var(--color-warning);
+  background:var(--color-surface-elevated);
+}
+.gtasa-save-btn:active{transform:scale(.98)}
+.gtasa-save-copy{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  min-width:0;
+}
+.gtasa-save-copy strong{
+  font-size:12.5px;
+  color:var(--color-text-primary);
+}
+.gtasa-save-copy small{
+  font-size:11px;
+  color:var(--color-text-muted);
+}
+
+.gtasa-disk-wrap{
+  width:38px;
+  height:38px;
+  flex-shrink:0;
+  display:grid;
+  place-items:center;
+}
+.gtasa-disk-svg{
+  width:34px;
+  height:34px;
+  display:block;
+  transition:transform var(--duration-fast);
+}
+.gtasa-save-btn:hover .gtasa-disk-svg,
+.gtasa-save-btn.is-saving .gtasa-disk-svg{
+  transform:scale(1.08);
+}
+.gtasa-disk-body{
+  fill:var(--color-accent);
+  stroke:var(--color-bg);
+  stroke-width:2;
+}
+.gtasa-disk-shutter{
+  fill:var(--color-text-primary);
+}
+.gtasa-disk-notch{fill:var(--color-bg)}
+.gtasa-disk-label{
+  fill:var(--color-surface);
+  stroke:var(--color-text-muted);
+  stroke-width:1;
+}
+.gtasa-disk-line{
+  stroke:var(--color-accent-text);
+  stroke-width:1.4;
+  stroke-linecap:round;
+}
+
+/* ── MISSION PASSED! / RESPECT + Floating Banner ── */
+.gtasa-mission-banner{
+  position:fixed;
+  top:max(22px,var(--sat,16px));
+  inset-inline:16px;
+  z-index:1100;
+  pointer-events:none;
+  display:flex;
+  justify-content:center;
+  opacity:0;
+  transform:translateY(-14px) scale(.96);
+  transition:opacity .28s ease,transform .28s var(--ease-out,ease);
+}
+.gtasa-mission-banner[hidden]{display:none}
+.gtasa-mission-banner.is-visible{
+  opacity:1;
+  transform:translateY(0) scale(1);
+}
+.gtasa-mission-banner.is-leaving{
+  opacity:0;
+  transform:translateY(-8px) scale(.98);
+}
+
+.gtasa-mb-inner{
+  background:rgba(10,14,11,.92);
+  border:2px solid var(--color-warning);
+  border-radius:6px;
+  padding:14px 24px;
+  text-align:center;
+  box-shadow:0 6px 0 rgba(0,0,0,.78);
+  max-width:380px;
+  width:100%;
+}
+.gtasa-mb-title{
+  font-family:Impact,ui-sans-serif,system-ui,sans-serif;
+  font-size:28px;
+  font-weight:900;
+  letter-spacing:.04em;
+  line-height:1.15;
+  color:var(--color-warning);
+  text-shadow:2px 2px 0 rgba(0,0,0,.95), -1px -1px 0 rgba(0,0,0,.95);
+}
+.gtasa-mb-respect{
+  font-family:ui-monospace,SFMono-Regular,Consolas,monospace;
+  font-size:17px;
+  font-weight:800;
+  letter-spacing:.08em;
+  margin-top:3px;
+  color:var(--color-text-primary);
+  text-shadow:1px 1px 0 rgba(0,0,0,.9);
+}
+.gtasa-mb-sub{
+  margin:6px 0 0;
+  font-size:12.5px;
+  font-weight:600;
+  color:var(--color-accent-text);
+}
+
+/* ── Focus Zen Mode: Serene Santa Maria Beach Night ── */
+html[data-world="gtasa-grove"] #focusZenOverlay{
+  background:var(--color-bg);
+}
+html[data-world="gtasa-grove"] #focusZenClock{
+  color:var(--color-warning);
+  text-shadow:0 2px 0 rgba(0,0,0,.9);
+}
+
+.gtasa-zen-hud{
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  overflow:hidden;
+}
+.gtasa-zen-hud .gtasa-scene-beach{
+  opacity:.72;
+}
+.gtasa-zen-frame{
+  position:relative;
+  z-index:1;
+  width:100%;
+  height:100%;
+  padding:max(16px,var(--sat,0px)) 18px max(18px,var(--sab,0px));
+  box-sizing:border-box;
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+}
+.gtasa-zen-top{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+.gtasa-zen-loc,
+.gtasa-zen-tag,
+.gtasa-zen-foot{
+  font-family:ui-monospace,SFMono-Regular,Consolas,monospace;
+  font-size:11px;
+  font-weight:700;
+  color:var(--color-text-secondary);
+  background:rgba(10,14,11,.72);
+  border:1px solid var(--color-border-strong);
+  padding:4px 8px;
+  border-radius:3px;
+}
+.gtasa-zen-tag{color:var(--color-accent-text)}
+.gtasa-zen-foot{align-self:flex-start;color:var(--color-text-muted)}
+
+/* ── Reduced Motion & Hidden Tab Safety ── */
+@media (prefers-reduced-motion: reduce){
+  .gtasa-mission-banner,
+  .gtasa-respect-fill,
+  .gtasa-save-btn,
+  .gtasa-disk-svg{
+    transition:none!important;
+    animation:none!important;
+  }
+}
+html[data-motion="reduced"] .gtasa-mission-banner,
+html[data-motion="reduced"] .gtasa-respect-fill,
+html[data-motion="reduced"] .gtasa-save-btn,
+html[data-motion="reduced"] .gtasa-disk-svg{
+  transition:none!important;
+  animation:none!important;
+}
+html.tab-hidden .gtasa-mission-banner{
+  animation-play-state:paused!important;
+}

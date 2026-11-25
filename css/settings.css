@@ -308,3 +308,57 @@ html[data-motion="reduced"] .update-progress-fill{
   color:var(--color-text-muted);
   line-height:1.6;
 }
+
+/* ═══ Cloud Sync & Account Card ═══ */
+.sync-auth-guest,
+.sync-auth-user{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+.sync-auth-guest[hidden],
+.sync-auth-user[hidden],
+.sync-otp-step[hidden]{
+  display:none !important;
+}
+.sync-form-row{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  align-items:center;
+}
+.sync-input{
+  flex:1 1 180px;
+  min-width:0;
+  min-height:42px;
+  padding-inline:12px;
+  padding-block:8px;
+  border:1.5px solid var(--color-border);
+  border-radius:var(--radius-sm);
+  background:var(--color-surface);
+  color:var(--color-text-primary);
+  font-family:var(--font-ui);
+  font-size:13px;
+  direction:ltr;
+  text-align:start;
+}
+.sync-input:focus-visible{
+  outline:2px solid var(--color-accent);
+  outline-offset:2px;
+}
+.sync-otp-input{
+  flex:0 1 140px;
+  text-align:center;
+  font-weight:700;
+}
+.sync-actions-row{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  align-items:center;
+  padding-block-start:4px;
+}
+.sync-user-id{
+  direction:ltr;
+  font-weight:600;
+}

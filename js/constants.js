@@ -35,6 +35,13 @@ export const STORAGE_KEYS = {
   backupAt: 'daftarche-backup-at',
   backupNudge: 'daftarche-backup-nudge',
   goal: 'daftarche-goal',
+  journal: 'daftarche-journal',
+  study: 'daftarche-study',
+  re7Tapes: 'daftarche-re7-tapes',
+  re7SfxMuted: 'daftarche-re7-sfx-muted',
+  re7Music: 'daftarche-re7-music',
+  gtasaSfxMuted: 'daftarche-gtasa-sfx-muted',
+  gtasaSaves: 'daftarche-gtasa-saves',
 };
 
 /* ═══ Themes ═══
@@ -77,6 +84,9 @@ export const THEMES = [
   { key: 'kimiyagar',   label: 'کیمیاگر',   mode: 'dark',  palette: 'kimiyagar',   family: 'world' },
   { key: 'rasadkhane',  label: 'رصدخانه',   mode: 'dark',  palette: 'rasadkhane',  family: 'world' },
   { key: 'simorgh',     label: 'سیمرغ',    mode: 'dark',  palette: 'simorgh',     family: 'world' },
+  /* Cinematic & Gaming Fun Worlds (`family: 'fun'`): always unlocked, separated from badge-gated worlds */
+  { key: 're7-baker',   label: 'عمارت بیکر (RE7)', mode: 'dark', palette: 'rebaker', family: 'fun' },
+  { key: 'gtasa-grove', label: 'سن آندریاس — گروو استریت', mode: 'dark', palette: 'gtasa', family: 'fun', hidden: true },
   /* The birthday theme is not a theme the reader picks: it is worn for the one
      day and taken off again. It stays in this table because it is still a key —
      css/base.css has an html[data-theme="tavalod"] block for it and the birthday
@@ -86,9 +96,11 @@ export const THEMES = [
   { key: 'tavalod',     label: 'تولد',     mode: 'light', palette: 'tavalod',     family: 'world', hidden: true },
 ];
 
-/* What the picker walks, what it counts, and what a mode switch may land on:
-   every theme except the ones the reader is never offered. */
-export const PICKER_THEMES = THEMES.filter(t => !t.hidden);
+/* What the standard picker walks, counts, and measures against achievements. */
+export const PICKER_THEMES = THEMES.filter(t => !t.hidden && t.family !== 'fun');
+
+/* Cinematic & Game worlds — unlocked by default in their own dedicated picker section. */
+export const FUN_THEMES = THEMES.filter(t => !t.hidden && t.family === 'fun');
 
 export const THEME_KEYS = THEMES.map(t => t.key);
 export const THEME_MODES = ['light', 'dark'];
@@ -106,7 +118,7 @@ export const DEFAULT_THEME = 'daftarche';
    to be a destination of its own and keeps working as an alias of this one
    (js/app.js), so an old link still lands on the week. */
 export const PRIMARY_PAGES = ['today', 'tasks', 'focus', 'library'];
-export const MORE_PAGES = ['calendar', 'stats', 'achv', 'profile', 'settings'];
+export const MORE_PAGES = ['calendar', 'study', 'journal', 'stats', 'achv', 'profile', 'settings'];
 /* The dark end of the table, and the first of the two halves the one-tap switch
    in the header walks between. */
 export const NIGHT_THEME = 'lajvard';

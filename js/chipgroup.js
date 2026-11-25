@@ -247,7 +247,7 @@ export function swatchRow(host, items, { group, onPick, isLocked = null }) {
       if (!step) return;
       e.preventDefault();
       const on = [...host.querySelectorAll('.swatch')]
-        .filter(s => s.dataset.mode === host.dataset.mode && !s.disabled);
+        .filter(s => (!host.dataset.mode || s.dataset.mode === host.dataset.mode) && !s.disabled);
       const i = on.findIndex(s => s === document.activeElement || s.classList.contains('sel'));
       const next = on[(i + step + on.length) % on.length];
       if (!next) return;

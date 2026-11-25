@@ -16,6 +16,17 @@ import { CATS, P_LABEL, PRI_ICONS, DUR_PRESETS, LIB_ICONS } from './constants.js
 import { formatJalaliDate } from './jalali.js';
 import { openDuePicker } from './duepicker.js';
 import { mountSelectMenu } from './pickmenu.js';
+import { loadStudy } from './store.js';
+import { normalizeStudyData } from './study-logic.js';
+import {
+  REPEAT_OPTIONS,
+  REPEAT_LABELS,
+  normalizeRepeat,
+  normalizeSubtasks,
+  addSubtaskItem,
+  toggleSubtaskItem,
+  removeSubtaskItem,
+} from './task-recurrence.js';
 
 /* ── Chip picker ── */
 let pop = null, popCleanup = null;
@@ -227,6 +238,41 @@ function paint() {
   $('#teDueClear').hidden = !draft.dueDate;
   const custom = $('#teDurCustom');
   if (draft.durationMin && !DUR_PRESETS.includes(draft.durationMin)) custom.value = draft.durationMin;
+
+  const repeatItems = [
+    { value: 'none', label: 'بدون تکرار' },
+    ...REPEAT_OPTIONS.map(k => ({ value: k, label: REPEAT_LABELS[k] })),
+  ];
+  radio($('#teRepeat'), repeatItems, draft.repeat || 'none', v => {
+    draft.repeat = v === 'none' ? null : v;
+    paint();
+  });
+
+  const subHost = $('#teSubList');
+  if (subHost) {
+    const subs = normalizeSubtasks(draft.subtasks);
+    subHost.innerHTML = subs.map(s => `
+      <div class="te-sub-row${s.done ? ' done' : ''}" data-sub-id="${esc(s.id)}">
+        <button type="button" class="te-sub-toggle" aria-pressed="${s.done}">
+          <span class="subtask-box" aria-hidden="true">${s.done ? '✓' : ''}</span>
+          <span>${esc(s.text)}</span>
+        </button>
+        <button type="button" class="te-sub-del" aria-label="حذف زیرکار" title="حذف">×</button>
+      </div>
+    `).join('');
+  }
+
+  const courseWrap = $('#teCourseWrap');
+  const courseSel = $('#teCourse');
+  if (courseWrap && courseSel) {
+    const activeCourses = normalizeStudyData(loadStudy()).courses.filter(c => !c.deletedAt);
+    courseWrap.hidden = activeCourses.length === 0;
+    if (activeCourses.length > 0) {
+      courseSel.innerHTML = '<option value="">بدون درس مرتبط</option>' +
+        activeCourses.map(c => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
+      courseSel.value = draft.courseId && activeCourses.some(c => c.id === draft.courseId) ? draft.courseId : '';
+    }
+  }
 }
 
 export function closeTaskEditor() {
@@ -247,10 +293,15 @@ export function openTaskEditor(task, onSave, opener = null) {
     durationMin: task.durationMin || null,
     timeFrom: task.timeFrom ?? null,
     timeTo: task.timeTo ?? null,
+    repeat: normalizeRepeat(task.repeat),
+    subtasks: normalizeSubtasks(task.subtasks),
+    courseId: task.courseId || null,
   };
   onSaveCb = onSave; lastFocus = opener;
   $('#teTitle').value = task.text;
   $('#teDurCustom').value = '';
+  const subIn = $('#teSubInput');
+  if (subIn) subIn.value = '';
   $('#teError').hidden = true;
   const timeErr = $('#teTimeError');
   if (timeErr) timeErr.hidden = true;
@@ -311,6 +362,41 @@ export function initTaskEditor() {
     radio($('#teDur'), durOptions(), undefined, nv => { draft.durationMin = nv; $('#teDurCustom').value = ''; paint(); });
   });
   $('#teTitle').addEventListener('input', () => { $('#teError').hidden = true; });
+  $('#teCourse')?.addEventListener('change', e => {
+    if (draft) draft.courseId = e.target.value || null;
+  });
+
+  const subInput = $('#teSubInput');
+  const addDraftSub = () => {
+    if (!draft || !subInput) return;
+    const val = subInput.value.trim();
+    if (!val) return;
+    draft.subtasks = addSubtaskItem(draft.subtasks, val);
+    subInput.value = '';
+    paint();
+    subInput.focus();
+  };
+  $('#teSubAddBtn')?.addEventListener('click', addDraftSub);
+  subInput?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addDraftSub();
+    }
+  });
+  $('#teSubList')?.addEventListener('click', e => {
+    if (!draft) return;
+    const row = e.target.closest('.te-sub-row');
+    if (!row) return;
+    const subId = row.dataset.subId;
+    if (e.target.closest('.te-sub-del')) {
+      draft.subtasks = removeSubtaskItem(draft.subtasks, subId);
+      paint();
+    } else if (e.target.closest('.te-sub-toggle')) {
+      draft.subtasks = toggleSubtaskItem(draft.subtasks, subId);
+      paint();
+    }
+  });
+
   $('#teClose')?.addEventListener('click', closeTaskEditor);
   $('#teCancel').addEventListener('click', closeTaskEditor);
   ov.addEventListener('click', e => { if (e.target === ov) closeTaskEditor(); });

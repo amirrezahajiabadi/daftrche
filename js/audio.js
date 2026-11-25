@@ -1,9 +1,6 @@
-/* ═══ Audio Engine: Procedural Music + Ambient Sound + User Tracks (IndexedDB) ═══ */
-import { safeSet, readString } from './store.js';
+/* ═══ Audio Engine: Procedural Music + Multi-Channel Ambient Mixer + User Tracks ═══ */
+import { safeSet, readString, readJSON } from './store.js';
 
-/* Both volume keys are raw numbers written as strings. A missing key falls back
-   to 0.8; a corrupt one falls back the same way, because parseFloat of a
-   non-number is NaN and a gain of NaN silently mutes the whole engine. */
 const readVolume = key => {
   const v = parseFloat(readString(key, '0.8'));
   return Number.isFinite(v) ? v : 0.8;
@@ -12,7 +9,10 @@ const readVolume = key => {
 let ctx = null, musicGain = null, ambGain = null;
 
 function ensureCtx() {
-  if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+  if (typeof window === 'undefined') throw new Error('AudioContext unavailable');
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) throw new Error('AudioContext unsupported');
+  if (!ctx) ctx = new AC();
   if (ctx.state === 'suspended') ctx.resume();
   if (!musicGain) {
     musicGain = ctx.createGain();
@@ -27,14 +27,11 @@ function ensureCtx() {
   return ctx;
 }
 
-export function unlockAudio() { try { ensureCtx(); } catch (e) {} }
+export function unlockAudio() { try { ensureCtx(); } catch { /* ignore */ } }
 
-/* ── Volume ── */
-/* Dragging a range input fires `input` on every pixel. The gain follows the
-   thumb immediately, but the stored value is written once the hand settles:
-   a slider drag is a gesture, not a burst of settings. */
+/* ── Master Volume ── */
 const VOL_SAVE_MS = 250;
-let volMusicTimer = 0, volAmbTimer = 0;
+let volMusicTimer = 0, volAmbTimer = 0, mixerSaveTimer = 0;
 
 export function setMusicVolume(v) {
   if (musicGain) musicGain.gain.value = v;
@@ -126,16 +123,69 @@ function startProc(key) {
       const t = c.currentTime;
       out.gain.cancelScheduledValues(t);
       out.gain.setTargetAtTime(0, t, .5);
-      setTimeout(() => { nodes.forEach(n => { try { n.stop(); } catch (e) {} }); try { out.disconnect(); } catch (e) {} }, 1500);
+      setTimeout(() => { nodes.forEach(n => { try { n.stop(); } catch {} }); try { out.disconnect(); } catch {} }, 1500);
     }
   };
 }
 
-/* ═══ Ambient Sound ═══ */
-function startAmb(scene) {
+/* ═══ Multi-Channel Ambient Sound Mixer ═══ */
+export const AMBIENT_CHANNELS = Object.freeze({
+  rain: 'باران',
+  fireplace: 'شومینه',
+  cafe: 'کافه',
+  sea: 'دریا',
+  forest: 'جنگل',
+});
+export const AMBIENT_CHANNEL_KEYS = Object.freeze(Object.keys(AMBIENT_CHANNELS));
+export const MIXER_STORAGE_KEY = 'daftarche-amb-mixer';
+
+function clampVol(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return 0.7;
+  return Math.max(0, Math.min(1, n));
+}
+
+function loadMixerState() {
+  const saved = readJSON(MIXER_STORAGE_KEY, null);
+  const legacyScene = readString('daftarche-scene', 'none');
+  const out = {};
+
+  for (const key of AMBIENT_CHANNEL_KEYS) {
+    const entry = saved && typeof saved === 'object' ? saved[key] : null;
+    if (entry && typeof entry === 'object') {
+      out[key] = {
+        vol: clampVol(entry.vol),
+        muted: typeof entry.muted === 'boolean' ? entry.muted : true,
+      };
+    } else {
+      const legacyMatch = !saved && legacyScene === key;
+      out[key] = {
+        vol: legacyMatch ? 0.8 : 0.7,
+        muted: !legacyMatch,
+      };
+    }
+  }
+  return out;
+}
+
+let mixerState = loadMixerState();
+let mixerEnabled = readString('daftarche-ambsound', '1') !== '0';
+const channelHandles = new Map();
+
+function saveMixerState() {
+  clearTimeout(mixerSaveTimer);
+  mixerSaveTimer = setTimeout(() => {
+    mixerSaveTimer = 0;
+    safeSet(MIXER_STORAGE_KEY, JSON.stringify(mixerState));
+  }, VOL_SAVE_MS);
+}
+
+function startAmbChannel(scene, initialVol) {
   const c = ensureCtx();
-  const out = c.createGain(); out.gain.value = 0; out.connect(ambGain);
-  out.gain.linearRampToValueAtTime(1, c.currentTime + 1.5);
+  const out = c.createGain();
+  out.gain.value = 0;
+  out.connect(ambGain);
+  out.gain.linearRampToValueAtTime(clampVol(initialVol), c.currentTime + 0.8);
   const stops = [];
 
   if (scene === 'rain') {
@@ -156,9 +206,34 @@ function startAmb(scene) {
       }
     }, 140);
     stops.push({ stop: () => clearInterval(iv) });
-  }
-
-  if (scene === 'sea') {
+  } else if (scene === 'fireplace') {
+    const src = c.createBufferSource(); src.buffer = getBrown(c); src.loop = true;
+    const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 340;
+    const g = c.createGain(); g.gain.value = .28;
+    src.connect(lp); lp.connect(g); g.connect(out); src.start();
+    stops.push(src);
+    const iv = setInterval(() => {
+      if (Math.random() < .55) {
+        const t = c.currentTime + Math.random() * .12;
+        const s = c.createBufferSource(); s.buffer = getDrop(c);
+        const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 900 + Math.random() * 2400; bp.Q.value = 4.5;
+        const gg = c.createGain();
+        gg.gain.setValueAtTime(.08, t); gg.gain.exponentialRampToValueAtTime(.0001, t + .07);
+        s.connect(bp); bp.connect(gg); gg.connect(out); s.start(t);
+      }
+    }, 190);
+    stops.push({ stop: () => clearInterval(iv) });
+  } else if (scene === 'cafe') {
+    const src = c.createBufferSource(); src.buffer = getBrown(c); src.loop = true;
+    const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 520; bp.Q.value = 0.9;
+    const g = c.createGain(); g.gain.value = .24;
+    const lfo = c.createOscillator(); lfo.frequency.value = .14;
+    const lg = c.createGain(); lg.gain.value = .05;
+    lfo.connect(lg); lg.connect(g.gain);
+    src.connect(bp); bp.connect(g); g.connect(out);
+    src.start(); lfo.start();
+    stops.push(src, lfo);
+  } else if (scene === 'sea') {
     const src = c.createBufferSource(); src.buffer = getBrown(c); src.loop = true;
     const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 480;
     const g = c.createGain(); g.gain.value = .22;
@@ -171,9 +246,7 @@ function startAmb(scene) {
     src.connect(lp); lp.connect(g); g.connect(out);
     src.start(); lfo.start(); lfo2.start();
     stops.push(src, lfo, lfo2);
-  }
-
-  if (scene === 'forest') {
+  } else if (scene === 'forest') {
     const src = c.createBufferSource(); src.buffer = getWhite(c); src.loop = true;
     const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 700;
     const g = c.createGain(); g.gain.value = .05;
@@ -201,17 +274,86 @@ function startAmb(scene) {
   }
 
   return {
+    setVol(v) {
+      try {
+        out.gain.setTargetAtTime(clampVol(v), c.currentTime, 0.05);
+      } catch { /* ignore */ }
+    },
     stop() {
-      const t = c.currentTime;
-      out.gain.cancelScheduledValues(t);
-      out.gain.setTargetAtTime(0, t, .4);
-      setTimeout(() => { stops.forEach(s => { try { s.stop(); } catch (e) {} }); try { out.disconnect(); } catch (e) {} }, 1200);
-    }
+      try {
+        const t = c.currentTime;
+        out.gain.cancelScheduledValues(t);
+        out.gain.setTargetAtTime(0, t, .35);
+      } catch { /* ignore */ }
+      setTimeout(() => {
+        stops.forEach(s => { try { s.stop(); } catch {} });
+        try { out.disconnect(); } catch {}
+      }, 1000);
+    },
   };
 }
 
+function syncAudioMixer() {
+  for (const key of AMBIENT_CHANNEL_KEYS) {
+    const ch = mixerState[key];
+    const shouldPlay = mixerEnabled && ch && !ch.muted && ch.vol > 0;
+    const handle = channelHandles.get(key);
+    if (shouldPlay) {
+      if (handle) {
+        handle.setVol(ch.vol);
+      } else {
+        try {
+          channelHandles.set(key, startAmbChannel(key, ch.vol));
+        } catch {
+          // Web Audio unavailable — fail silently
+        }
+      }
+    } else if (handle) {
+      handle.stop();
+      channelHandles.delete(key);
+    }
+  }
+}
+
+export function getMixerState() {
+  const copy = {};
+  for (const key of AMBIENT_CHANNEL_KEYS) {
+    const cur = mixerState[key] || { vol: 0.7, muted: true };
+    copy[key] = { vol: clampVol(cur.vol), muted: Boolean(cur.muted) };
+  }
+  return copy;
+}
+
+export function setChannelVolume(channel, vol) {
+  if (!AMBIENT_CHANNELS[channel]) return getMixerState();
+  const clamped = clampVol(vol);
+  mixerState[channel] = {
+    vol: clamped,
+    muted: clamped === 0 ? true : Boolean(mixerState[channel]?.muted),
+  };
+  saveMixerState();
+  syncAudioMixer();
+  return getMixerState();
+}
+
+export function toggleChannelMute(channel, forceMuted) {
+  if (!AMBIENT_CHANNELS[channel]) return getMixerState();
+  const cur = mixerState[channel] || { vol: 0.7, muted: true };
+  const nextMuted = typeof forceMuted === 'boolean' ? forceMuted : !cur.muted;
+  const nextVol = !nextMuted && cur.vol === 0 ? 0.5 : cur.vol;
+  mixerState[channel] = { vol: nextVol, muted: nextMuted };
+  saveMixerState();
+  syncAudioMixer();
+  return getMixerState();
+}
+
+export function setMixerEnabled(soundOn) {
+  mixerEnabled = Boolean(soundOn);
+  syncAudioMixer();
+}
+
 /* ═══ Playback Control ═══ */
-let procHandle = null, userAudio = null, userUrl = null, ambHandle = null;
+let procHandle = null, userAudio = null, userUrl = null;
 
 function stopProc() { if (procHandle) { procHandle.stop(); procHandle = null; } }
 function stopUser() {
@@ -221,7 +363,9 @@ function stopUser() {
 
 export function setMusic(key) {
   stopProc(); stopUser();
-  if (key !== 'none') procHandle = startProc(key);
+  if (key !== 'none') {
+    try { procHandle = startProc(key); } catch { /* ignore */ }
+  }
 }
 export function playUserTrack(track) {
   stopProc(); stopUser();
@@ -234,8 +378,15 @@ export function playUserTrack(track) {
 export function stopMusicAll() { stopProc(); stopUser(); }
 
 export function setAmbience(scene, soundOn) {
-  if (ambHandle) { ambHandle.stop(); ambHandle = null; }
-  if (scene !== 'none' && soundOn) ambHandle = startAmb(scene);
+  mixerEnabled = Boolean(soundOn);
+  if (scene && scene !== 'none' && AMBIENT_CHANNELS[scene]) {
+    const anyUnmuted = AMBIENT_CHANNEL_KEYS.some(k => !mixerState[k]?.muted);
+    if (!anyUnmuted) {
+      mixerState[scene] = { vol: mixerState[scene]?.vol || 0.7, muted: false };
+      saveMixerState();
+    }
+  }
+  syncAudioMixer();
 }
 
 /* ═══ User Tracks (IndexedDB) ═══ */
@@ -269,21 +420,18 @@ export async function removeUserTrack(id) {
   return new Promise(res => { const tx = d.transaction('tracks', 'readwrite'); tx.objectStore('tracks').delete(id); tx.oncomplete = res; });
 }
 
-/* Clear All: uploaded tracks are the user's own files and are removed with the
-   rest of their data. As with the library database, the connection this page
-   holds is closed first — otherwise the delete request is blocked by our own
-   open handle and the files survive the wipe. Resolves true only when the
-   database is really gone. */
 export function clearUserAudioData() {
-  /* Nothing of the engine may outlive the wipe: an oscillator still running
-     would keep making sound from a page that has just said everything was
-     cleared, and an open AudioContext would hold the hardware. */
   stopProc();
   stopUser();
+  for (const [, handle] of channelHandles) {
+    try { handle.stop(); } catch {}
+  }
+  channelHandles.clear();
   clearTimeout(volMusicTimer); volMusicTimer = 0;
   clearTimeout(volAmbTimer); volAmbTimer = 0;
+  clearTimeout(mixerSaveTimer); mixerSaveTimer = 0;
   if (ctx) {
-    try { ctx.close(); } catch (e) { /* already closed */ }
+    try { ctx.close(); } catch {}
     ctx = null; musicGain = null; ambGain = null;
   }
   whiteBuf = brownBuf = dropBuf = null;
@@ -295,7 +443,7 @@ export function clearUserAudioData() {
       req.onblocked = () => resolve(false);
     };
     db().then(
-      d => { try { d.close(); } catch (e) {} dbP = null; remove(); },
+      d => { try { d.close(); } catch {} dbP = null; remove(); },
       () => { dbP = null; remove(); }
     );
   });

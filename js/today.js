@@ -20,6 +20,7 @@ import { dateToJalali } from './jalali.js';
 import { occasionsOf } from './calendarmodel.js';
 import { loadBirthday, loadName } from './store.js';
 import { birthdayKey, birthdayAge, showBirthdayCard } from './birthday.js';
+import { initJournal, renderJournal } from './journal.js';
 
 const DAY = 864e5;
 /* Priority is meaning, not decoration: the three dots read from the palette's
@@ -515,12 +516,20 @@ export function renderToday(force = false) {
   renderTodayList();
   renderProgress();
   renderReading();
+  renderJournal();
   const dice = $('#todayDiceBtn');
   if (dice) dice.hidden = pending.length < 2;
 }
 
+const initializedTodayRoots = new WeakSet();
+
 /* ── Init ── */
 export function initToday() {
+  const guardEl = (typeof document !== 'undefined' && ($('#page-today') || $('#todayList') || $('#todayGreet'))) || null;
+  if (guardEl && typeof guardEl === 'object') {
+    if (initializedTodayRoots.has(guardEl)) return;
+    initializedTodayRoots.add(guardEl);
+  }
   const form = $('#todayAddForm');
   const todayInput = $('#todayInput');
   const todayPreview = $('#todayQuickAddPreview');
@@ -629,6 +638,10 @@ export function initToday() {
   }
 
   renderToday();
+  initJournal({
+    getCompletedToday: todayDone,
+    getPendingToday: todayPending,
+  });
   subscribe(renderToday);
   if (typeof window !== 'undefined') window.addEventListener('daftarche:books-changed', renderReading);
   setRollScope(() => todayPending());

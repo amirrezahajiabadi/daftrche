@@ -628,6 +628,7 @@ html[data-motion="reduced"] #updateToast.update-toast[data-state="done"]{
    All eight themes are in the DOM; the four of the other half are hidden by the
    rule at the bottom, keyed on the host's data-mode. */
 .swatch-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;width:100%;align-items:start}
+.fun-worlds-picker{margin-top:14px;padding-top:12px;border-top:1px dashed var(--color-border)}
 .swatch-row>*:last-child:nth-child(odd){grid-column:1 / -1}
 .swatch{display:flex;flex-direction:column;align-items:stretch;gap:6px;min-width:0;padding:8px;
   border:1.5px solid var(--color-border);border-radius:var(--radius-md);background:transparent;

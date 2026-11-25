@@ -6,6 +6,7 @@
   "main": "push-server.js",
   "scripts": {
     "start": "node push-server.js",
+    "api": "node api-server.js",
     "keys": "node -e \"const wp=require('web-push');console.log(JSON.stringify(wp.generateVAPIDKeys(),null,2))\""
   },
   "dependencies": {

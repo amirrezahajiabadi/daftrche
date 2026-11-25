@@ -22,6 +22,8 @@
 
 import { invalidateAllBuckets } from './daycache.js';
 import { flushPending, migrateStorage } from './store.js';
+import { mergeJournals } from './journal-logic.js';
+import { mergeStudyData } from './study-logic.js';
 
 export const BACKUP_APP = 'daftarche';
 export const BACKUP_FORMAT = 1;
@@ -36,7 +38,23 @@ export const BACKUP_MAX_CHARS = 5 * 1024 * 1024;
    a property of this installation, and moving it to another device would only
    mean that device greets them twice or not at all. The date itself does travel,
    because that one is theirs. */
-const EXCLUDED = new Set(['daftarche-seen-version', 'daftarche-birthday-seen']);
+const EXCLUDED = new Set([
+  'daftarche-seen-version',
+  'daftarche-birthday-seen',
+  'daftarche_auth_v1',
+  'daftarche_sync_cursor_v1',
+  'daftarche_last_sync_at_v1',
+  'daftarche_last_gc_at_v1',
+  'daftarche_outbox_v1',
+  'daftarche_sync_enabled',
+  'daftarche-auth-v1',
+  'daftarche-sync-cursor-v1',
+  'daftarche-re7-tapes',
+  'daftarche-re7-sfx-muted',
+  'daftarche-re7-music',
+  'daftarche-gtasa-sfx-muted',
+  'daftarche-gtasa-saves',
+]);
 
 export const isBackupKey = key =>
   typeof key === 'string' &&
@@ -54,6 +72,8 @@ const SHAPES = {
   'daftarche-focus-history': 'array',
   'daftarche-books-meta': 'array',
   'daftarche-moods': 'object',
+  'daftarche-journal': 'object',
+  'daftarche-study': 'object',
   'daftarche-ledger': 'object',
   'daftarche-achievements': 'object',
   'daftarche-birthday-wishes': 'object',
@@ -248,7 +268,7 @@ const minDay = (a, b) => {
 };
 
 /* Two copies of one task exist only because a backup traveled between devices. */
-function pickTask(local, incoming) {
+export function pickTask(local, incoming) {
   const localDeleted = Number.isFinite(Number(local?.deletedAt)) && Number(local.deletedAt) > 0;
   const incomingDeleted = Number.isFinite(Number(incoming?.deletedAt)) && Number(incoming.deletedAt) > 0;
 
@@ -524,12 +544,30 @@ function mergeWishes(localRaw, incomingRaw) {
   return JSON.stringify(out);
 }
 
+function mergeJournal(localRaw, incomingRaw) {
+  const local = readJSONSafely(localRaw);
+  const incoming = readJSONSafely(incomingRaw);
+  if (!isPlainObject(incoming)) return null;
+  if (!isPlainObject(local)) return JSON.stringify(mergeJournals({}, incoming));
+  return JSON.stringify(mergeJournals(local, incoming));
+}
+
+function mergeStudy(localRaw, incomingRaw) {
+  const local = readJSONSafely(localRaw);
+  const incoming = readJSONSafely(incomingRaw);
+  if (!isPlainObject(incoming)) return null;
+  if (!isPlainObject(local)) return JSON.stringify(mergeStudyData({}, incoming));
+  return JSON.stringify(mergeStudyData(local, incoming));
+}
+
 const MERGERS = {
   'daftarche-v1': mergeTaskList,
   'daftarche-history': mergeDayList,
   'daftarche-focus-history': mergeFocusHistory,
   'daftarche-books-meta': mergeBooks,
   'daftarche-moods': mergeMoods,
+  'daftarche-journal': mergeJournal,
+  'daftarche-study': mergeStudy,
   'daftarche-ledger': mergeLedger,
   'daftarche-achievements': mergeAchv,
   'daftarche-birthday-wishes': mergeWishes,

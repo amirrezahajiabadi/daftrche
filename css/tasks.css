@@ -120,7 +120,9 @@
 /* A row whose menu is open lifts above its neighbours so the menu never sits
    under the next row's hit area. `contain:layout` on .task would otherwise trap
    that z-index inside the row's own stacking context. */
-.task:has(.task-menu:not([hidden])){z-index:95;contain:none}
+.tasks:has(.task.menu-open,.task-menu:not([hidden])){content-visibility:visible;contain:none;overflow:visible}
+.task.menu-open,
+.task:has(.task-menu:not([hidden])){z-index:95;contain:none;content-visibility:visible;overflow:visible;transform:none}
 /* Near the bottom of the screen the menu opens upward instead of under the
    dock. */
 .task-menu.up{top:auto;bottom:calc(100% + 4px)}
@@ -305,7 +307,9 @@
 .te-card h2{font-family:var(--font-personality);font-size:20px;font-weight:700}
 .te-label{font-size:12px;color:var(--muted);font-weight:500}
 .te-input{width:100%;font-family:var(--font-ui);font-size:16px;color:var(--text);background:var(--bg);border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:var(--space-3) var(--space-4);outline:none}
-.te-input:focus{border-color:var(--accent)}
+.te-input:focus,.te-select:focus{border-color:var(--accent)}
+.te-select{width:100%;min-height:44px;font-family:var(--font-ui);font-size:14px;color:var(--text);background:var(--bg);border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:8px 10px;outline:none;cursor:pointer}
+.course-chip{order:4;display:inline-flex;align-items:center;min-height:26px;flex-shrink:0;font-family:var(--font-ui);font-size:11px;font-weight:600;padding:3px 9px;border-radius:var(--radius-pill);background:color-mix(in srgb,var(--course-c,var(--color-accent)) 12%,transparent);color:var(--color-text-primary);border:1px solid color-mix(in srgb,var(--course-c,var(--color-accent)) 32%,transparent);max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .te-num{max-width:140px}
 .te-error{color:var(--danger);font-size:12.5px}
 .te-group,.te-due{display:flex;flex-wrap:wrap;gap:7px}
@@ -331,3 +335,155 @@
 .te-actions .skip{margin-top:0;min-height:44px}
 .chip-pop-item.danger:hover,.chip-pop-item.danger:focus-visible{background:color-mix(in srgb,var(--color-danger) 12%,transparent);color:var(--color-danger)}
 .chip-pop-item .ico{width:15px;height:15px}
+
+/* ── Repeat badge & Subtasks progress / checklist ── */
+.repeat-chip,.sub-chip{
+  order:9;
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  min-height:26px;
+  flex-shrink:0;
+  font-family:var(--font-ui);
+  font-size:11px;
+  font-weight:600;
+  line-height:1.4;
+  padding:3px 9px;
+  border-radius:var(--radius-pill);
+  border:1px solid var(--color-border);
+  background:var(--color-bg);
+  color:var(--color-text-secondary);
+}
+.repeat-chip svg,.sub-chip svg{
+  width:12px;
+  height:12px;
+  flex-shrink:0;
+}
+.sub-chip{
+  position:relative;
+  cursor:pointer;
+  transition:border-color var(--duration-fast),background var(--duration-fast),color var(--duration-fast);
+}
+.sub-chip::after{
+  content:'';
+  position:absolute;
+  inset:-7px;
+  border-radius:var(--radius-sm);
+}
+.sub-chip.all-done{
+  color:var(--color-success);
+  border-color:color-mix(in srgb,var(--color-success) 35%,transparent);
+  background:color-mix(in srgb,var(--color-success) 10%,transparent);
+}
+.subtask-list{
+  order:12;
+  flex-basis:100%;
+  list-style:none;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  margin-block-start:4px;
+  padding-inline-start:36px;
+  padding-block-start:8px;
+  border-block-start:1px dashed var(--color-border);
+}
+.subtask-list[hidden]{
+  display:none !important;
+}
+.subtask-item{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.subtask-toggle{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  width:100%;
+  min-height:32px;
+  padding:4px 6px;
+  border:none;
+  border-radius:var(--radius-xs);
+  background:transparent;
+  color:var(--color-text-primary);
+  font-family:var(--font-ui);
+  font-size:12.5px;
+  text-align:start;
+  cursor:pointer;
+}
+.subtask-toggle:hover{
+  background:var(--color-accent-soft);
+}
+.subtask-box{
+  width:16px;
+  height:16px;
+  flex-shrink:0;
+  border-radius:4px;
+  border:1.5px solid var(--color-border-strong);
+  display:grid;
+  place-items:center;
+}
+.subtask-item.done .subtask-box{
+  background:var(--color-success);
+  border-color:transparent;
+  color:var(--color-text-on-success);
+}
+.subtask-item.done .subtask-text{
+  text-decoration:line-through;
+  color:var(--color-text-muted);
+}
+
+/* ── Task Editor: Subtasks list ── */
+.te-sub-list{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+.te-sub-row{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:6px 10px;
+  border:1px solid var(--color-border);
+  border-radius:var(--radius-xs);
+  background:var(--color-bg);
+}
+.te-sub-toggle{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex:1;
+  min-width:0;
+  border:none;
+  background:transparent;
+  color:var(--color-text-primary);
+  font-family:var(--font-ui);
+  font-size:12.5px;
+  text-align:start;
+  cursor:pointer;
+}
+.te-sub-row.done .te-sub-toggle{
+  text-decoration:line-through;
+  color:var(--color-text-muted);
+}
+.te-sub-del{
+  border:none;
+  background:transparent;
+  color:var(--color-text-muted);
+  cursor:pointer;
+  padding:4px 6px;
+  border-radius:var(--radius-xs);
+  font-size:13px;
+}
+.te-sub-del:hover{
+  color:var(--color-danger);
+}
+.te-sub-add{
+  display:flex;
+  gap:8px;
+  align-items:center;
+}
+.te-sub-add .te-input{
+  flex:1;
+  min-width:0;
+}

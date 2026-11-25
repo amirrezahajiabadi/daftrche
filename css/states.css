@@ -131,7 +131,7 @@ html.is-native .book-pct-badge{backdrop-filter:none!important;
 html.is-native :is(#achvList,.shelf-grid,#calList,#doneShelf){content-visibility:auto;
   contain-intrinsic-size:auto 520px}
 @supports (content-visibility:auto){
-  :is(#achvList,.shelf-grid,#calList,#doneShelf,.stat-section,#taskList,.today-reading){
+  :is(#achvList,.shelf-grid,#calList,#doneShelf,.stat-section,.today-reading){
     content-visibility:auto;contain-intrinsic-size:auto 320px}
 }
 html.is-native::before,

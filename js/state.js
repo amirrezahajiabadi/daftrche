@@ -1,7 +1,8 @@
 /* ═══ Shared App State (Singleton) ═══ */
 
-import { loadTasks, loadName, loadHistory, loadMoods, loadPomo } from './store.js';
+import { loadTasks, loadName, loadHistory, loadMoods, loadPomo, loadJournal, loadStudy } from './store.js';
 import { dayKey, dueKeyFromOffset, parseDurationMin, parseTimeRange } from './utils.js';
+import { normalizeSubtasks, normalizeRepeat } from './task-recurrence.js';
 
 const defaultTasks = () => [
   { id: 'a1', text: 'نسخهٔ جدید دفتَرچه را بازبینی کن', done: false, p: 'high', cat: 'project', dueDate: dayKey(new Date()), durationMin: null },
@@ -53,6 +54,10 @@ export function normalizeTask(t) {
                       'none' | 'soon' (due today) | 'overdue' (past due) */
   task.notify = typeof task.notify === 'boolean' ? task.notify : false;
   if (!['none', 'soon', 'overdue'].includes(task.notifiedStatus)) task.notifiedStatus = 'none';
+
+  task.subtasks = normalizeSubtasks(task.subtasks);
+  task.repeat = normalizeRepeat(task.repeat);
+  task.courseId = typeof task.courseId === 'string' && task.courseId.trim() ? task.courseId.trim() : null;
   return task;
 }
 
@@ -77,6 +82,8 @@ export const state = {
   userName: loadName(),
   history: loadHistory(),
   moods: loadMoods(),
+  journal: loadJournal(),
+  study: loadStudy(),
   pomoMin: loadPomo(),
   session: null, // active focus session (restored in initFocusPage from storage)
 };

@@ -1,6 +1,7 @@
 /* ═══ Library: Reading Workspace — Shelf, Reading State, Goal, Storage ═══ */
 import { $, faNum, dayKey, esc, nextId, normalizeFa } from './utils.js';
-import { readJSON, safeSet, scheduleSave, STORAGE_ERROR_EVENT, requestPersistentStorage } from './store.js';
+import { readJSON, safeSet, scheduleSave, STORAGE_ERROR_EVENT, requestPersistentStorage, loadStudy } from './store.js';
+import { normalizeStudyData } from './study-logic.js';
 import { showNotice } from './dialog.js';
 import { LIB_ICONS } from './constants.js';
 import { openChipPicker } from './taskedit.js';
@@ -288,7 +289,7 @@ export function renderShelf(force = false) {
 
   const sig = [
     shelfFilter, shelfSearchQuery, books.length,
-    books.map(b => `${b.id}:${b.title}:${b.currentPage}:${b.pageCount}:${bookStatus(b)}`).join(',')
+    books.map(b => `${b.id}:${b.title}:${b.currentPage}:${b.pageCount}:${b.courseId || ''}:${bookStatus(b)}`).join(',')
   ].join('|');
 
   if (!force && sig === lastShelfSig && (grid.children.length > 0 || doneGrid.children.length > 0 || books.length === 0)) {
@@ -455,6 +456,8 @@ function bookCard(b, i, isDone) {
   const pct = bookPct(b);
   const st = bookStatus(b);
   const t = bookTotals(b);
+  const activeCourses = normalizeStudyData(loadStudy()).courses.filter(c => !c.deletedAt);
+  const linkedCourse = b.courseId ? activeCourses.find(c => c.id === b.courseId) : null;
   const cta = st === 'done' ? `${LIB_ICONS.check} تمام شد` : `${LIB_ICONS.book} ${st === 'reading' ? 'ادامه' : 'شروع'}`;
   const card = document.createElement('div');
   card.className = 'book-card' + (isDone ? ' book-done' : '');
@@ -467,6 +470,7 @@ function bookCard(b, i, isDone) {
       ${st === 'done' ? `<span class="book-done-badge" aria-label="مطالعهٔ کامل‌شده">${LIB_ICONS.check}</span>` : ''}
     </div>
     <div class="book-title" data-act="open" role="button" tabindex="0">${esc(b.title)}</div>
+    ${linkedCourse ? `<span class="book-course-pill">${esc(linkedCourse.name)}</span>` : ''}
     <div class="book-meta">
       ${b.numPages ? `<span>${faNum(done)} از ${faNum(b.numPages)} ص</span>` : '<span>خوانده نشده</span>'}
       ${t.minutes > 0 ? `<span>· ${LIB_ICONS.clock} ${faNum(t.minutes)} د</span>` : ''}
@@ -484,17 +488,33 @@ function bookCard(b, i, isDone) {
        goal. They are one ⋯ menu now; delete is last, in red, and still undoable. */
     if (act === 'more') {
       const anchor = e.target.closest('[data-act="more"]');
+      const coursesNow = normalizeStudyData(loadStudy()).courses.filter(c => !c.deletedAt);
+      const menuOpts = [
+        { value: 'goal', label: 'هدف مطالعه', icon: LIB_ICONS.target, action: true },
+        { value: 'rename', label: 'تغییر نام', icon: LIB_ICONS.edit, action: true },
+        ...(coursesNow.length ? [{ value: 'course', label: 'اتصال به درس', icon: LIB_ICONS.book, action: true }] : []),
+        { value: 'del', label: 'حذف کتاب', icon: LIB_ICONS.trash, action: true, danger: true },
+      ];
       openChipPicker(anchor, {
         label: 'گزینه‌های کتاب', current: null,
-        options: [
-          { value: 'goal', label: 'هدف مطالعه', icon: LIB_ICONS.target, action: true },
-          { value: 'rename', label: 'تغییر نام', icon: LIB_ICONS.edit, action: true },
-          { value: 'del', label: 'حذف کتاب', icon: LIB_ICONS.trash, action: true, danger: true },
-        ],
+        options: menuOpts,
         onPick: v => {
           if (v === 'goal') openGoal(b.id);
           else if (v === 'rename') openRenameModal(b.id);
-          else if (v === 'del') softDeleteBook(b.id);
+          else if (v === 'course') {
+            openChipPicker(anchor, {
+              label: 'انتخاب درس مرتبط',
+              current: b.courseId || null,
+              options: [
+                { value: null, label: 'بدون درس مرتبط' },
+                ...coursesNow.map(c => ({ value: c.id, label: c.name })),
+              ],
+              onPick: cid => {
+                updateBook(b.id, { courseId: cid || null });
+                renderShelf(true);
+              },
+            });
+          } else if (v === 'del') softDeleteBook(b.id);
         },
       });
     }

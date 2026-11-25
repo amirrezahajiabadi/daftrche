@@ -31,6 +31,8 @@ import {
   miniatureStage, summitAltitude, elixirElements, constellationDays, simorghActiveDays,
   birthdayWorldState,
 } from './worlds-data.js';
+import { re7WorldPlugin } from './world-re7.js';
+import { gtasaWorldPlugin } from './world-gtasa.js';
 
 const theme = () => document.documentElement.dataset.theme || '';
 export const WORLDS = new Set([
@@ -38,6 +40,49 @@ export const WORLDS = new Set([
   'negarkhane', 'qollenavard', 'kimiyagar', 'rasadkhane', 'simorgh',
   'tavalod',
 ]);
+
+/* ── Fun / Cinematic Worlds Plugin Registry & Lifecycle Hooks ──
+   Allows each custom cinematic/game world to isolate its interactive overlays,
+   listeners, and ambient effects cleanly inside its own module. */
+const WORLD_PLUGINS = new Map();
+let activePluginWorldId = null;
+
+export function registerWorldPlugin(worldId, plugin) {
+  if (!worldId || !plugin || typeof plugin !== 'object') return;
+  WORLD_PLUGINS.set(worldId, plugin);
+}
+
+export function getRegisteredWorldPlugins() {
+  return [...WORLD_PLUGINS.keys()];
+}
+
+export function onWorldActivate(worldId) {
+  const plugin = WORLD_PLUGINS.get(worldId);
+  if (plugin && typeof plugin.onActivate === 'function') {
+    plugin.onActivate(worldId);
+  }
+  activePluginWorldId = WORLD_PLUGINS.has(worldId) ? worldId : null;
+}
+
+export function onWorldDeactivate(worldId) {
+  const plugin = WORLD_PLUGINS.get(worldId);
+  if (plugin && typeof plugin.onDeactivate === 'function') {
+    plugin.onDeactivate(worldId);
+  }
+  if (activePluginWorldId === worldId) activePluginWorldId = null;
+}
+
+function syncWorldLifecycle(nextWorldId) {
+  if (activePluginWorldId && activePluginWorldId !== nextWorldId) {
+    onWorldDeactivate(activePluginWorldId);
+  }
+  if (nextWorldId && WORLD_PLUGINS.has(nextWorldId) && activePluginWorldId !== nextWorldId) {
+    onWorldActivate(nextWorldId);
+  }
+}
+
+registerWorldPlugin(re7WorldPlugin.id, re7WorldPlugin);
+registerWorldPlugin(gtasaWorldPlugin.id, gtasaWorldPlugin);
 
 const svg = (inner, vb = '0 0 24 24', cls = 'ico') =>
   `<svg class="${cls}" viewBox="${vb}" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
@@ -597,8 +642,19 @@ export function renderWorld() {
   const card = $('#worldCard');
   if (!card) return;
   const t = theme();
-  if (!WORLDS.has(t)) { card.hidden = true; card.innerHTML = ''; delete card.dataset.world; return; }
+  const plugin = WORLD_PLUGINS.get(t);
+  if (!WORLDS.has(t) && !plugin) {
+    card.hidden = true;
+    card.innerHTML = '';
+    delete card.dataset.world;
+    return;
+  }
   card.dataset.world = t;
+  if (plugin && typeof plugin.renderCard === 'function') {
+    card.innerHTML = plugin.renderCard(t);
+    card.hidden = false;
+    return;
+  }
   const book = (t === 'shabgard' || t === 'baghche' || t === 'tavalod') ? null : collectTotals();
   card.innerHTML = RENDER[t](book);
   card.hidden = false;
@@ -689,6 +745,14 @@ export function initWorlds() {
     }
   });
   subscribe(renderWorld);
-  window.addEventListener('theme-applied', () => { lastMoved = []; isEditingWish = false; renderWorld(); });
+  window.addEventListener('theme-applied', () => {
+    lastMoved = [];
+    isEditingWish = false;
+    syncWorldLifecycle(theme());
+    renderWorld();
+  });
+  window.addEventListener('re7-tapes-changed', renderWorld);
+  window.addEventListener('gtasa-hud-changed', renderWorld);
+  syncWorldLifecycle(theme());
   renderWorld();
 }

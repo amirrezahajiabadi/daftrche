@@ -10,7 +10,27 @@
 import { state, normalizeTask } from './state.js';
 import { saveTasks } from './store.js';
 import { notify } from './bus.js';
-import { parseDurationMin, parseTimeRange, reorderSubset } from './utils.js';
+import { parseDurationMin, parseTimeRange, reorderSubset, dueKeyFromOffset } from './utils.js';
+import { isSyncEnabled, appendChange } from './outbox.js';
+import { projectTaskForSync, createSyncEnvelope } from './sync-projection.js';
+import { normalizeSubtasks, normalizeRepeat, buildNextRecurringTaskPayload } from './task-recurrence.js';
+
+function enqueueTaskChange(task, action) {
+  if (!isSyncEnabled() || !task) return;
+  try {
+    const payload = projectTaskForSync(task);
+    const envelope = createSyncEnvelope({
+      kind: 'task',
+      entityId: String(task.id),
+      action,
+      rev: Number(task.version) || 1,
+      payload,
+    });
+    appendChange(envelope);
+  } catch (err) {
+    console.warn('[taskrepo] Failed to enqueue sync change', err);
+  }
+}
 
 /**
  * Returns all active (non-deleted) tasks.
@@ -69,6 +89,9 @@ export function createTask(data = {}) {
     doneAt: data.done ? (Number(data.doneAt) || now) : null,
     notify: Boolean(data.notify),
     notifiedStatus: ['none', 'soon', 'overdue'].includes(data.notifiedStatus) ? data.notifiedStatus : 'none',
+    repeat: normalizeRepeat(data.repeat),
+    subtasks: normalizeSubtasks(data.subtasks),
+    courseId: typeof data.courseId === 'string' && data.courseId.trim() ? data.courseId.trim() : null,
     updatedAt: now,
     version: 1,
     rev: 1,
@@ -89,6 +112,7 @@ export function createTask(data = {}) {
 
   saveTasks(state.tasks);
   notify();
+  enqueueTaskChange(task, 'upsert');
 
   return { ok: true, record: task };
 }
@@ -109,6 +133,7 @@ export function updateTask(id, patch = {}) {
   if (!task) {
     return { ok: false, error: 'Task not found' };
   }
+  const wasDone = Boolean(task.done);
 
   if ('text' in patch && typeof patch.text === 'string') {
     const trimmed = patch.text.trim();
@@ -159,6 +184,15 @@ export function updateTask(id, patch = {}) {
   if ('notifiedStatus' in patch && ['none', 'soon', 'overdue'].includes(patch.notifiedStatus)) {
     task.notifiedStatus = patch.notifiedStatus;
   }
+  if ('repeat' in patch) {
+    task.repeat = normalizeRepeat(patch.repeat);
+  }
+  if ('subtasks' in patch) {
+    task.subtasks = normalizeSubtasks(patch.subtasks);
+  }
+  if ('courseId' in patch) {
+    task.courseId = typeof patch.courseId === 'string' && patch.courseId.trim() ? patch.courseId.trim() : null;
+  }
 
   const now = Date.now();
   task.updatedAt = now;
@@ -168,8 +202,18 @@ export function updateTask(id, patch = {}) {
 
   saveTasks(state.tasks);
   notify();
+  enqueueTaskChange(task, 'upsert');
 
-  return { ok: true, record: task };
+  let spawnedTask = null;
+  if (!wasDone && task.done === true && task.repeat && !patch._skipRecurSpawn) {
+    const nextPayload = buildNextRecurringTaskPayload(task, patch._todayStr || dueKeyFromOffset(0));
+    if (nextPayload) {
+      const spawned = createTask(nextPayload);
+      if (spawned.ok) spawnedTask = spawned.record;
+    }
+  }
+
+  return spawnedTask ? { ok: true, record: task, spawnedTask } : { ok: true, record: task };
 }
 
 /**
@@ -205,6 +249,7 @@ export function softDeleteTask(id) {
 
   saveTasks(state.tasks);
   notify();
+  enqueueTaskChange(task, 'delete');
 
   return { ok: true, record: task };
 }
@@ -228,6 +273,7 @@ export function restoreTask(id) {
 
   saveTasks(state.tasks);
   notify();
+  enqueueTaskChange(task, 'upsert');
 
   return { ok: true, record: task };
 }

@@ -1,8 +1,10 @@
 import { state, getTask } from './state.js';
-import { saveTasks, requestPersistentStorage } from './store.js';
+import { saveTasks, requestPersistentStorage, loadStudy } from './store.js';
+import { normalizeStudyData, courseColorCss } from './study-logic.js';
 import { taskRepo, createTask, updateTask, softDeleteTask, restoreTask, reorderTasks } from './taskrepo.js';
 import { prefersReducedMotion } from './motion.js';
-import { $, faNum, startOfToday, dueKeyFromOffset, normalizeFa, parseDurationMin, formatDuration, formatClock, parseTimeRange, reorderSubset, isOverdueTask, stepOrder } from './utils.js';
+import { $, faNum, startOfToday, dueKeyFromOffset, normalizeFa, parseDurationMin, formatDuration, formatClock, parseTimeRange, reorderSubset, isOverdueTask, stepOrder, esc } from './utils.js';
+import { REPEAT_LABELS, calcSubtaskProgress, toggleSubtaskItem } from './task-recurrence.js';
 import { P_LABEL, CATS, ICONS, PRI_ICONS, LIB_ICONS } from './constants.js';
 import { notify } from './bus.js';
 import { bellHtml, refreshBell, setTaskNotify, notificationsSupported, bindPersistence } from './notifications.js';
@@ -64,14 +66,22 @@ function openMenuAboveNav(menu) {
   menu.classList.remove('up');
   menu.style.insetInlineStart = '';
   menu.style.insetInlineEnd = '';
-  const rect = menu.getBoundingClientRect();
-  const navHeight = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--nav-height')) || 64;
+  const wrapRect = menu.parentElement?.getBoundingClientRect() || menu.getBoundingClientRect();
+  const menuH = menu.offsetHeight || 193;
+  const menuW = menu.offsetWidth || 140;
+  const parsedNav = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--nav-height'));
+  const navHeight = Number.isFinite(parsedNav) ? parsedNav : 64;
   const navTop = innerHeight - navHeight - 16;
-  if (rect.bottom > navTop) menu.classList.add('up');
-  if (rect.left < 4) {
+  if (wrapRect.bottom + 4 + menuH > navTop && wrapRect.top - 4 - menuH >= 8) {
+    menu.classList.add('up');
+  }
+  const isRtl = getComputedStyle(menu).direction === 'rtl';
+  const menuLeft = isRtl ? wrapRect.left : wrapRect.right - menuW;
+  const menuRight = menuLeft + menuW;
+  if (menuLeft < 4) {
     menu.style.insetInlineEnd = 'auto';
     menu.style.insetInlineStart = '0';
-  } else if (rect.right > innerWidth - 4) {
+  } else if (menuRight > innerWidth - 4) {
     menu.style.insetInlineStart = 'auto';
     menu.style.insetInlineEnd = '0';
   }
@@ -134,6 +144,44 @@ export function timeRangeLabel(task) {
   return from && to ? `${from} تا ${to}` : null;
 }
 
+const REPEAT_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 2l4 4-4 4"/><path d="M3 11v-1a4 4 0 014-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v1a4 4 0 01-4 4H3"/></svg>';
+const SUBTASK_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>';
+
+function repeatChipHtml(task) {
+  if (!task || !task.repeat || !REPEAT_LABELS[task.repeat]) return '';
+  return `<span class="repeat-chip" title="تکرار ${esc(REPEAT_LABELS[task.repeat])}">${REPEAT_ICON}<span>${esc(REPEAT_LABELS[task.repeat])}</span></span>`;
+}
+
+function courseChipHtml(task) {
+  if (!task || !task.courseId) return '';
+  const data = normalizeStudyData(state.study && typeof state.study === 'object' ? state.study : loadStudy());
+  const course = data.courses.find(c => c && !c.deletedAt && c.id === task.courseId);
+  if (!course) return '';
+  return `<span class="course-chip" style="--course-c:${courseColorCss(course.colorToken)}" title="درس مرتبط: ${esc(course.name)}">${esc(course.name)}</span>`;
+}
+
+function subtaskChipHtml(task) {
+  const subs = Array.isArray(task?.subtasks) ? task.subtasks : [];
+  if (!subs.length) return '';
+  const { done, total } = calcSubtaskProgress(subs);
+  const allDone = done === total && total > 0;
+  return `<button type="button" class="sub-chip${allDone ? ' all-done' : ''}" aria-expanded="false" title="مشاهده زیرکارها">${SUBTASK_ICON}<span>${faNum(done)}/${faNum(total)}</span></button>`;
+}
+
+function subtaskListHtml(task, expanded = false) {
+  const subs = Array.isArray(task?.subtasks) ? task.subtasks : [];
+  if (!subs.length) return '';
+  const items = subs.map(s => `
+    <li class="subtask-item${s.done ? ' done' : ''}">
+      <button type="button" class="subtask-toggle" data-sub-id="${esc(s.id)}" aria-pressed="${Boolean(s.done)}">
+        <span class="subtask-box" aria-hidden="true">${s.done ? '✓' : ''}</span>
+        <span class="subtask-text">${esc(s.text)}</span>
+      </button>
+    </li>
+  `).join('');
+  return `<ul class="subtask-list"${expanded ? '' : ' hidden'}>${items}</ul>`;
+}
+
 /* ── Build Item ── */
 function createTaskEl(task, delay = 0) {
   const li = document.createElement('li');
@@ -153,15 +201,22 @@ function createTaskEl(task, delay = 0) {
     : `<button class="dur-chip none" title="افزودن زمان تقریبی" aria-haspopup="menu">+ زمان</button>`;
   const spanLabel = timeRangeLabel(task);
   const spanHtml = spanLabel ? `<span class="span-chip" title="بازهٔ این کار در روز">${spanLabel}</span>` : '';
+  const courseHtml = courseChipHtml(task);
+  const repHtml = repeatChipHtml(task);
+  const subChip = subtaskChipHtml(task);
+  const subList = subtaskListHtml(task, false);
   li.innerHTML = `
     <span class="grip" aria-hidden="true">${ICONS.grip}</span>
     <button class="pri-dot" title="اولویت: ${P_LABEL[li.dataset.p]} — کلیک برای تغییر" aria-label="اولویت: ${P_LABEL[li.dataset.p]} — تغییر" aria-haspopup="menu">${PRI_ICONS[li.dataset.p]}</button>
     <button class="check" aria-label="تکمیل">${ICONS.check}</button>
     <span class="title"></span>
     <button class="cat-tag" style="--cc:${cat.color}" title="دسته: ${cat.label} — کلیک برای تغییر" aria-haspopup="menu">${cat.label}</button>
+    ${courseHtml}
     ${spanHtml}
     ${durHtml}
     ${dueHtml}
+    ${repHtml}
+    ${subChip}
     ${notificationsSupported() ? bellHtml(task) : ''}
     <div class="task-menu-wrap">
       <button class="task-more-btn" type="button" aria-label="عملیات کار" title="عملیات بیشتر" aria-haspopup="menu" aria-expanded="false">
@@ -189,7 +244,8 @@ function createTaskEl(task, delay = 0) {
           <span>حذف</span>
         </button>
       </div>
-    </div>`;
+    </div>
+    ${subList}`;
   li.querySelector('.title').textContent = task.text;
   return li;
 }
@@ -299,6 +355,36 @@ export function updateTaskRow(li, task) {
   } else if (spanEl) {
     spanEl.remove();
   }
+
+  const oldCourse = li.querySelector('.course-chip');
+  if (oldCourse) oldCourse.remove();
+  const courseHtml = courseChipHtml(task);
+  if (courseHtml) {
+    li.querySelector('.cat-tag')?.insertAdjacentHTML('afterend', courseHtml);
+  }
+
+  const oldRep = li.querySelector('.repeat-chip');
+  if (oldRep) oldRep.remove();
+  const repHtml = repeatChipHtml(task);
+  if (repHtml) {
+    const anchor = li.querySelector('.due-chip') || li.querySelector('.dur-chip') || li.querySelector('.cat-tag');
+    anchor?.insertAdjacentHTML('afterend', repHtml);
+  }
+
+  const oldSubList = li.querySelector('.subtask-list');
+  const wasExpanded = Boolean(oldSubList && !oldSubList.hidden);
+  if (oldSubList) oldSubList.remove();
+  const oldSubChip = li.querySelector('.sub-chip');
+  if (oldSubChip) oldSubChip.remove();
+
+  const subChipHtml = subtaskChipHtml(task);
+  if (subChipHtml) {
+    const anchor = li.querySelector('.repeat-chip') || li.querySelector('.due-chip') || li.querySelector('.dur-chip') || li.querySelector('.cat-tag');
+    anchor?.insertAdjacentHTML('afterend', subChipHtml);
+    const chipEl = li.querySelector('.sub-chip');
+    if (chipEl) chipEl.setAttribute('aria-expanded', String(wasExpanded));
+    li.insertAdjacentHTML('beforeend', subtaskListHtml(task, wasExpanded));
+  }
 }
 
 /* ── Chunked Rendering (Infinite Scroll) for Large Lists ──
@@ -376,7 +462,10 @@ export function renderList(force = false) {
   const currentSig = [
     state.filter, state.catFilter, state.noDue, state.query,
     rows.length,
-    rows.map(t => `${t.id}:${t.done ? 1 : 0}:${t.p || 'mid'}:${t.dueDate || ''}`).join(',')
+    rows.map(t => {
+      const p = calcSubtaskProgress(t.subtasks);
+      return `${t.id}:${t.done ? 1 : 0}:${t.p || 'mid'}:${t.dueDate || ''}:${t.repeat || ''}:${p.done}/${p.total}`;
+    }).join(',')
   ].join('|');
 
   if (!force && currentSig === lastRenderSig && lEl.children.length > 0) {
@@ -464,6 +553,7 @@ export function setTaskDone(id, done) {
 }
 
 function toggleTask(li, task) {
+  const willSpawnRecurring = !task.done && Boolean(task.repeat);
   setTaskDone(task.id, !task.done);
   li.classList.toggle('done', task.done);
   refreshDueChip(li, task);
@@ -474,7 +564,8 @@ function toggleTask(li, task) {
     const c = $('#counter'); if (c) { c.classList.remove('bump'); void c.offsetWidth; c.classList.add('bump'); }
   }
   updateCountersAndProgress();
-  if (!matches(task)) setTimeout(() => hideFromView(li), 650);
+  if (willSpawnRecurring) renderList(true);
+  else if (!matches(task)) setTimeout(() => hideFromView(li), 650);
 }
 
 /* Shared creation used by the Tasks form and the Today quick add */
@@ -693,9 +784,7 @@ function startEditTitle(titleEl, task) {
     doneE = true;
     const v = inp.value.trim();
     if (v && v !== task.text) {
-      task.text = v;
-      save();
-      notify();
+      updateTask(task.id, { text: v });
     }
     titleEl.textContent = task.text;
     inp.replaceWith(titleEl);
@@ -756,6 +845,9 @@ export function applyEdits(task, c) {
     patch.timeFrom = c.timeFrom;
     patch.timeTo = c.timeTo;
   }
+  if ('repeat' in c) patch.repeat = c.repeat;
+  if ('subtasks' in c) patch.subtasks = c.subtasks;
+  if ('courseId' in c) patch.courseId = c.courseId;
   updateTask(task.id, patch);
 
   const lEl = getListEl();
@@ -824,24 +916,48 @@ function placeRow(dragging, clientY) {
   });
 }
 
+const initializedLists = new WeakSet();
+const initializedForms = new WeakSet();
+
 /* ── Events ── */
 export function initTasks() {
   if (!listEl && typeof document !== 'undefined') listEl = $('#taskList');
   if (!listEl) return;
+  if (initializedLists.has(listEl)) return;
+  initializedLists.add(listEl);
   initTaskEditor();
   listEl.addEventListener('click', async e => {
     const li = e.target.closest('.task'); if (!li) return;
     const task = getTask(li.dataset.id); if (!task) return;
     if (e.target.closest('.check')) toggleTask(li, task);
+    else if (e.target.closest('.sub-chip')) {
+      const chip = e.target.closest('.sub-chip');
+      const subList = li.querySelector('.subtask-list');
+      if (subList) {
+        const nextHidden = !subList.hidden;
+        subList.hidden = nextHidden;
+        chip.setAttribute('aria-expanded', String(!nextHidden));
+      }
+    }
+    else if (e.target.closest('.subtask-toggle')) {
+      const btn = e.target.closest('.subtask-toggle');
+      const subId = btn.dataset.subId;
+      if (subId) {
+        updateTask(task.id, { subtasks: toggleSubtaskItem(task.subtasks, subId) });
+        updateTaskRow(li, task);
+      }
+    }
     else if (e.target.closest('.task-more-btn')) {
       const wrap = e.target.closest('.task-menu-wrap');
       const menu = wrap?.querySelector('.task-menu');
       const btn = wrap?.querySelector('.task-more-btn');
       const wasHidden = menu?.hidden;
       document.querySelectorAll('.task-menu').forEach(m => { m.hidden = true; });
+      document.querySelectorAll('.task.menu-open').forEach(r => r.classList.remove('menu-open'));
       document.querySelectorAll('.task-more-btn').forEach(b => { b.setAttribute('aria-expanded', 'false'); });
       if (menu && wasHidden) {
         menu.hidden = false;
+        li.classList.add('menu-open');
         btn?.setAttribute('aria-expanded', 'true');
         openMenuAboveNav(menu);
       }
@@ -849,23 +965,27 @@ export function initTasks() {
     else if (e.target.closest('.item-edit')) {
       const menu = li.querySelector('.task-menu');
       if (menu) menu.hidden = true;
+      li.classList.remove('menu-open');
       openTaskEditor(task, changes => applyEdits(task, changes), li.querySelector('.task-more-btn'));
     }
     else if (e.target.closest('.item-up') || e.target.closest('.item-down')) {
       const up = !!e.target.closest('.item-up');
       const menu = li.querySelector('.task-menu');
       if (menu) menu.hidden = true;
+      li.classList.remove('menu-open');
       li.querySelector('.task-more-btn')?.setAttribute('aria-expanded', 'false');
       moveTask(task.id, up ? -1 : 1);
     }
     else if (e.target.closest('.item-focus') || e.target.closest('.focus-btn')) {
       const menu = li.querySelector('.task-menu');
       if (menu) menu.hidden = true;
+      li.classList.remove('menu-open');
       openFocus(task.id);
     }
     else if (e.target.closest('.item-del') || e.target.closest('.del')) {
       const menu = li.querySelector('.task-menu');
       if (menu) menu.hidden = true;
+      li.classList.remove('menu-open');
       collapse(li, task.id);
     }
     else if (e.target.closest('.pri-dot')) {
@@ -930,12 +1050,14 @@ export function initTasks() {
   document.addEventListener('click', e => {
     if (!e.target.closest('.task-menu-wrap')) {
       document.querySelectorAll('.task-menu').forEach(m => { m.hidden = true; });
+      document.querySelectorAll('.task.menu-open').forEach(r => r.classList.remove('menu-open'));
       document.querySelectorAll('.task-more-btn').forEach(b => { b.setAttribute('aria-expanded', 'false'); });
     }
   });
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
       document.querySelectorAll('.task-menu').forEach(m => { m.hidden = true; });
+      document.querySelectorAll('.task.menu-open').forEach(r => r.classList.remove('menu-open'));
       document.querySelectorAll('.task-more-btn').forEach(b => { b.setAttribute('aria-expanded', 'false'); });
     }
   });
@@ -1187,6 +1309,10 @@ export function initTasks() {
 
 /* ── Add Form ── */
 export function initAddForm() {
+  const formEl = $('#addForm');
+  if (!formEl) return;
+  if (initializedForms.has(formEl)) return;
+  initializedForms.add(formEl);
   /* The four option rows live behind «جزئیات». The text box alone is the fast
      path (the parser fills the rest from the sentence); the dot on the toggle says
      that something other than the defaults is already chosen, so a collapsed form

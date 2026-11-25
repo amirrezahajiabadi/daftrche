@@ -275,12 +275,61 @@ function initVolumes() {
 function initVibe() {
   buildSceneVisuals();
   applyScene(true);
-  /* paintMusicChips only, not applyMusic: the pressed state of the chips has to
-     be right on the first paint, and applyMusic also *starts* the chosen track —
-     which is not something a page may do before the reader has touched anything.
-     The audio itself still waits for the first interaction above. */
   paintMusicChips();
   initVolumes();
+
+  const mixerHost = $('#ambMixer');
+  const renderMixer = () => {
+    if (!mixerHost) return;
+    const ms = audio.getMixerState();
+    mixerHost.innerHTML = audio.AMBIENT_CHANNEL_KEYS.map(key => {
+      const ch = ms[key];
+      const pct = Math.round(ch.vol * 100);
+      const active = !ch.muted && pct > 0;
+      return `
+        <div class="amb-ch" data-ch="${esc(key)}">
+          <button type="button" class="amb-ch-mute${active ? ' on' : ''}" aria-pressed="${active}">
+            <span>${esc(audio.AMBIENT_CHANNELS[key])}</span>
+          </button>
+          <input type="range" class="amb-ch-vol" min="0" max="100" value="${pct}" aria-label="صدای ${esc(audio.AMBIENT_CHANNELS[key])}">
+          <span class="amb-ch-pct">${faNum(pct)}٪</span>
+        </div>
+      `;
+    }).join('');
+  };
+
+  renderMixer();
+  mixerHost?.addEventListener('click', e => {
+    const btn = e.target.closest('.amb-ch-mute');
+    if (!btn) return;
+    const row = btn.closest('.amb-ch');
+    const ch = row?.dataset.ch;
+    if (!ch) return;
+    audio.unlockAudio();
+    audio.setMixerEnabled(ambOn);
+    audio.toggleChannelMute(ch);
+    renderMixer();
+  });
+  mixerHost?.addEventListener('input', e => {
+    const range = e.target.closest('.amb-ch-vol');
+    if (!range) return;
+    const row = range.closest('.amb-ch');
+    const ch = row?.dataset.ch;
+    if (!ch) return;
+    audio.unlockAudio();
+    const val = Number(range.value) / 100;
+    const cur = audio.getMixerState()[ch];
+    if (cur?.muted && val > 0) audio.toggleChannelMute(ch, false);
+    audio.setChannelVolume(ch, val);
+    const pctEl = row.querySelector('.amb-ch-pct');
+    if (pctEl) pctEl.textContent = `${faNum(Math.round(val * 100))}٪`;
+    const btn = row.querySelector('.amb-ch-mute');
+    if (btn) {
+      const active = val > 0;
+      btn.classList.toggle('on', active);
+      btn.setAttribute('aria-pressed', String(active));
+    }
+  });
 
   $('#sceneChips')?.addEventListener('click', e => {
     const b = e.target.closest('button[data-scene]');
@@ -294,6 +343,7 @@ function initVibe() {
   if (sw) sw.onclick = () => {
     ambOn = !ambOn;
     safeSet('daftarche-ambsound', ambOn ? '1' : '0');
+    audio.setMixerEnabled(ambOn);
     applyScene();
   };
 
@@ -323,6 +373,7 @@ function initVibe() {
   addEventListener('pointerdown', () => {
     audio.unlockAudio();
     if (musicSel !== 'none') applyMusic();
+    audio.setMixerEnabled(ambOn);
     if (scene !== 'none' && ambOn) audio.setAmbience(scene, ambOn);
   }, { once: true });
 
@@ -352,6 +403,53 @@ function fmtClock(sec) {
   return faDigits(`${m}:${String(s).padStart(2, '0')}`);
 }
 
+let zenOpen = false;
+let zenKeyBound = false;
+
+export function enterZenMode() {
+  const session = getActiveSession();
+  const ov = $('#focusZenOverlay');
+  if (!session || !ov) return;
+  zenOpen = true;
+  document.body?.classList.add('focus-zen');
+  const charEl = $('#focusZenChar');
+  if (charEl && !charEl.innerHTML) charEl.innerHTML = fekrbazMarkup('focused');
+  const taskEl = $('#focusZenTask');
+  if (taskEl) taskEl.textContent = taskTitle(session.taskId);
+  ov.hidden = false;
+  syncRunningUI();
+  $('#focusZenExit')?.focus();
+}
+
+export function exitZenMode(restoreFocus = false) {
+  if (!zenOpen) return;
+  zenOpen = false;
+  document.body?.classList.remove('focus-zen');
+  const ov = $('#focusZenOverlay');
+  if (ov) ov.hidden = true;
+  if (restoreFocus) $('#focusZenBtn')?.focus();
+}
+
+function bindZenControls() {
+  if (zenKeyBound || typeof document === 'undefined') return;
+  zenKeyBound = true;
+  $('#focusZenExit')?.addEventListener('click', () => exitZenMode(true));
+  $('#focusZenPause')?.addEventListener('click', () => {
+    const s = getActiveSession();
+    if (!s) return;
+    if (s.status === 'paused') resumeSession();
+    else pauseSession();
+    renderFocusPage();
+    updateFocusPill();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && zenOpen) {
+      e.preventDefault();
+      exitZenMode(true);
+    }
+  });
+}
+
 function renderFocusPage() {
   const card = $('.focus-page-card');
   if (!card) return;
@@ -360,17 +458,20 @@ function renderFocusPage() {
   const ended = state.session && state.session.status === 'completed' && !state.session._reflectDone;
 
   if (!session && !ended) {
+    exitZenMode(false);
     document.body?.classList.remove('focus-immersive');
     renderPickView();
     return;
   }
   if (ended) {
+    exitZenMode(false);
     document.body?.classList.remove('focus-immersive');
     renderEndedView();
     return;
   }
 
   /* Active / paused view */
+  bindZenControls();
   document.body?.classList.add('focus-immersive');
   const paused = session.status === 'paused';
   card.innerHTML = `
@@ -390,25 +491,25 @@ function renderFocusPage() {
         : `<button class="ghost" id="sessionPause">مکث</button>`}
       <button class="go" id="sessionFinish">پایان</button>
     </div>
-    <button class="focus-sound-toggle" id="focusSoundToggle" type="button" aria-expanded="false">صدا و موسیقی</button>`;
+    <div class="focus-page-actions">
+      <button class="focus-sound-toggle" id="focusSoundToggle" type="button" aria-expanded="false">صدا و موسیقی</button>
+      <button class="focus-zen-toggle" id="focusZenBtn" type="button">حالت ذِن</button>
+    </div>`;
   card.querySelector('strong').textContent = taskTitle(session.taskId);
   card.querySelector('#sessionPause')?.addEventListener('click', () => { pauseSession(); renderFocusPage(); updateFocusPill(); });
   card.querySelector('#sessionResume')?.addEventListener('click', () => { resumeSession(); renderFocusPage(); updateFocusPill(); });
+  card.querySelector('#focusZenBtn')?.addEventListener('click', enterZenMode);
   card.querySelector('#focusSoundToggle')?.addEventListener('click', e => {
     const open = document.body.classList.toggle('focus-sound-open');
     e.currentTarget.setAttribute('aria-expanded', open ? 'true' : 'false');
     document.querySelectorAll('#page-focus .vibe-card').forEach(el => el.classList.toggle('open', open));
-    /* On a short screen the two cards that just appeared sit below the fold, and
-       the reader who pressed «صدا و موسیقی» would be looking at the timer while
-       the panel they opened stayed out of sight. Bringing the first card into
-       view costs one scroll and puts the controls under the thumb that asked for
-       them; the toggle itself stays put above. */
     if (open && window.innerHeight < 760) {
       const first = document.querySelector('#page-focus .vibe-card.open');
       requestAnimationFrame(() => first?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
     }
   });
   card.querySelector('#sessionFinish')?.addEventListener('click', () => {
+    exitZenMode(false);
     finalizeSession('completed');
     session._reflectDone = false;
     persist();
@@ -442,6 +543,16 @@ function syncRunningUI() {
   const stateEl = $('#focusState');
   const stateText = session.status === 'paused' ? 'متوقف شده' : 'در حال تمرکز…';
   if (stateEl && stateEl.textContent !== stateText) stateEl.textContent = stateText;
+
+  if (zenOpen) {
+    const zTime = $('#focusZenTime');
+    if (zTime && zTime.textContent !== clockStr) zTime.textContent = clockStr;
+    const zState = $('#focusZenState');
+    if (zState && zState.textContent !== stateText) zState.textContent = stateText;
+    const zPause = $('#focusZenPause');
+    if (zPause) zPause.textContent = session.status === 'paused' ? 'ادامه' : 'مکث';
+  }
+
   const titleStr = session.status === 'active' ? `${clockStr} · دفتَرچه` : APP_TITLE;
   if (document.title !== titleStr) document.title = titleStr;
 }
@@ -844,6 +955,7 @@ export function syncFocusPage() {
 }
 
 export function clearFocus() {
+  exitZenMode(false);
   document.body?.classList.remove('focus-immersive');
   const s = state.session;
   /* A session that already ran out is sitting on its reflection screen with
@@ -887,7 +999,16 @@ export function openFocus(taskId) {
   syncFocusPage();
 }
 
+const initializedFocusPages = new WeakSet();
+
 export function initFocusPage() {
+  const pageEl = typeof document !== 'undefined' ? $('#page-focus') : null;
+  if (pageEl && initializedFocusPages.has(pageEl)) {
+    renderFocusPage();
+    updateFocusPill();
+    return;
+  }
+  if (pageEl) initializedFocusPages.add(pageEl);
   // Restore a persisted session from a previous page life; a paused
   // session stays paused (no auto-resume after reload). A completed but
   // unanswered session (natural end while away) keeps its pending reflection.
@@ -896,7 +1017,10 @@ export function initFocusPage() {
     || (stored.status === 'completed' && !stored._reflectDone)) ? stored : null;
 
   window.addEventListener('navigate', e => {
-    if (e.detail !== 'focus') document.body?.classList.remove('focus-immersive');
+    if (e.detail !== 'focus') {
+      exitZenMode(false);
+      document.body?.classList.remove('focus-immersive');
+    }
   });
 
   initVibe();

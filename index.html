@@ -13,7 +13,7 @@
      · blob: is for what the person made on this device: PDF files for the
        browser viewer, uploaded music, the share-card image.
      · Not expressible in a <meta>: frame-ancestors / report-uri. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-uuLviIUb4Z+V6R8OTnu+USC8c1YWkwfXRr1yJ63pNhA='; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; media-src 'self' blob: data:; connect-src 'self'; frame-src blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'"/>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-JA2qP0aSC3XU6fmQCURlgahzCOKlJ15OVhzdpaNzCAI='; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; media-src 'self' blob: data:; connect-src 'self'; frame-src blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content"/>
 <meta name="theme-color" content="#f4f0e6"/>
 <!-- The browser paints its own chrome (page canvas, scrollbars, form controls)
@@ -39,8 +39,8 @@
        half of the table it belongs to. The second is what every dark-only rule
        in the CSS hangs off, so it has to be on the root before the first paint
        too — data-mode is to the dark rules what data-theme is to the colours. */
-    var KEYS = ['daftarche', 'kashi', 'cobalt', 'aurora', 'lajvard', 'graphite', 'nightglass', 'tarnama', 'baghche', 'daryanavard', 'negarkhane', 'qollenavard', 'shabgard', 'fazanavard', 'kimiyagar', 'rasadkhane', 'simorgh', 'tavalod'];
-    var DARK = ['lajvard', 'graphite', 'nightglass', 'shabgard', 'fazanavard', 'kimiyagar', 'rasadkhane', 'simorgh'];
+    var KEYS = ['daftarche', 'kashi', 'cobalt', 'aurora', 'lajvard', 'graphite', 'nightglass', 'tarnama', 'baghche', 'daryanavard', 'negarkhane', 'qollenavard', 'shabgard', 'fazanavard', 'kimiyagar', 'rasadkhane', 'simorgh', 're7-baker', 'gtasa-grove', 'tavalod'];
+    var DARK = ['lajvard', 'graphite', 'nightglass', 'shabgard', 'fazanavard', 'kimiyagar', 'rasadkhane', 'simorgh', 're7-baker', 'gtasa-grove'];
     /* Keys older builds wrote down, mapped to the theme that replaced each.
        «cream» is the most recent of them: «شیری» was a shade away from «کاغذ»
        and was retired for exactly that reason (js/constants.js). */
@@ -135,6 +135,7 @@
 <link rel="stylesheet" href="css/components.css">
 <link rel="stylesheet" href="css/components2.css">
 <link rel="stylesheet" href="css/tasks.css">
+<link rel="stylesheet" href="css/focus.css">
 <link rel="stylesheet" href="css/overlays.css">
 <link rel="stylesheet" href="css/library.css">
 <link rel="stylesheet" href="css/profile.css">
@@ -144,6 +145,8 @@
 <link rel="stylesheet" href="css/planner.css">
 <link rel="stylesheet" href="css/calendar.css">
 <link rel="stylesheet" href="css/today.css">
+<link rel="stylesheet" href="css/journal.css">
+<link rel="stylesheet" href="css/study.css">
 <link rel="stylesheet" href="css/tour.css">
 <link rel="stylesheet" href="css/qorqori.css">
 <link rel="stylesheet" href="css/rizolo.css">
@@ -155,6 +158,8 @@
 <link rel="stylesheet" href="css/glass.css">
 <link rel="stylesheet" href="css/identity.css">
 <link rel="stylesheet" href="css/worlds.css">
+<link rel="stylesheet" href="css/world-re7.css">
+<link rel="stylesheet" href="css/world-gtasa.css">
 </head>
 <body>
 
@@ -359,12 +364,26 @@
       <p class="tp-text" id="todayProgText" role="status" aria-live="polite"></p>
     </section>
 
-    <section class="today-sec mood-sec">
-      <div class="sec-head">
-        <h2>امروز چه حالی داری؟</h2>
-        <span id="moodLabel"></span>
+    <section class="today-sec journal-sec" id="todayJournalSec" aria-label="ژورنال امروز">
+      <div class="today-journal-card" id="todayJournalCard">
+        <div class="tj-info">
+          <div class="tj-title-row">
+            <span class="tj-title">ژورنال و خاطره‌های امروز</span>
+            <span class="journal-badge" id="journalPreviewBadge" hidden></span>
+          </div>
+          <p class="tj-snippet" id="todayJournalSnippet">خاطره‌های امروز، اتفاق‌های قشنگ یا عکس‌هات رو بنویس…</p>
+        </div>
+        <button type="button" class="tj-open-btn" id="todayJournalOpenBtn">
+          <span>نوشتن</span>
+          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5"/><path d="M11 6l-6 6 6 6"/></svg>
+        </button>
       </div>
-      <div class="moods" id="moods"></div>
+      <div class="wd-trigger-wrap">
+        <button type="button" class="wd-trigger" id="windDownTrigger">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1111.2 3 7 7 0 0021 12.8z"/></svg>
+          <span>پایان روز</span>
+        </button>
+      </div>
     </section>
   </main>
 </div>
@@ -1008,6 +1027,7 @@
         <label class="vol"><span>موسیقی</span><input type="range" id="volMusic" min="0" max="100" value="80"></label>
         <label class="vol"><span>محیط</span><input type="range" id="volAmb" min="0" max="100" value="80"></label>
       </div>
+      <div class="amb-mixer" id="ambMixer" aria-label="میکسر صداهای محیطی"></div>
     </div>
 
     <div class="vibe-card">
@@ -1189,6 +1209,46 @@
       </div>
 
 
+      <div class="vibe-card" id="cloudSyncCard">
+        <div class="vibe-head">
+          <strong>همگام‌سازی ابری و حساب کاربری</strong>
+          <span class="update-status-badge" id="syncAccountBadge">حالت مهمان</span>
+        </div>
+
+        <div class="sync-auth-guest" id="syncGuestView">
+          <p class="settings-hint">دفترچه بدون ورود هم ۱۰۰٪ آفلاین و کامل روی دستگاه خودت کار می‌کنه. برای همگام‌سازی کارها و پیشرفت مطالعه بین دستگاه‌ها، اختیاری وارد شو.</p>
+          <div class="sync-form-row">
+            <input type="text" class="sync-input" id="syncIdentifierInput" inputmode="email" autocomplete="username" placeholder="ایمیل یا شماره موبایل (مثلاً 09123456789)" aria-label="ایمیل یا شماره موبایل">
+            <button class="settings-btn settings-btn-primary" id="syncRequestOtpBtn" type="button">ارسال کد تایید</button>
+          </div>
+          <div class="sync-otp-step" id="syncOtpStep" hidden>
+            <div class="sync-form-row">
+              <input type="text" class="sync-input sync-otp-input" id="syncOtpInput" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="کد ۶ رقمی" aria-label="کد تایید ۶ رقمی">
+              <button class="settings-btn settings-btn-primary" id="syncVerifyOtpBtn" type="button">ورود و فعال‌سازی همگام‌سازی</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="sync-auth-user" id="syncUserView" hidden>
+          <div class="set-item">
+            <div class="settings-row">
+              <span class="settings-label">حساب متصل</span>
+              <span class="settings-value sync-user-id" id="syncUserIdentifier">—</span>
+            </div>
+            <div class="settings-row">
+              <span class="settings-label">وضعیت همگام‌سازی</span>
+              <span class="settings-value" id="syncStatusMeta">—</span>
+            </div>
+          </div>
+          <div class="sync-actions-row">
+            <button class="settings-btn settings-btn-primary" id="syncNowBtn" type="button">همگام‌سازی اکنون</button>
+            <button class="settings-btn danger" id="syncLogoutBtn" type="button">خروج از حساب</button>
+          </div>
+        </div>
+
+        <p class="settings-hint" id="syncFeedback" role="status" aria-live="polite"></p>
+      </div>
+
       <div class="vibe-card">
         <div class="vibe-head"><strong>پشتیبان‌گیری و ماندگاری</strong></div>
         <div class="set-item">
@@ -1326,6 +1386,9 @@
         <div class="settings-row settings-row-theme">
           <div class="theme-picker">
             <div class="swatch-row" id="themeSwatches" role="radiogroup" aria-label="انتخاب تم و دنیا"></div>
+            <div class="fun-worlds-picker">
+              <div class="swatch-row" id="funWorldSwatches" role="radiogroup" aria-label="دنیاهای سینمایی و گیم"></div>
+            </div>
           </div>
         </div>
         <p class="settings-hint">هفده تم: هفت تم پایه همیشه باز (دفترچه، فیروزه، کبالت، آرورا در روشن / لاجورد، گرافیت، شب‌شیشه در تیره) و ده دنیای ویژه که با نشان‌ها باز می‌شوند و هر کدام کارت تعاملی به صفحهٔ امروز می‌آورند.</p>
@@ -1387,6 +1450,211 @@
       <p class="settings-about">کار هاتو به دفتَرچه بسپار</p>
     </div>
   </main>
+</div>
+
+<!-- ═══ Page 11: Study / Courses ═══ -->
+<div class="page" id="page-study">
+  <main class="app">
+    <header>
+      <div>
+        <h1>درس و برنامه
+          <svg class="underline" viewBox="0 0 120 12" fill="none"><path d="M2 8 Q 20 2 40 7 T 80 7 T 118 5" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg>
+        </h1>
+        <div class="study-header-actions">
+          <div class="study-seg study-role-seg" id="studyRoleSwitch" role="group" aria-label="حالت تحصیلی">
+            <button type="button" class="study-seg-btn is-active" data-role="university" aria-pressed="true">دانشجو</button>
+            <button type="button" class="study-seg-btn" data-role="school" aria-pressed="false">دانش‌آموز</button>
+          </div>
+          <button type="button" class="study-sem-pill" id="studySemesterEditBtn" title="ویرایش عنوان ترم">
+            <span id="studySemesterLabel">ترم جاری</span>
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg>
+          </button>
+          <form class="study-sem-form" id="studySemesterForm" hidden>
+            <input type="text" id="studySemesterInput" class="study-sem-input" maxlength="48" placeholder="مثلاً پاییز ۱۴۰۵" aria-label="عنوان دوره">
+            <button type="submit" class="study-sem-pill">ذخیره</button>
+            <button type="button" class="study-sem-pill" id="studySemesterCancelBtn">لغو</button>
+          </form>
+        </div>
+      </div>
+      <button type="button" class="study-add-btn" id="studyAddCourseBtn">+ درس جدید</button>
+    </header>
+
+    <section class="study-sec" id="studyExamsSec" hidden aria-label="امتحان‌های پیش رو">
+      <div class="study-sec-head">
+        <h2>امتحان‌های پیش رو</h2>
+      </div>
+      <div class="study-exams-strip" id="studyExamsList"></div>
+    </section>
+
+    <section class="study-sec" id="studyScheduleSec" aria-label="برنامهٔ کلاسی">
+      <div class="study-sec-head">
+        <div class="study-sec-title-group">
+          <h2>برنامهٔ کلاسی</h2>
+          <span class="study-parity-badge" id="studyWeekParityBadge" hidden></span>
+        </div>
+        <div class="study-sec-tools">
+          <div class="study-seg study-parity-seg" id="studyWeekParityFilter" role="group" aria-label="فیلتر زوج و فرد" hidden>
+            <button type="button" class="study-seg-btn is-active" data-parity="all" aria-pressed="true">همه</button>
+            <button type="button" class="study-seg-btn" data-parity="even" aria-pressed="false">زوج</button>
+            <button type="button" class="study-seg-btn" data-parity="odd" aria-pressed="false">فرد</button>
+          </div>
+          <div class="study-seg" role="group" aria-label="نمای برنامهٔ کلاسی">
+            <button type="button" class="study-seg-btn is-active" id="studySchedTodayBtn" aria-pressed="true">امروز</button>
+            <button type="button" class="study-seg-btn" id="studySchedWeekBtn" aria-pressed="false">هفتگی</button>
+          </div>
+        </div>
+      </div>
+      <div id="studyNextBannerHost"></div>
+      <div id="studyScheduleBody"></div>
+    </section>
+
+    <section class="study-sec" aria-label="فهرست درس‌ها">
+      <div class="study-sec-head">
+        <h2 id="studyCoursesHeading">درس‌های ترم</h2>
+        <span class="study-count-chip" id="studyCoursesCount"></span>
+      </div>
+      <div class="study-courses-empty" id="studyCoursesEmpty" hidden>
+        <p class="study-empty-title" id="studyEmptyTitle">برنامهٔ ترمت رو اینجا مرتب کن</p>
+        <p class="study-empty-sub" id="studyEmptySub">برنامهٔ کلاسی هفتگی، شمارشگر امتحان‌ها و اتصال کارها و جزوه‌های PDF به هر درس.</p>
+        <div class="study-empty-roles" id="studyEmptyRoleRow">
+          <button type="button" class="study-sem-pill is-choice" data-empty-role="university">حالت دانشجو</button>
+          <button type="button" class="study-sem-pill is-choice" data-empty-role="school">حالت دانش‌آموز</button>
+        </div>
+        <button type="button" class="study-add-btn" id="studyEmptyAddBtn">+ افزودن اولین درس</button>
+      </div>
+      <div class="study-courses-grid" id="studyCoursesGrid"></div>
+    </section>
+  </main>
+</div>
+
+<!-- ═══ Study Modals (placed before #dueOverlay so Jalali date picker stacks above) ═══ -->
+<div class="overlay" id="studyCourseDetailOverlay" hidden>
+  <div class="scd-card" id="studyCourseDetailCard" role="dialog" aria-modal="true" aria-labelledby="scdTitle">
+    <div class="scd-head">
+      <div>
+        <h2 id="scdTitle"></h2>
+        <p class="scd-meta" id="scdMeta"></p>
+      </div>
+      <div class="scd-head-acts">
+        <button type="button" class="scd-focus-btn" id="scdFocusBtn" title="شروع تمرکز روی کار این درس">شروع تمرکز</button>
+        <button type="button" class="r-icon" id="scdEditCourseBtn" aria-label="ویرایش درس"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg></button>
+        <button type="button" class="r-icon" id="scdCloseBtn" aria-label="بستن" data-autofocus><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </div>
+    </div>
+    <div class="scd-sec">
+      <h3 class="scd-sec-title">برنامهٔ کلاسی</h3>
+      <div class="scd-sessions" id="scdSessions"></div>
+    </div>
+    <div class="scd-sec">
+      <h3 class="scd-sec-title">کارها و تکالیف مرتبط</h3>
+      <ul class="scd-list" id="scdTasksList"></ul>
+      <form class="scd-quick-form" id="scdQuickTaskForm" autocomplete="off">
+        <input type="text" id="scdQuickTaskInput" maxlength="120" placeholder="+ افزودن کار جدید برای این درس…">
+        <button type="submit">افزودن</button>
+      </form>
+    </div>
+    <div class="scd-sec">
+      <h3 class="scd-sec-title">جزوه‌ها و کتاب‌های PDF</h3>
+      <ul class="scd-list" id="scdBooksList"></ul>
+      <div id="scdBookLinkRow" hidden>
+        <select id="scdBookLinkSelect" class="te-select" aria-label="اتصال کتاب به این درس"></select>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="studyCourseFormOverlay" hidden>
+  <form class="scf-card" id="studyCourseForm" role="dialog" aria-modal="true" aria-labelledby="scfHeading" novalidate>
+    <div class="scf-head">
+      <h2 id="scfHeading">افزودن درس جدید</h2>
+      <button type="button" class="r-icon" id="scfCloseBtn" aria-label="بستن"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <label class="te-label" for="scfName">نام درس</label>
+    <input type="text" id="scfName" class="te-input" data-autofocus maxlength="80" autocomplete="off" placeholder="مثلاً ساختمان داده‌ها">
+    <p class="te-error" id="scfError" role="alert" hidden>نام درس نمی‌تونه خالی باشه.</p>
+
+    <div class="scf-grid-2" id="scfCodeCreditsRow">
+      <div>
+        <label class="te-label" for="scfCode">کد درس (اختیاری)</label>
+        <input type="text" id="scfCode" class="te-input" maxlength="24" autocomplete="off" placeholder="CE-204">
+      </div>
+      <div>
+        <label class="te-label" for="scfCredits">تعداد واحد</label>
+        <input type="number" id="scfCredits" class="te-input" min="0" max="12" inputmode="numeric" placeholder="۳">
+      </div>
+    </div>
+
+    <label class="te-label" id="scfInstructorLabel" for="scfInstructor">نام استاد (اختیاری)</label>
+    <input type="text" id="scfInstructor" class="te-input" maxlength="60" autocomplete="off" placeholder="دکتر …">
+
+    <div class="te-field">
+      <span class="te-label">رنگ نشانگر</span>
+      <div class="scf-colors" id="scfColors" role="radiogroup" aria-label="رنگ درس"></div>
+    </div>
+
+    <div class="scf-grid-2">
+      <div>
+        <span class="te-label">تاریخ امتحان (اختیاری)</span>
+        <div class="te-due">
+          <button type="button" class="te-chip" id="scfExamDateBtn">انتخاب تاریخ امتحان…</button>
+          <button type="button" class="te-chip te-clear" id="scfExamDateClear" hidden>پاک کردن</button>
+        </div>
+      </div>
+      <div>
+        <label class="te-label" for="scfExamTime">ساعت امتحان (اختیاری)</label>
+        <input type="text" id="scfExamTime" class="te-input" dir="ltr" maxlength="5" inputmode="numeric" placeholder="09:00">
+        <div class="scf-time-presets" id="scfExamTimePresets">
+          <button type="button" class="scf-preset-chip" data-time="08:00">۰۸:۰۰</button>
+          <button type="button" class="scf-preset-chip" data-time="10:30">۱۰:۳۰</button>
+          <button type="button" class="scf-preset-chip" data-time="13:30">۱۳:۳۰</button>
+          <button type="button" class="scf-preset-chip" data-time="15:30">۱۵:۳۰</button>
+        </div>
+        <p class="te-error" id="scfExamTimeError" role="alert" hidden></p>
+      </div>
+    </div>
+
+    <div class="scf-grid-2">
+      <div>
+        <label class="te-label" for="scfExamKind">نوع امتحان (اختیاری)</label>
+        <input type="text" id="scfExamKind" class="te-input" maxlength="24" autocomplete="off" placeholder="مثلاً میان‌ترم">
+        <div class="scf-time-presets" id="scfExamKindPresets"></div>
+      </div>
+      <div>
+        <label class="te-label" for="scfExamScope">مباحث امتحان (اختیاری)</label>
+        <input type="text" id="scfExamScope" class="te-input" maxlength="120" autocomplete="off" placeholder="فصل ۱ تا ۴">
+      </div>
+    </div>
+
+    <div class="te-field">
+      <span class="te-label">جلسات هفتگی (شنبه تا جمعه)</span>
+      <div class="scf-sess-builder">
+        <div class="scf-bell-presets" id="scfBellPresets" hidden></div>
+        <div class="scf-sess-row">
+          <select id="scfSessDay" class="te-select" aria-label="روز هفته"></select>
+          <select id="scfSessFrom" class="te-select" aria-label="ساعت شروع"></select>
+          <select id="scfSessTo" class="te-select" aria-label="ساعت پایان"></select>
+        </div>
+        <div class="scf-sess-row2">
+          <input type="text" id="scfRoomInput" class="te-input" maxlength="40" placeholder="نام کلاس یا دانشکده (اختیاری)">
+          <select id="scfSessParity" class="te-select scf-parity-select" aria-label="تناوب هفته">
+            <option value="all">هر هفته</option>
+            <option value="even">هفتهٔ زوج</option>
+            <option value="odd">هفتهٔ فرد</option>
+          </select>
+          <button type="button" class="te-chip" id="scfAddSessionBtn">+ جلسه</button>
+        </div>
+        <p class="te-error" id="scfSessError" role="alert" hidden></p>
+        <p class="scf-conflict-warn" id="scfSessWarning" role="status" hidden></p>
+        <div class="scf-sess-list" id="scfSessionsList"></div>
+      </div>
+    </div>
+
+    <div class="te-actions">
+      <button type="submit" class="go" id="scfSaveBtn">ذخیرهٔ درس</button>
+      <button type="button" class="skip" id="scfCancelBtn">انصراف</button>
+      <button type="button" class="te-chip te-clear" id="scfDeleteBtn" hidden>حذف درس</button>
+    </div>
+  </form>
 </div>
 
 <!-- ═══ Jalali Due-Date Picker ═══ -->
@@ -1464,6 +1732,98 @@
   </main>
 </div>
 
+<!-- ═══ Page 10: Journal ═══ -->
+<div class="page" id="page-journal">
+  <main class="app">
+    <header>
+      <div>
+        <h1>ژورنال من
+          <svg class="underline" viewBox="0 0 120 12" fill="none"><path d="M2 8 Q 20 2 40 7 T 80 7 T 118 5" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg>
+        </h1>
+        <p class="subtitle" id="journalPageDate"></p>
+      </div>
+      <div class="journal-header-actions">
+        <button class="journal-day-pick-btn" type="button" id="journalPickDayBtn">انتخاب روز…</button>
+        <button class="journal-today-pill" type="button" id="journalBackTodayBtn" hidden>برگشت به امروز</button>
+      </div>
+    </header>
+
+    <section class="journal-capsule-banner" id="journalCapsuleBanner" hidden aria-label="در چنین روزی"></section>
+
+    <section class="journal-composer sheet-paper" id="journalComposerSec" aria-label="نوشتن خاطره و یادداشت">
+      <div class="jc-comp-top">
+        <div class="jc-comp-date-wrap">
+          <span class="jc-comp-day" id="journalEditingLabel">امروز</span>
+          <button type="button" class="journal-context-chip" id="journalTodayContextChip" hidden title="افزودن خلاصهٔ امروز به انتهای یادداشت"></button>
+          <span class="journal-mood-hint" id="journalMoodHint" hidden></span>
+        </div>
+        <div class="jc-comp-actions">
+          <span class="journal-save-status" id="journalSaveStatus" role="status" aria-live="polite"></span>
+          <button type="button" class="jc-icon-btn" id="journalStarBtn" aria-label="نشانه‌گذاری به عنوان برگزیده" aria-pressed="false" title="برگزیده">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          </button>
+          <button type="button" class="jc-icon-btn is-danger" id="journalDeleteEntryBtn" hidden aria-label="حذف یادداشت این روز" title="حذف یادداشت این روز">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="journal-mood-bar" id="journalMoodPicker" role="group" aria-label="حال‌وهوای این روز"></div>
+
+      <input type="text" id="journalTitleInput" class="journal-title-input" maxlength="120" autocomplete="off" placeholder="عنوان خاطره یا یادداشت (اختیاری)…" aria-label="عنوان خاطره یا یادداشت">
+      <textarea id="journalTextarea" class="journal-textarea" maxlength="5000" rows="6" placeholder="خاطره‌های امروز، اتفاق‌های قشنگ یا هر چی تو ذهنت می‌گذره رو بنویس…" aria-label="متن یادداشت روزانه"></textarea>
+
+      <div class="journal-tools-bar">
+        <div class="journal-tools-start">
+          <label class="journal-photo-add" id="journalPhotoAddBtn" for="journalPhotoInput" tabindex="0">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="9" cy="10" r="1.7"/><path d="M21 16l-5-5-8 8"/></svg>
+            <span>افزودن عکس</span>
+          </label>
+          <input type="file" id="journalPhotoInput" accept="image/*" multiple hidden>
+          <button type="button" class="journal-prompt-toggle" id="journalPromptToggle" aria-expanded="false" aria-controls="journalPromptPanel">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 5.6L19.5 10.5l-5.6 1.9L12 18l-1.9-5.6L4.5 10.5l5.6-1.9z"/></svg>
+            <span>ایده و قالب</span>
+          </button>
+        </div>
+        <span class="journal-photo-count" id="journalPhotoCount"></span>
+      </div>
+
+      <div class="journal-prompt-panel" id="journalPromptPanel" hidden>
+        <div class="journal-prompt-row">
+          <p class="journal-prompt-text" id="journalPromptText"></p>
+          <div class="journal-prompt-actions">
+            <button type="button" class="journal-next-prompt" id="journalUsePromptBtn">درج در متن</button>
+            <button type="button" class="journal-next-prompt" id="journalNextPromptBtn">ایدهٔ بعدی</button>
+            <button type="button" class="journal-prompt-close" id="journalPromptHideBtn">بستن</button>
+          </div>
+        </div>
+        <div class="journal-templates-row" id="journalTemplatesRow"></div>
+      </div>
+
+      <div class="journal-photos-grid" id="journalPhotosGrid" hidden aria-label="عکس‌های پیوست‌شده"></div>
+      <p class="journal-photo-error" id="journalPhotoError" role="alert" hidden></p>
+    </section>
+
+    <section class="journal-archive-sec" aria-label="آرشیو خاطره‌ها">
+      <div class="journal-archive-head">
+        <h2>مرور خاطره‌ها</h2>
+        <span class="journal-archive-stats" id="journalArchiveStats"></span>
+      </div>
+      <div class="journal-filter-row">
+        <button type="button" class="journal-filter-chip" id="journalStarredFilterBtn" aria-pressed="false">برگزیده‌ها</button>
+        <button type="button" class="journal-filter-chip" id="journalPhotosFilterBtn" aria-pressed="false">فقط عکس‌دارها</button>
+        <select id="journalMoodFilterSelect" class="journal-mood-select" aria-label="فیلتر حال‌وهوا"></select>
+      </div>
+      <div class="journal-search-wrap">
+        <svg class="journal-search-ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg>
+        <input type="search" id="journalSearchInput" class="journal-search-input" maxlength="80" placeholder="جستجو بین خاطره‌ها و یادداشت‌ها…" aria-label="جستجو در ژورنال">
+        <button type="button" class="journal-search-clear" id="journalSearchClearBtn" hidden aria-label="پاک کردن جستجو">×</button>
+      </div>
+      <div class="journal-timeline" id="journalTimeline"></div>
+    </section>
+  </main>
+</div>
+
 <!-- ═══ Side Rail Navigation (Desktop >= 1024px) ═══ -->
 <aside class="side-rail" id="sideRail" aria-label="ناوبری اصلی">
   <div class="side-rail-brand">
@@ -1501,6 +1861,14 @@
         <button class="nav-tab" data-page="calendar">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4M7.5 13.5h2M14.5 13.5h2M7.5 16.5h2M14.5 16.5h2"/></svg>
           <span>تقویم</span>
+        </button>
+        <button class="nav-tab" data-page="study">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7l10-4 10 4-10 4-10-4z"/><path d="M6 10v5c0 2 2.7 3.5 6 3.5s6-1.5 6-3.5v-5"/></svg>
+          <span>درس و برنامه</span>
+        </button>
+        <button class="nav-tab" data-page="journal">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 016.5 3H19a2 2 0 012 2v14a2 2 0 01-2 2H6.5A2.5 2.5 0 014 18.5z"/><path d="M8 7h8M8 11h8M8 15h5"/></svg>
+          <span>ژورنال</span>
         </button>
         <button class="nav-tab" data-page="stats">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V11M10 20V4M16 20v-6M22 20H2"/></svg>
@@ -1556,6 +1924,16 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4M7.5 13.5h2M14.5 13.5h2M7.5 16.5h2M14.5 16.5h2"/></svg>
       <span class="more-item-name">تقویم</span>
       <span class="more-item-hint">هفته و ماه شمسی، برنامه و مناسبت‌ها</span>
+    </button>
+    <button class="more-item" type="button" data-page="study">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7l10-4 10 4-10 4-10-4z"/><path d="M6 10v5c0 2 2.7 3.5 6 3.5s6-1.5 6-3.5v-5"/></svg>
+      <span class="more-item-name">درس و برنامه</span>
+      <span class="more-item-hint">دروس، برنامهٔ کلاسی یا مدرسه، و امتحانات</span>
+    </button>
+    <button class="more-item" type="button" data-page="journal">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 016.5 3H19a2 2 0 012 2v14a2 2 0 01-2 2H6.5A2.5 2.5 0 014 18.5z"/><path d="M8 7h8M8 11h8M8 15h5"/></svg>
+      <span class="more-item-name">ژورنال</span>
+      <span class="more-item-hint">خاطره‌های روزانه، عکس‌ها و مرور گذشته</span>
     </button>
     <button class="more-item" type="button" data-page="stats">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V11M10 20V4M16 20v-6M22 20H2"/></svg>
@@ -1633,11 +2011,40 @@
       <label class="te-label" for="teDurCustom">زمان دلخواه (دقیقه)</label>
       <input type="number" id="teDurCustom" class="te-input te-num" min="1" max="480" inputmode="numeric" placeholder="مثلاً ۴۵">
     </div>
+    <div class="te-field">
+      <span class="te-label" id="teRepeatLbl">تکرار</span>
+      <div class="te-group" role="radiogroup" aria-labelledby="teRepeatLbl" id="teRepeat"></div>
+    </div>
+    <div class="te-field" id="teCourseWrap" hidden>
+      <label class="te-label" for="teCourse">درس مرتبط</label>
+      <select id="teCourse" class="te-select"></select>
+    </div>
+    <div class="te-field">
+      <span class="te-label" id="teSubLbl">زیرکارها</span>
+      <div class="te-sub-list" id="teSubList"></div>
+      <div class="te-sub-add">
+        <input type="text" id="teSubInput" class="te-input" maxlength="120" autocomplete="off" placeholder="افزودن زیرکار…" aria-labelledby="teSubLbl">
+        <button type="button" class="te-chip" id="teSubAddBtn">افزودن</button>
+      </div>
+    </div>
     <div class="te-actions">
       <button type="submit" class="go" id="teSave">ذخیره</button>
       <button type="button" class="skip" id="teCancel">انصراف</button>
     </div>
   </form>
+</div>
+
+<div class="focus-zen-overlay" id="focusZenOverlay" role="dialog" aria-modal="true" aria-label="حالت ذِن تمرکز" hidden>
+  <div class="focus-zen-card">
+    <span class="focus-zen-char" id="focusZenChar" aria-hidden="true"></span>
+    <p class="focus-zen-task" id="focusZenTask">—</p>
+    <div class="focus-zen-time" id="focusZenTime">۰۰:۰۰</div>
+    <p class="focus-zen-state" id="focusZenState">در حال تمرکز…</p>
+    <div class="focus-zen-actions">
+      <button type="button" class="go" id="focusZenPause">مکث</button>
+      <button type="button" class="ghost" id="focusZenExit">خروج از ذِن</button>
+    </div>
+  </div>
 </div>
 
 <div class="toast" id="undoToast" role="status" aria-live="polite" hidden>
@@ -1784,6 +2191,61 @@
       <div class="shortcut-row"><kbd>Esc</kbd><span>بستن پنجره‌ها و منوها</span></div>
     </div>
     <button class="skip" id="shortcutsClose" type="button">متوجه شدم</button>
+  </div>
+</div>
+
+<div class="overlay" id="windDownOverlay" hidden>
+  <div class="name-card wd-card sheet-paper" role="dialog" aria-modal="true" aria-labelledby="wdTitle">
+    <div class="wd-header">
+      <div class="badge" aria-hidden="true">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1111.2 3 7 7 0 0021 12.8z"/></svg>
+      </div>
+      <h2 id="wdTitle">پایان روز</h2>
+    </div>
+    <div id="windDownStep1">
+      <div class="wd-stats">
+        <div class="wd-stat-box">
+          <span class="wd-stat-num" id="windDownDoneCount">۰</span>
+          <span class="wd-stat-lbl">کار انجام‌شده</span>
+        </div>
+        <div class="wd-stat-box">
+          <span class="wd-stat-num" id="windDownFocusMin">۰</span>
+          <span class="wd-stat-lbl">دقیقه تمرکز</span>
+        </div>
+      </div>
+      <p class="wd-msg" id="windDownMessage"></p>
+      <div class="wd-actions">
+        <button type="button" class="go" id="windDownNextBtn" data-autofocus>ادامه و جمع‌بندی</button>
+        <button type="button" class="skip" id="windDownClose1">بستن</button>
+      </div>
+    </div>
+    <div id="windDownStep2" hidden>
+      <p class="wd-step-title">کارهای باقی‌ماندهٔ امروز</p>
+      <ul class="wd-remaining-list" id="windDownRemainingList"></ul>
+      <p class="wd-empty-note" id="windDownAllDoneNote" hidden>همهٔ کارهای امروز جمع شده — می‌تونی با خیال راحت استراحت کنی.</p>
+      <button type="button" class="wd-move-btn" id="windDownMoveTomorrowBtn" hidden>انتقال کارهای ناتمام به فردا</button>
+      <p class="wd-move-status" id="windDownMoveStatus" hidden role="status" aria-live="polite"></p>
+      <label class="wd-note-label" for="windDownQuickNote">یادداشت کوتاه پایان روز (اختیاری)</label>
+      <textarea id="windDownQuickNote" class="wd-textarea" maxlength="5000" rows="3" placeholder="یک خط از حال‌وهوای امروز یا یادآوری فردا…"></textarea>
+      <div class="wd-actions">
+        <button type="button" class="go" id="windDownDoneBtn">ذخیره و شب بخیر</button>
+        <button type="button" class="skip" id="windDownBackBtn">بازگشت به مرحلهٔ قبل</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="journalPhotoOverlay" hidden>
+  <div class="jp-lightbox" role="dialog" aria-modal="true" aria-label="نمایش عکس خاطره">
+    <button type="button" class="jp-lightbox-close" id="journalPhotoClose" aria-label="بستن عکس" data-autofocus>
+      <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+    <img id="journalPhotoLightboxImg" alt="عکس پیوست‌شده در ژورنال">
+    <div class="jp-lightbox-nav" id="journalPhotoNav" hidden>
+      <button type="button" class="jp-nav-btn" id="journalPhotoPrev" aria-label="عکس قبلی">قبلی</button>
+      <span class="jp-lightbox-counter" id="journalPhotoCounter"></span>
+      <button type="button" class="jp-nav-btn" id="journalPhotoNext" aria-label="عکس بعدی">بعدی</button>
+    </div>
   </div>
 </div>
 

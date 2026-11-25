@@ -27,6 +27,8 @@ export const TRANSLATIONS = {
       library: 'کتابخانه',
       more: 'بیشتر',
       week: 'هفته من',
+      study: 'درس و برنامه',
+      journal: 'ژورنال',
       stats: 'آمار من',
       achv: 'نشان‌ها',
       profile: 'پروفایل',
@@ -34,6 +36,8 @@ export const TRANSLATIONS = {
     },
     moreSheet: {
       week: 'تقویم هفتگی و برنامه‌ریزی روزها',
+      study: 'دروس، برنامهٔ کلاسی یا مدرسه، و امتحانات',
+      journal: 'خاطره‌های روزانه، عکس‌ها و مرور گذشته',
       stats: 'نگاهی به عملکرد و کارت قابل اشتراک',
       achv: 'دستاوردهایی که جمع کردی',
       profile: 'نام، عکس و کاراکترت',
@@ -406,6 +410,8 @@ export const TRANSLATIONS = {
       gold: 'طلایی',
       ocean: 'اقیانوس',
       plum: 'بادمجان',
+      're7-baker': 'عمارت بیکر (RE7)',
+      'gtasa-grove': 'سن آندریاس — گروو استریت',
     },
     birthday: {
       dialogTitle: 'تاریخ تولدت',
@@ -472,6 +478,8 @@ export const TRANSLATIONS = {
       library: 'Library',
       more: 'More',
       week: 'My Week',
+      study: 'Study & Schedule',
+      journal: 'Journal',
       stats: 'My Stats',
       achv: 'Badges',
       profile: 'Profile',
@@ -479,6 +487,8 @@ export const TRANSLATIONS = {
     },
     moreSheet: {
       week: 'Weekly calendar and day planning',
+      study: 'Classes, school or university schedule and exams',
+      journal: 'Daily memories, photos and timeline',
       stats: 'Activity insights and shareable card',
       achv: 'Achievements and milestones collected',
       profile: 'Name, avatar and companion character',
@@ -851,6 +861,8 @@ export const TRANSLATIONS = {
       gold: 'Gold',
       ocean: 'Ocean',
       plum: 'Plum',
+      're7-baker': 'Baker Estate (RE7)',
+      'gtasa-grove': 'San Andreas — Grove St.',
     },
     birthday: {
       dialogTitle: 'Your Birthday',
@@ -1232,11 +1244,12 @@ export function applyI18nToDOM(root = (typeof document !== 'undefined' ? documen
   }
 
   // Theme swatches
-  root.querySelectorAll('#themeSwatches .swatch').forEach(swatch => {
+  root.querySelectorAll('#themeSwatches .swatch, #funWorldSwatches .swatch').forEach(swatch => {
     const key = swatch.dataset.key;
     const nameEl = swatch.querySelector('.swatch-name');
     if (nameEl && key) {
-      nameEl.textContent = t('themes.' + key);
+      const candidate = t('themes.' + key);
+      if (candidate !== 'themes.' + key) nameEl.textContent = candidate;
     }
   });
 

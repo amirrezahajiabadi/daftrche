@@ -73,3 +73,15 @@ test('today.js exports renderToday, todayPending, todayDone, and initToday', asy
   assert.equal(typeof todayMod.initToday, 'function', 'today.js must export initToday');
 });
 
+test('app.js boots tasks, today, and focus through ensurePageReady to prevent double listener binding', () => {
+  const appSrc = fs.readFileSync(path.join(jsDir, 'app.js'), 'utf8');
+  const startup = appSrc.slice(appSrc.indexOf('/* ═══ Startup ═══ */'));
+  assert.match(startup, /ensurePageReady\('tasks'\)/);
+  assert.match(startup, /ensurePageReady\('today'\)/);
+  assert.match(startup, /ensurePageReady\('focus'\)/);
+  assert.doesNotMatch(startup, /safe\('تسک‌ها',\s*initTasks\)/);
+  assert.doesNotMatch(startup, /safe\('فرم افزودن',\s*initAddForm\)/);
+  assert.doesNotMatch(startup, /safe\('پیشرفت',\s*initProgress\)/);
+  assert.doesNotMatch(startup, /safe\('امروز',\s*initToday\)/);
+});
+

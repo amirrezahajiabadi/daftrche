@@ -25,8 +25,8 @@
 import { $, faNum } from './utils.js';
 import { loadTheme, saveTheme, loadThemeModes, saveThemeModes, loadAchv, loadThemeAuto, saveThemeAuto, loadBirthday, loadBirthdayThemeOff, saveBirthdayThemeOff } from './store.js';
 import {
-  THEMES, PICKER_THEMES, THEME_MODES, DEFAULT_THEME, NIGHT_THEME,
-  normalizeTheme, modeOf, themesOfMode,
+  THEMES, PICKER_THEMES, FUN_THEMES, THEME_MODES, DEFAULT_THEME, NIGHT_THEME,
+  normalizeTheme, modeOf, themesOfMode, themeByKey,
 } from './constants.js';
 import { modeSwitch, swatchRow } from './chipgroup.js';
 import { hasReward, normalizeState, rewardFor, rewardRequirements } from './achievements.js';
@@ -35,6 +35,7 @@ import { syncSystemBars } from './native.js';
 
 let modeControl = { mark() {} };
 let swatchControl = { mark() {}, setMode() {} };
+let funSwatchControl = { mark() {}, setMode() {} };
 
 const root = () => document.documentElement;
 
@@ -65,6 +66,8 @@ export const setQaUnlockAllThemes = val => { QA_UNLOCK_ALL_THEMES = Boolean(val)
 export const isThemeUnlocked = (key, { ignoreQaBypass = false } = {}) => {
   const normalized = normalizeTheme(key);
   if (!normalized) return false;
+  const meta = themeByKey(normalized);
+  if (meta?.hidden && normalized !== 'tavalod') return false;
   if (QA_UNLOCK_ALL_THEMES && !ignoreQaBypass) return true;
   if (normalized === 'tavalod') {
     /* Not a theme to choose and not one to earn: it is worn for the birthday
@@ -142,6 +145,7 @@ export function markThemePicker() {
   modeControl.mark(mode);
   swatchControl.setMode(mode);
   swatchControl.mark(theme);
+  funSwatchControl.mark(theme);
   syncThemeButtons();
   const countEl = $('#settingsThemeCount');
   if (countEl) {
@@ -175,8 +179,14 @@ export function applyTheme(key, { remember = true, dismissBirthday = true } = {}
 
   const next = allowedTheme(requested);
   const mode = modeOf(next);
+  const meta = themeByKey(next);
   root().dataset.theme = next;
   root().dataset.mode = mode;
+  if (meta && (meta.family === 'world' || meta.family === 'fun')) {
+    root().dataset.world = next;
+  } else {
+    delete root().dataset.world;
+  }
   if (remember) {
     saveTheme(next);
     rememberMode(mode, next);
@@ -258,6 +268,13 @@ export function applyBirthdayTheme(now = new Date()) {
 
 export function initTheme() {
   modeControl = modeSwitch($('#themeModeSwitch'), { modes: THEME_MODES, onPick: applyMode });
+  const pickTheme = key => {
+    if (isAutoTheme()) {
+      saveThemeAuto(false);
+      window.dispatchEvent(new CustomEvent('theme-auto-changed', { detail: false }));
+    }
+    applyTheme(key);
+  };
   /* PICKER_THEMES, not THEMES: the birthday theme is a key js/birthday.js puts on
      by itself, and offering it here would be offering it on the wrong day. */
   swatchControl = swatchRow($('#themeSwatches'), PICKER_THEMES.map((theme, idx) => {
@@ -281,14 +298,19 @@ export function initTheme() {
     };
   }), {
     group: 'theme',
-    onPick: key => {
-      if (isAutoTheme()) {
-        saveThemeAuto(false);
-        window.dispatchEvent(new CustomEvent('theme-auto-changed', { detail: false }));
-      }
-      applyTheme(key);
-    },
+    onPick: pickTheme,
     isLocked: key => !isThemeUnlocked(key),
+  });
+
+  funSwatchControl = swatchRow($('#funWorldSwatches'), FUN_THEMES.map((theme, idx) => ({
+    ...theme,
+    locked: false,
+    groupTitle: idx === 0 ? 'دنیاهای سینمایی و گیم' : '',
+    groupSub: idx === 0 ? 'تجربه‌های اتمسفریک و تعاملی — همیشه باز و مستقل از نشان‌ها' : '',
+  })), {
+    group: 'theme-fun',
+    onPick: pickTheme,
+    isLocked: () => false,
   });
 
   // Sanitize stored theme & remembered modes if they contain locked worlds

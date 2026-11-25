@@ -469,6 +469,40 @@
   --pal-simorgh-glass:rgba(28,20,45,.74);
   --pal-simorgh-on-accent:#261005;
 
+  /* «عمارت بیکر (RE7)» — Baker Family Estate, Dulvey: mold-darkened bayou charcoal, rotting timber cards, flickering tungsten amber and dried biohazard ink. */
+  --pal-rebaker-bg:#0c0e0b;
+  --pal-rebaker-surface:#161914;
+  --pal-rebaker-elev:#20241c;
+  --pal-rebaker-text:#ebe6d6;
+  --pal-rebaker-text2:#c2bca8;
+  --pal-rebaker-muted:#96917d;
+  --pal-rebaker-border:rgba(196,154,68,.18);
+  --pal-rebaker-border-strong:rgba(196,154,68,.38);
+  --pal-rebaker-accent:#d49a3a;
+  --pal-rebaker-accent-strong:#e6b35c;
+  --pal-rebaker-accent-soft:rgba(212,154,58,.16);
+  --pal-rebaker-accent-text:#f0c474;
+  --pal-rebaker-tape:rgba(139,30,30,.48);
+  --pal-rebaker-glass:rgba(22,25,20,.82);
+  --pal-rebaker-on-accent:#141007;
+
+  /* «سن آندریاس — گروو استریت» — Los Santos PS2 menu: deep grove charcoal, Grove Street emerald green, sunset amber borders and crisp bone-white HUD text. */
+  --pal-gtasa-bg:#0d110e;
+  --pal-gtasa-surface:#161d18;
+  --pal-gtasa-elev:#1f2922;
+  --pal-gtasa-text:#f2f5f0;
+  --pal-gtasa-text2:#cad4cb;
+  --pal-gtasa-muted:#97a899;
+  --pal-gtasa-border:rgba(245,176,65,.22);
+  --pal-gtasa-border-strong:rgba(63,185,100,.48);
+  --pal-gtasa-accent:#3fb964;
+  --pal-gtasa-accent-strong:#54d17a;
+  --pal-gtasa-accent-soft:rgba(63,185,100,.16);
+  --pal-gtasa-accent-text:#6ee08d;
+  --pal-gtasa-tape:rgba(245,158,11,.42);
+  --pal-gtasa-glass:rgba(22,29,24,.84);
+  --pal-gtasa-on-accent:#061c0c;
+
   /* day — the birthday palette, and the only one here that no theme points at.
      It is written in the palette table for the same reason as the other eight:
      a colour is written down once. What makes it different is who chose it —
@@ -763,6 +797,32 @@
   --card-tape:var(--pal-simorgh-tape);
   --pick-dot-bg:var(--pal-simorgh-bg);
   --pick-dot-ring:var(--pal-simorgh-accent);
+}
+[data-palette="rebaker"]{
+  --card-bg:var(--pal-rebaker-bg);
+  --card-surface:var(--pal-rebaker-surface);
+  --card-text:var(--pal-rebaker-text);
+  --card-muted:var(--pal-rebaker-muted);
+  --card-accent:var(--pal-rebaker-accent);
+  --card-accent-soft:var(--pal-rebaker-accent-soft);
+  --card-border:var(--pal-rebaker-border-strong);
+  --card-grid:var(--pal-rebaker-border);
+  --card-tape:var(--pal-rebaker-tape);
+  --pick-dot-bg:var(--pal-rebaker-bg);
+  --pick-dot-ring:var(--pal-rebaker-accent);
+}
+[data-palette="gtasa"]{
+  --card-bg:var(--pal-gtasa-bg);
+  --card-surface:var(--pal-gtasa-surface);
+  --card-text:var(--pal-gtasa-text);
+  --card-muted:var(--pal-gtasa-muted);
+  --card-accent:var(--pal-gtasa-accent);
+  --card-accent-soft:var(--pal-gtasa-accent-soft);
+  --card-border:var(--pal-gtasa-border-strong);
+  --card-grid:var(--pal-gtasa-border);
+  --card-tape:var(--pal-gtasa-tape);
+  --pick-dot-bg:var(--pal-gtasa-bg);
+  --pick-dot-ring:var(--pal-gtasa-accent);
 }
 [data-palette="tavalod"]{
   --card-bg:var(--pal-tavalod-bg);
@@ -1179,6 +1239,46 @@ html[data-theme="simorgh"]{
   --color-focus:var(--pal-simorgh-accent);
   --tape:var(--pal-simorgh-tape);
   --glass:var(--pal-simorgh-glass);
+}
+
+html[data-theme="re7-baker"]{
+  color-scheme:dark;
+  --color-bg:var(--pal-rebaker-bg);
+  --color-surface:var(--pal-rebaker-surface);
+  --color-surface-elevated:var(--pal-rebaker-elev);
+  --color-text-primary:var(--pal-rebaker-text);
+  --color-text-secondary:var(--pal-rebaker-text2);
+  --color-text-muted:var(--pal-rebaker-muted);
+  --color-text-on-accent:var(--pal-rebaker-on-accent);
+  --color-border:var(--pal-rebaker-border);
+  --color-border-strong:var(--pal-rebaker-border-strong);
+  --color-accent:var(--pal-rebaker-accent);
+  --color-accent-strong:var(--pal-rebaker-accent-strong);
+  --color-accent-soft:var(--pal-rebaker-accent-soft);
+  --color-accent-text:var(--pal-rebaker-accent-text);
+  --color-focus:var(--pal-rebaker-accent);
+  --tape:var(--pal-rebaker-tape);
+  --glass:var(--pal-rebaker-glass);
+}
+
+html[data-theme="gtasa-grove"]{
+  color-scheme:dark;
+  --color-bg:var(--pal-gtasa-bg);
+  --color-surface:var(--pal-gtasa-surface);
+  --color-surface-elevated:var(--pal-gtasa-elev);
+  --color-text-primary:var(--pal-gtasa-text);
+  --color-text-secondary:var(--pal-gtasa-text2);
+  --color-text-muted:var(--pal-gtasa-muted);
+  --color-text-on-accent:var(--pal-gtasa-on-accent);
+  --color-border:var(--pal-gtasa-border);
+  --color-border-strong:var(--pal-gtasa-border-strong);
+  --color-accent:var(--pal-gtasa-accent);
+  --color-accent-strong:var(--pal-gtasa-accent-strong);
+  --color-accent-soft:var(--pal-gtasa-accent-soft);
+  --color-accent-text:var(--pal-gtasa-accent-text);
+  --color-focus:var(--pal-gtasa-accent);
+  --tape:var(--pal-gtasa-tape);
+  --glass:var(--pal-gtasa-glass);
 }
 
 html[data-theme="tavalod"]{

@@ -130,8 +130,14 @@ function updateFrog() {
   $('#frogName').textContent = frog.text;
 }
 
+const initializedCatBars = new WeakSet();
+
 /* ── Init ── */
 export function initProgress() {
+  const catsEl = $('#cats');
+  if (!catsEl || !$('#filters')) return;
+  if (initializedCatBars.has(catsEl)) return;
+  initializedCatBars.add(catsEl);
   buildCatBar();
   $('#frog')?.addEventListener('click', () => {
     const frog = findFrog();

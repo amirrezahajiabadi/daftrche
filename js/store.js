@@ -375,6 +375,18 @@ export const loadMoods   = ()    => {
 };
 export const saveMoods   = m    => scheduleSave(STORAGE_KEYS.moods, m);
 
+export const loadJournal = ()    => {
+  const val = read(STORAGE_KEYS.journal, {});
+  return (val && typeof val === 'object' && !Array.isArray(val)) ? val : {};
+};
+export const saveJournal = j    => scheduleSave(STORAGE_KEYS.journal, (j && typeof j === 'object' && !Array.isArray(j)) ? j : {});
+
+export const loadStudy   = ()    => {
+  const val = read(STORAGE_KEYS.study, null);
+  return (val && typeof val === 'object' && !Array.isArray(val)) ? val : { activeSemester: 'ترم جاری', courses: [] };
+};
+export const saveStudy   = s    => scheduleSave(STORAGE_KEYS.study, (s && typeof s === 'object' && !Array.isArray(s)) ? s : { activeSemester: 'ترم جاری', courses: [] });
+
 export const loadPomo    = ()    => Number(readString(STORAGE_KEYS.pomo)) || 25;
 export const savePomo    = v    => scheduleSave(STORAGE_KEYS.pomo, String(v));
 
