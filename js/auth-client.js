@@ -50,7 +50,7 @@ export function getClientBuild() {
   if (typeof self !== 'undefined' && self.DAFTARCHE_BUILD) {
     return String(self.DAFTARCHE_BUILD);
   }
-  return 'v230';
+  return 'v231';
 }
 
 function emitAuthChanged() {

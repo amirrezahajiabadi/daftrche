@@ -26,7 +26,8 @@
 
 /* Release identity, from the one file the page reads as well. The path is
    relative to this worker's own script URL, so it lands inside whatever
-   subpath the project is served from. */
+   subpath the project is served from. Note: /js/version.js must be served
+   with no-cache/no-store in _headers so update checks always see new builds. */
 importScripts('./js/version.js');
 
 const BUILD = self.DAFTARCHE_BUILD;

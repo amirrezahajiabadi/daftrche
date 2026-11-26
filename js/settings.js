@@ -395,27 +395,44 @@ export async function applyAppUpdate() {
     }
   };
 
+  let fallbackMs = 3500;
   if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
     try {
       navigator.serviceWorker.addEventListener('controllerchange', () => {
         setTimeout(doReload, 300);
       }, { once: true });
 
-      const reg = await navigator.serviceWorker.getRegistration();
+      let reg = await navigator.serviceWorker.getRegistration();
+      if (!reg?.waiting && !reg?.installing && reg && typeof reg.update === 'function') {
+        try { await reg.update(); } catch { /* ignore */ }
+      }
       if (reg?.waiting) {
         reg.waiting.postMessage('SKIP_WAITING');
       } else if (reg?.installing) {
+        fallbackMs = 12000;
         const worker = reg.installing;
         worker.addEventListener('statechange', () => {
           if (worker.state === 'installed') {
             worker.postMessage('SKIP_WAITING');
           }
         });
+      } else if (navigator.onLine !== false) {
+        if (reg && typeof reg.unregister === 'function') {
+          await reg.unregister().catch(() => {});
+        }
+        if (typeof caches !== 'undefined') {
+          const keys = await caches.keys().catch(() => []);
+          await Promise.all(
+            keys.filter(k => k.startsWith('daftarche-static-')).map(k => caches.delete(k))
+          ).catch(() => {});
+        }
+        doReload();
+        return;
       }
     } catch { /* ignore */ }
   }
 
-  setTimeout(doReload, 3500);
+  setTimeout(doReload, fallbackMs);
 }
 
 /* What the page says about itself, painted on entry. The picker is marked here

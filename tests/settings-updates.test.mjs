@@ -101,4 +101,27 @@ test('checkAppUpdate handles offline, server updates, and network errors gracefu
   assert.equal(typeof settingsModule.switchSettingsTab, 'function');
 });
 
+test('_headers prevents immutable caching of unhashed JS/CSS and disables cache on /js/version.js', () => {
+  const headers = read('_headers');
+  const versionBlock = headers.match(/\/js\/version\.js\s+Cache-Control:\s*([^\r\n]+)/);
+  assert.ok(versionBlock, '_headers must declare a dedicated rule for /js/version.js');
+  assert.match(versionBlock[1], /no-cache/);
+  assert.match(versionBlock[1], /no-store/);
+  assert.match(versionBlock[1], /must-revalidate/);
+
+  const jsBlock = headers.match(/\/js\/\*\s+Cache-Control:\s*([^\r\n]+)/);
+  assert.ok(jsBlock, '_headers must declare /js/* rule');
+  assert.doesNotMatch(jsBlock[1], /immutable/, '/js/* must not be immutable without hashed filenames');
+
+  const cssBlock = headers.match(/\/css\/\*\s+Cache-Control:\s*([^\r\n]+)/);
+  assert.ok(cssBlock, '_headers must declare /css/* rule');
+  assert.doesNotMatch(cssBlock[1], /immutable/, '/css/* must not be immutable without hashed filenames');
+});
+
+test('applyAppUpdate recovers from stuck service workers by unregistering and clearing static caches', async () => {
+  assert.match(SETTINGS_JS, /reg\.update\(\)/, 'applyAppUpdate should re-check reg.update() when no waiting/installing worker exists');
+  assert.match(SETTINGS_JS, /reg\.unregister\(\)/, 'applyAppUpdate should unregister stuck SW as fallback');
+  assert.match(SETTINGS_JS, /daftarche-static-/, 'applyAppUpdate fallback should clear daftarche-static-* caches only');
+});
+
 
